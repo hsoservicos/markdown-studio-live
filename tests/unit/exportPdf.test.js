@@ -5,6 +5,8 @@ import { buildExportOptions, DEFAULT_PDF_FILENAME } from '../../src/ui/exportPdf
 const state = vi.hoisted(() => ({
   renderMermaidDiagrams: vi.fn(() => Promise.resolve()),
   getMermaidTheme: vi.fn(() => 'default'),
+  pauseMermaidScheduling: vi.fn(),
+  resumeMermaidScheduling: vi.fn(),
   html2pdf: undefined,
   default: undefined,
 }));
@@ -12,6 +14,8 @@ const state = vi.hoisted(() => ({
 vi.mock('../../src/render/mermaid.js', () => ({
   renderMermaidDiagrams: state.renderMermaidDiagrams,
   getMermaidTheme: state.getMermaidTheme,
+  pauseMermaidScheduling: state.pauseMermaidScheduling,
+  resumeMermaidScheduling: state.resumeMermaidScheduling,
 }));
 
 vi.mock('html2pdf.js', () => state);
@@ -105,6 +109,8 @@ describe('exportPreviewToPdf', () => {
     expect(chain.from).toHaveBeenCalledWith(document.querySelector('#preview-wrapper'));
     expect(chain.save).toHaveBeenCalled();
     expect(onStatus).toHaveBeenCalledWith('PDF exportado!');
+    expect(state.pauseMermaidScheduling).toHaveBeenCalled();
+    expect(state.resumeMermaidScheduling).toHaveBeenCalled();
     expect(renderMermaidDiagrams).toHaveBeenCalledWith('default');
     expect(renderMermaidDiagrams).toHaveBeenCalledTimes(1);
   });
@@ -118,6 +124,7 @@ describe('exportPreviewToPdf', () => {
     expect(onStatus).toHaveBeenCalledWith('Falha ao exportar o PDF.');
     expect(renderMermaidDiagrams).toHaveBeenNthCalledWith(1, 'default');
     expect(renderMermaidDiagrams).toHaveBeenCalledTimes(2);
+    expect(state.resumeMermaidScheduling).toHaveBeenCalled();
     console.error.mockRestore();
   });
 });

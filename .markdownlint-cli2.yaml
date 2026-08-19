@@ -8,6 +8,7 @@ ignores:
   - .impeccable/**
   - .agents/**
   - _bmad/**
+  - _bmad-output/**
 
 config:
   default: true

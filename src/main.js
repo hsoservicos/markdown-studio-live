@@ -8,6 +8,7 @@ import { setupSidebar } from './ui/sidebar.js';
 import { applyStoredLocale, setupLanguageSelector } from './ui/language.js';
 import { scrollPreviewTo } from './ui/scrollSync.js';
 import { exportPreviewToPdf } from './ui/exportPdf.js';
+import { resetMarkdownEditor, newMarkdownEditor } from './ui/editorActions.js';
 
 applyStoredLocale();
 
@@ -66,7 +67,7 @@ const init = () => {
         hasEdited = true;
       }
       const value = editor.getValue();
-      convertAndRender(value);
+      scheduleConvertAndRender(value);
       scheduleSave(value);
     });
 
@@ -88,6 +89,18 @@ const init = () => {
     scheduleMermaidRender();
   }
 
+  // M2: converte com debounce por tecla para evitar jank em documentos longos.
+  let convertTimer = null;
+  function scheduleConvertAndRender(value, delay = 80) {
+    if (convertTimer) {
+      clearTimeout(convertTimer);
+    }
+    convertTimer = setTimeout(() => {
+      convertTimer = null;
+      convertAndRender(value);
+    }, delay);
+  }
+
   let saveTimer = null;
   const isUntouchedTemplate = (value) =>
     value === DEFAULT_TEMPLATE_PT || value === DEFAULT_TEMPLATE_EN;
@@ -106,33 +119,33 @@ const init = () => {
     }, 300);
   }
 
-  function reset() {
-    const changed = editor.getValue() !== defaultInput;
-    if (hasEdited || changed) {
-      const ok = window.confirm(t('resetConfirm'));
-      if (!ok) {
-        return;
-      }
-    }
-    editor.setValue(defaultInput);
-    editor.revealPosition({ lineNumber: 1, column: 1 });
-    editor.focus();
-    hasEdited = false;
+  const scrollTop = () => {
     document.querySelectorAll('.column').forEach((el) => el.scrollTo({ top: 0 }));
+  };
+
+  function reset() {
+    const ok = resetMarkdownEditor({
+      editor,
+      defaultInput,
+      hasEdited,
+      confirm: () => window.confirm(t('resetConfirm')),
+      scrollTop,
+    });
+    if (ok) {
+      hasEdited = false;
+    }
   }
 
   function newFile() {
-    if (hasEdited || editor.getValue() !== '') {
-      const ok = window.confirm(t('newFileConfirm'));
-      if (!ok) {
-        return;
-      }
+    const ok = newMarkdownEditor({
+      editor,
+      hasEdited,
+      confirm: () => window.confirm(t('newFileConfirm')),
+      scrollTop,
+    });
+    if (ok) {
+      hasEdited = false;
     }
-    editor.setValue('');
-    editor.revealPosition({ lineNumber: 1, column: 1 });
-    editor.focus();
-    hasEdited = false;
-    document.querySelectorAll('.column').forEach((el) => el.scrollTo({ top: 0 }));
   }
 
   function initScrollBarSync(settings) {

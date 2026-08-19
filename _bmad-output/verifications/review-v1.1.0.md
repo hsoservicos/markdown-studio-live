@@ -8,11 +8,11 @@ tool opencode. Método: revisão adversarial em camadas paralelas
 
 | ID | Sev | Onde | Problema | Ação |
 | -- | --- | ---- | -------- | ---- |
-| A1 | Alta | `src/render/mermaid.js:40-67` | `render()` não reentrante: nova passagem pode rodar concorrente com a em voo (apenas version-guard, sem single-flight) → erro intermitente em digitação rápida/export | Single-flight da promise do render |
-| A2 | Alta | `src/main.js:109-122,239-243` | "Redefinir" não remove `last_state`: reload restaura o rascunho antigo (semântica de reset quebrada) | `removeItem(last_state)` no reset |
+| A1 | Alta | `src/render/mermaid.js:40-67` | `render()` não reentrante: nova passagem pode rodar concorrente com a em voo (apenas version-guard, sem single-flight) → erro intermitente em digitação rápida/export | Single-flight da promise do render — **RESOLVIDO** |
+| A2 | Alta | `src/main.js:109-122,239-243` | "Redefinir" não remove `last_state`: reload restaura o rascunho antigo (semântica de reset quebrada) | `removeItem(last_state)` no reset — **RESOLVIDO** |
 | A3 | Alta | `.prettierignore`/`.markdownlint-cli2.yaml` | **JÁ CORRIGIDO**: `.agents/`, `_bmad/` e `snapshot` quebravam o quality gate (187 files) | Ignorets adicionados; gate verde |
-| M1 | Média | `src/ui/exportPdf.js:58-71` | Race entre o re-render default (claro) e o debounce do tema escuro durante o `save()` do html2pdf | Estado "capturando" cancela debounce do mermaid |
-| M2 | Média | `src/main.js:64-89` | `convertAndRender` síncrono a cada tecla + recria nós `.mermaid` (jank em docs longas) | Debounce ~60-100ms mantendo save em 300ms |
+| M1 | Média | `src/ui/exportPdf.js:58-71` | Race entre o re-render default (claro) e o debounce do tema escuro durante o `save()` do html2pdf | Estado "capturando" cancela debounce do mermaid — **RESOLVIDO** |
+| M2 | Média | `src/main.js:64-89` | `convertAndRender` síncrono a cada tecla + recria nós `.mermaid` (jank em docs longas) | Debounce ~60-100ms mantendo save em 300ms — **RESOLVIDO** |
 | M3 | Média | `index.html:13-35` vs `main.js:185-251` | Boot key do tema diverge da persistência (`theme_settings` vs `_theme`); anti-FOUC pode falhar em storage legado | Re-sincronizar boot key no init |
 | M4 | Média | `src/storage.js:19-44` | `getItem` sem validação de tipo na fronteira; `last_state` corrompido restaura em silêncio | Validar schema e lançar `StorageError` |
 | B1–B5 | Baixa | divider/files/sidebar | Acessibilidade do divisor, aria-label estático, perfil DOMPurify p/ recursos externos, input picker, duplo prompt em erro | Refinamentos |
@@ -23,13 +23,23 @@ Positivos confirmados: nenhum XSS na cadeia `marked → DOMPurify`; mermaid em
 ## Lacunas de teste (prioridade)
 
 1. Boot/`applyI18n`/restauração (`main.js:20-46,236-258`) — AC-2/AC-4 sem teste.
-2. Mermaid: `scheduleMermaidRender` e guard de versão com 0 cobertura.
+2. Mermaid: `scheduleMermaidRender` e guard de versão com 0 cobertura — **PARCIAL** (`mermaid.test.js` novo cobre single-flight e pause/resume; guard de versão coberto indiretamente no 2º teste).
 3. `setupDivider` (`src/ui/divider.js`) — arquivo com 0%.
 4. Sanitização do conteúdo ` ```mermaid ` (`convert.js:44`, escapeHtml) sem teste.
 5. Fallbacks de arquivo Safari/Firefox (`files.js`, `fileInputPicker`, erro createWritable).
 
 Risco de falso positivo: mock de `html2pdf.js` (vi.hoisted) valida só ordem/args;
 coberto na prática pelo probe e2e `pdf_probe.js` (header `%PDF-` real).
+
+## Correções aplicadas (A1/A2/M1/M2)
+
+Commit de robustez pós-release, 2026-08-19, 10 arquivos alterados, 86 testes verdes:
+
+- **A1 — single-flight mermaid** (`src/render/mermaid.js`): `renderMermaidDiagramsIn` aguarda a passagem em voo (`renderInFlight`) antes de iniciar a próxima; o version-guard continua impedindo escrita de SVG obsoleto. Testes em `tests/unit/mermaid.test.js`: serialização de chamadas concorrentes, version-guard com SVG stale e root nulo.
+- **A2 — reset durável** (`src/ui/editorActions.js` + `src/main.js`): `resetMarkdownEditor` faz `removeItem(NAMESPACE, KEYS.lastState)` após limpar — reload volta ao template do idioma corrente. O reset/novo arquivo foi extraído do boot para módulo testável. Testes em `tests/unit/editorActions.test.js` (5): remove/cancela preserva/no-confirm/alvo do novo arquivo.
+- **M1 — export PDF estável** (`src/ui/exportPdf.js` + `mermaid.js`): `pauseMermaidScheduling`/`resumeMermaidScheduling` cancelam o debounce do mermaid durante a captura; restauração do tema dark só após `resume`. Testes em `exportPdf.test.js` (pause/resume em sucesso e erro) e `mermaid.test.js` (pausado cancela pendente; resume reativa).
+- **M2 — digitação fluida** (`src/main.js`): `scheduleConvertAndRender` (debounce 80ms) no `onDidChangeModelContent`; `scheduleSave` continua 300ms.
+- **Infra**: `_bmad-output/` adicionado a `.prettierignore` e `.markdownlint-cli2.yaml` (artefatos BMAD fora do gate).
 
 ## Propostas de novas features
 
