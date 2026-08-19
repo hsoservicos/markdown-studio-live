@@ -6,6 +6,8 @@ ignores:
   - .git/**
   - .opencode/**
   - .impeccable/**
+  - .agents/**
+  - _bmad/**
 
 config:
   default: true

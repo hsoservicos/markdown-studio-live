@@ -4,14 +4,14 @@ Registro compacto do momento de implementação do Markdown-Studio na release es
 
 ## Estado verificado (gate)
 
-| Checagem | Resultado |
-| -------- | --------- |
-| `npm run format:check` | Passou |
-| `npm run lint` | 0 issues (`--max-warnings=0`) |
-| `npm run lint:md` | Passou |
-| `npm test` | 8 arquivos / **76 testes verdes** |
-| `npm run build` | `dist/` gerado (chunks editor/mermaid/html2pdf/katex/cytoscape/cynefin) |
-| Docker `compose up -d` | `markdown-studio:local` healthy, HTTP 200 em `:5001` |
+| Checagem               | Resultado                                                               |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `npm run format:check` | Passou                                                                  |
+| `npm run lint`         | 0 issues (`--max-warnings=0`)                                           |
+| `npm run lint:md`      | Passou                                                                  |
+| `npm test`             | 8 arquivos / **76 testes verdes**                                       |
+| `npm run build`        | `dist/` gerado (chunks editor/mermaid/html2pdf/katex/cytoscape/cynefin) |
+| Docker `compose up -d` | `markdown-studio:local` healthy, HTTP 200 em `:5001`                    |
 
 ## Features entregues nesta release
 
