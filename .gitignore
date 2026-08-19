@@ -32,6 +32,8 @@ desktop.ini
 # BMAD / automação
 .bmad/
 .bmad-loop/
+.bmad/   # installer per-machine personal config
+_bmad/config.user.toml
 .trunk/
 
 # Artefatos locais
