@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-18T00:00:00.000Z",
+  "title": "Design System: Markdown-Studio",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Petrol Teal",
+        "canonical": "#0f766e",
+        "tonalRamp": ["#041110", "#0a2e2c", "#0f443f", "#0f5b54", "#0f766e", "#3d9389", "#6bb0a7", "#a8cdc8", "#e0f0ee"]
+      },
+      "primary-on-dark": {
+        "role": "primary",
+        "displayName": "Petrol Glow",
+        "canonical": "#2dd4bf",
+        "tonalRamp": ["#042b25", "#08473d", "#0d6b5c", "#12a48f", "#2dd4bf", "#5ddfce", "#93ebdf", "#c9f6f0", "#effdfa"]
+      },
+      "neutral-bg": { "role": "neutral", "displayName": "Studio Fog", "canonical": "#fafafa", "tonalRamp": ["#202428", "#3a4148", "#5c6670", "#8794a1", "#aab6c0", "#c8d0d8", "#e2e7eb", "#f1f3f5", "#fbfcfd"] },
+      "neutral-panel": { "role": "neutral", "displayName": "Paper", "canonical": "#ffffff", "tonalRamp": ["#202428", "#3a4148", "#5c6670", "#8794a1", "#aab6c0", "#c8d0d8", "#e2e7eb", "#f1f3f5", "#ffffff"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Product wordmark only; rare." },
+      "title": { "displayName": "Title", "purpose": "Pane labels, buttons, small headings." },
+      "body": { "displayName": "Body", "purpose": "UI content, menu items, preview chrome." },
+      "label": { "displayName": "Label", "purpose": "Checkbox labels, toolbar captions." },
+      "mono": { "displayName": "Mono", "purpose": "Code listings, keyboard hints, file names." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "ease-state", "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "State transitions on color/background/transform." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "720px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Toolbar Button",
+      "kind": "button",
+      "refersTo": "button-toolbar",
+      "description": "Ghost action in the top toolbar; hover raises a tonal fill.",
+      "html": "<button class=\"ds-toolbar\" type=\"button\">Copy</button>",
+      "css": ".ds-toolbar { font: 500 0.875rem/1.3 -apple-system, 'Segoe UI', system-ui, 'Noto Sans', sans-serif; color: #24292f; background: transparent; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4,0,0.2,1), color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-toolbar:hover { background: #f6f8fa; color: #1f2328; } .ds-toolbar:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; } .ds-toolbar:active { background: #d0d7de; }"
+    },
+    {
+      "name": "Toolbar Checkbox",
+      "kind": "input",
+      "refersTo": "input-checkbox",
+      "description": "Accent-driven boolean control in the toolbar.",
+      "html": "<label class=\"ds-check\"><input type=\"checkbox\" /><span>Sync scroll</span></label>",
+      "css": ".ds-check { display: inline-flex; align-items: center; gap: 6px; font: 500 0.8125rem/1.3 -apple-system, 'Segoe UI', system-ui, 'Noto Sans', sans-serif; color: #57606a; cursor: pointer; } .ds-check input { accent-color: #0f766e; } .ds-check:hover { color: #24292f; } .ds-check input:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; } .ds-check:has(input:checked) { color: #24292f; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Studio",
+    "overview": "Markdown-Studio is a writing surface where the tool disappears into the task. It speaks the language of a calm, professional workbench: flat neutral ground, one restrained accent reserved for action and state, hairline separations instead of card stacks, and a typography system tuned to screen work rather than billboards. The interface never competes with the document being written; it recedes so the artifact leads.",
+    "keyCharacteristics": [
+      "Flat by default; tonal layering, not shadow cards.",
+      "One restrained accent; used for action, focus, selection and state only.",
+      "Hairline borders (1px) for panel separation.",
+      "System-first type stack — familiar sans for UI, mono for code.",
+      "Compact spacing rhythm (4/8/12/16) for a dense-but-calm tool."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "The petrol accent appears on ≤10% of any visible surface. Its rarity is what tells the user where to act; overusing it turns the tool into decoration.", "section": "colors" },
+      { "name": "The Gray-On-Gray Rule", "body": "Secondary text is tinted from the neutral foreground (Ink Soft / Moon Muted), never a flat gray dropped on a colored surface.", "section": "colors" },
+      { "name": "The Fixed Scale Rule", "body": "UI type uses fixed rem steps, not fluid clamps. The tool is viewed at constant DPI; fluid headings inside a sidebar look wrong, not responsive.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. The tint change is the hover/active feedback; shadows never decorate controls.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use the petrol accent for one thing at a time — focus, selection, or primary action — never in bulk.",
+      "Do separate panels with the hairline divider, not borders around each pane.",
+      "Do keep UI type on a fixed rem scale (0.8125–1.5rem); no clamps in chrome.",
+      "Do give every interactive element default / hover / focus-visible / active states.",
+      "Do tint secondary text from the neutral foreground (Ink Soft / Moon Muted)."
+    ],
+    "donts": [
+      "Don't use pure black or pure gray text (#000/#808080); use Ink/Moon neutrals.",
+      "Don't put cards inside the workspace; the studio is flat-tonal, not card-stacked.",
+      "Don't use Arial, Helvetica, or Inter first in a font stack (overused, template-tell).",
+      "Don't add box-shadows to controls or panels.",
+      "Don't animate with bounce/elastic easing; state transitions are 150–250ms on transform/color/background.",
+      "Don't render gray-on-gray or gray-on-tint secondary labels."
+    ]
+  }
+}

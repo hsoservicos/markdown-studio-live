@@ -1,0 +1,29 @@
+ignores:
+  - node_modules/**
+  - dist/**
+  - coverage/**
+  - website/dist/**
+  - .git/**
+  - .opencode/**
+  - .impeccable/**
+
+config:
+  default: true
+  MD013: false
+  MD024: false
+  MD025: false
+  MD026: false
+  MD036: false
+  MD040: false
+
+overrides:
+  # Manual do app: documento de referência de sintaxe.
+  # MD051: o app gera slugs sem acento (slugify próprio) — markdownlint
+  #   não consegue validar fragmentos acentuados; MD060: alinhamento de
+  #   pipes é estético e conflita com a demonstração literal de sintaxe.
+  - filter:
+      - public/manual/markdown-manual.md
+    config:
+      MD051: false
+      MD060: false
+    combine: merge

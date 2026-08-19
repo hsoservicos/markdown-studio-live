@@ -1,0 +1,358 @@
+<!doctype html>
+<!-- impeccable-disable design-system-color: wordmark uses DESIGN.md token --color-text-strong via CSS var, which the static analyzer cannot resolve -->
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      data-i18n-content="metaDescription"
+      content="Markdown-Studio: editor Markdown com preview em tempo real — sem backend e sem rastreadores."
+    />
+
+    <script>
+      (function () {
+        try {
+          var BOOT_THEME_KEY = 'com.markdownstudio_theme';
+          var raw = localStorage.getItem(BOOT_THEME_KEY);
+          var useDark = raw === 'dark';
+          document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
+
+          var PREVIEW_CSS_LIGHT = 'css/github-markdown-light.css?v=1.0.0';
+          var PREVIEW_CSS_DARK = 'css/github-markdown-dark_dimmed.css?v=1.0.0';
+          var href = useDark ? PREVIEW_CSS_DARK : PREVIEW_CSS_LIGHT;
+
+          var link = document.createElement('link');
+          link.id = 'gh-markdown-link';
+          link.rel = 'stylesheet';
+          link.type = 'text/css';
+          link.href = href;
+          document.head.appendChild(link);
+        } catch (e) {
+          // app corrige o tema após o load
+        }
+      })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="css/style.css?v=1.0.0" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <script type="module" src="/src/main.js?v=1.0.0"></script>
+    <title>Markdown-Studio</title>
+  </head>
+
+  <body>
+    <header>
+      <div id="menu-items">
+        <div>
+          <button
+            type="button"
+            class="sidebar-toggle"
+            aria-expanded="false"
+            aria-controls="sidebar-nav"
+            data-sidebar-toggle
+          >
+            <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+          </button>
+          <a href="/" class="wordmark">Markdown-Studio</a>
+        </div>
+        <div id="sync-button">
+          <label
+            ><input
+              type="checkbox"
+              id="sync-scroll-checkbox"
+              data-i18n-aria-label="syncLabel"
+              aria-label="Sincronizar rolagem"
+            />
+            <span data-i18n="syncScroll">Sync scroll</span></label
+          >
+          <label
+            ><input
+              type="checkbox"
+              id="theme-checkbox"
+              data-i18n-aria-label="themeLabel"
+              aria-label="Modo escuro"
+            />
+            <span data-i18n="darkMode">Dark mode</span></label
+          >
+        </div>
+      </div>
+      <div id="github">
+        <a href="https://github.com/bmad-code-org/Markdown-Studio" rel="noopener noreferrer">
+          <img
+            src="image/GitHub-Mark-Light-32px.webp"
+            data-i18n-alt="githubAlt"
+            alt="Repositório no GitHub"
+          />
+        </a>
+      </div>
+    </header>
+
+    <div id="workspace">
+      <aside
+      id="sidebar"
+      class="sidebar"
+      data-i18n-aria-label="sidebarTitle"
+      aria-label="Navegação"
+      data-sidebar-safe
+    >
+        <div class="sidebar-head">
+          <span class="sidebar-title" data-i18n="sidebarTitle">Navegação</span>
+          <button
+            id="sidebar-toggle"
+            type="button"
+            class="sidebar-toggle"
+            aria-expanded="false"
+            aria-controls="sidebar-nav"
+          >
+            <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+        <nav id="sidebar-nav" class="sidebar-nav">
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="manual"
+            data-i18n-title="openManual"
+            title="Manual do Markdown"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="openManual">Manual do Markdown</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="open"
+            data-i18n-title="openFile"
+            title="Abrir arquivo"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h6.5A1.5 1.5 0 0 1 19 8.5v9A1.5 1.5 0 0 1 17.5 19h-13A1.5 1.5 0 0 1 3 17.5v-11Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="openFile">Abrir arquivo</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="new"
+            data-i18n-title="newFile"
+            title="Novo arquivo"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M7 3h8l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 3v4h4M12 9v6m-3-3h6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="newFile">Novo arquivo</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="save"
+            data-i18n-title="saveFile"
+            title="Salvar arquivo"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M4 4a1 1 0 0 1 1-1h11.5l3.5 3.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M8 3v4h7V3M8 21v-7h8v7"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="saveFile">Salvar arquivo</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="print"
+            data-i18n-title="print"
+            title="Imprimir"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M7 8V3h10v5M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2V20a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-3Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="print">Imprimir</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="reset"
+            data-i18n-title="reset"
+            title="Redefinir"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M3 12a9 9 0 1 0 9-9c-2.6 0-5 1.1-6.7 2.9L3 8"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M3 3v5h5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="reset">Redefinir</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="copy"
+            data-i18n-title="copy"
+            title="Copiar"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M9 10h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M5 15H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v1"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="copy">Copiar</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="exportPdf"
+            data-i18n-title="exportPdf"
+            title="Exportar PDF"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M7 3h8l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 3v4h4M12 10v4m0 0-1.5-1.5M12 14l1.5-1.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="exportPdf">Exportar PDF</span>
+          </button>
+        </nav>
+        <div class="sidebar-lang">
+          <label class="sidebar-lang-label" for="lang-select">
+            <span data-i18n="languageLabel">Idioma</span>
+          </label>
+          <select id="lang-select" class="sidebar-lang-select">
+            <option value="pt-BR">Português (Brasil)</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div id="sidebar-status" class="sidebar-status" role="status" aria-live="polite"></div>
+      </aside>
+
+      <div id="container" class="split-container">
+        <div id="edit" class="column editor-pane">
+          <div id="editor-wrapper">
+            <div
+            id="editor"
+            role="textbox"
+            data-i18n-aria-label="editorLabel"
+            aria-label="Editor de Markdown"
+          ></div>
+          </div>
+        </div>
+
+        <div
+          id="split-divider"
+          class="split-divider"
+          role="separator"
+          aria-orientation="vertical"
+        ></div>
+
+        <div id="preview" class="column preview-pane">
+          <div id="preview-wrapper">
+            <div id="output" class="content markdown-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="manual-dialog" class="manual-dialog" aria-labelledby="manual-title">
+      <div class="manual-dialog-head">
+        <h2 id="manual-title" class="manual-dialog-title" data-i18n="openManual">
+          Manual do Markdown
+        </h2>
+        <button type="button" id="manual-close" class="link-button" data-i18n="closeManual">
+          Fechar
+        </button>
+      </div>
+      <div id="manual-content" class="manual-content markdown-body" tabindex="0"></div>
+    </dialog>
+
+    <footer></footer>
+  </body>
+</html>

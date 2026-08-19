@@ -1,0 +1,56 @@
+sprint: 2
+created: 2026-08-18
+reviewed: 2026-08-18
+design: DESIGN.md
+design_story:
+  title: 'The Quiet Studio'
+  source: Impeccable (pbakaus) — design language for AI tooling
+  states: [default, hover, focus-visible, active, disabled]
+done:
+  - key: MS-06
+    title: 'Adicionar Impeccable e Design System "The Quiet Studio" (tokens, sem sombras, empilhamento 720px)'
+    spec: DESIGN.md
+    notes:
+      - detector baseline: overused-font (Helvetica) corrigido
+      - detector pós-mudança: 0 anti-patterns (waiver inline no wordmark)
+  - key: MS-07
+    title: 'Reword AGAINST flat/sombra e suporte vertical das divisórias (src/ui/divider.js)'
+    spec: specs/spec-v1.md
+    notes:
+      - orientação vertical: mobile ≤720px row-resize
+      - orientação horizontal: desktop col-resize (preserva ratio e dblclick centralizar)
+  - key: MS-08
+    title: 'Docker local: Dockerfile multi-stage, nginx.conf, compose.yaml, .dockerignore'
+    spec: docs/how-to/docker-workflow.md
+    notes:
+      - imagem markdown-studio:local construída e validada (build 1ª vez ~34s)
+      - container healthy; GET localhost:5001 → HTTP 200
+      - acesso local apenas; nenhuma publicação/config de registry
+items:
+  - key: MS-01
+    title: 'Scaffold: estrutura e documentação BMAD do Markdown-Studio'
+    status: in_progress
+    spec: specs/spec-v1.md
+    owner: agente-bmad
+    estimates:
+      tokens: 20000
+  - key: MS-02
+    title: 'Configuração de projeto: package.json, Vite, Vitest, lint, format, husky'
+    status: planned
+    estimates:
+      tokens: 30000
+  - key: MS-03
+    title: 'Implementar pipeline render puro (src/render) + storage wrapper + testes'
+    status: planned
+    estimates:
+      tokens: 40000
+  - key: MS-04
+    title: 'Migrar UI (main.js, index.html, i18n pt-BR) e assets estáticos'
+    status: planned
+    estimates:
+      tokens: 60000
+  - key: MS-05
+    title: 'Qualidade: quality gate verde + CI workflow'
+    status: planned
+    estimates:
+      tokens: 20000

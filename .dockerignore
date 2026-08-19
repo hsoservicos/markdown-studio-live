@@ -1,0 +1,28 @@
+# Node / build
+node_modules/
+dist/
+coverage/
+
+# Git / versionamento
+.git/
+.gitignore
+
+# Ferramentas de IA / design system
+.opencode/
+.impeccable/
+
+# Logs e ambiente local
+*.log
+.env
+.env.*
+dev-server.log
+
+# Arquivos locais efêmeros
+*.local
+
+# SO / IDE
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+*.suo
