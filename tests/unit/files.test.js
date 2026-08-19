@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   isMarkdownPath,
   toMarkdownName,
   readFileAsText,
+  supportsOpenPicker,
+  supportsWriteOn,
   MARKDOWN_ACCEPT,
 } from '../../src/ui/files.js';
 
@@ -101,6 +103,39 @@ describe('files helpers', () => {
   describe('MARKDOWN_ACCEPT', () => {
     it('aceita tipos text/markdown', () => {
       expect(MARKDOWN_ACCEPT.accept['text/markdown']).toContain('.md');
+    });
+  });
+
+  describe('supportsOpenPicker / supportsWriteOn (fallbacks FF/Safari)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      delete globalThis.window;
+    });
+
+    it('reconhece suporte ao picker nativo', () => {
+      globalThis.window = {
+        isSecureContext: true,
+        showOpenFilePicker: vi.fn(),
+      };
+      expect(supportsOpenPicker()).toBe(true);
+    });
+
+    it('não usa picker fora de contexto seguro', () => {
+      globalThis.window = { isSecureContext: false };
+      expect(supportsOpenPicker()).toBe(false);
+      globalThis.window = { showOpenFilePicker: vi.fn() };
+      expect(supportsOpenPicker()).toBe(false);
+    });
+
+    it('sem window, não há picker', () => {
+      expect(supportsOpenPicker()).toBe(false);
+    });
+
+    it('detecta handle gravável por createWritable', () => {
+      expect(supportsWriteOn({ createWritable: vi.fn() })).toBe(true);
+      expect(supportsWriteOn({})).toBe(false);
+      expect(supportsWriteOn(null)).toBe(false);
+      expect(supportsWriteOn()).toBe(false);
     });
   });
 });

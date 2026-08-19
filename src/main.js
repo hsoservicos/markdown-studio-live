@@ -6,9 +6,10 @@ import { scheduleMermaidRender, renderMermaidDiagrams } from './render/mermaid.j
 import { setupDivider } from './ui/divider.js';
 import { setupSidebar } from './ui/sidebar.js';
 import { applyStoredLocale, setupLanguageSelector } from './ui/language.js';
+import { applyI18n } from './ui/i18nElements.js';
 import { scrollPreviewTo } from './ui/scrollSync.js';
 import { exportPreviewToPdf } from './ui/exportPdf.js';
-import { resetMarkdownEditor, newMarkdownEditor } from './ui/editorActions.js';
+import { resetMarkdownEditor, newMarkdownEditor, resolveBootInput } from './ui/editorActions.js';
 
 applyStoredLocale();
 
@@ -18,32 +19,16 @@ const init = () => {
 
   const defaultInput = getDefaultTemplate();
 
-  function applyI18n() {
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.dataset.i18n;
-      el.textContent = t(key);
-    });
-    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
-      const key = el.dataset.i18nPlaceholder;
-      el.placeholder = t(key);
-    });
-    document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
-      const key = el.dataset.i18nAriaLabel;
-      el.setAttribute('aria-label', t(key));
-    });
-    document.querySelectorAll('[data-i18n-alt]').forEach((el) => {
-      const key = el.dataset.i18nAlt;
-      el.setAttribute('alt', t(key));
-    });
-    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-      const key = el.dataset.i18nTitle;
-      el.title = t(key);
-    });
-    document.querySelectorAll('[data-i18n-content]').forEach((el) => {
-      const key = el.dataset.i18nContent;
-      el.setAttribute('content', t(key));
-    });
+  // M4: leitura tipada na fronteira do storage — fragmento corrompido não
+  // restaura em silêncio; o boot cai no padrão via fallback null.
+  function safeGet(namespace, key, type) {
+    try {
+      return getItem(namespace, key, { type });
+    } catch {
+      return null;
+    }
   }
+
   applyI18n();
 
   async function setupEditor() {
@@ -186,6 +171,15 @@ const init = () => {
     setTheme(settings);
     setPreviewCss(settings);
 
+    // M3: re-sincroniza a chave lida pelo anti-FOUC no boot a partir da
+    // fonte de verdade (theme_settings) — storage legado com boot key
+    // ausente/divergente deixava de causar double-flip de tema no next load.
+    try {
+      localStorage.setItem(KEYS.themeBoot, settings ? 'dark' : 'light');
+    } catch {
+      // storage indisponível — anti-FOUC assume o padrão na próxima carga
+    }
+
     import('./ui/workers/monacoSetup.js').then(({ monaco }) => {
       monaco.editor.setTheme(settings ? 'vs-dark' : 'vs');
     });
@@ -249,18 +243,17 @@ const init = () => {
   setupEditor().then((ed) => {
     editor = ed;
 
-    const lastContent = getItem(NAMESPACE, KEYS.lastState);
+    const lastContent = safeGet(NAMESPACE, KEYS.lastState, 'string');
     // Se o conteúdo salvo é um template não editado (de qualquer idioma),
     // usa-se o template do idioma corrente no boot.
-    const bootInput = !lastContent || isUntouchedTemplate(lastContent) ? defaultInput : lastContent;
+    const bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
     editor.setValue(bootInput);
     editor.revealPosition({ lineNumber: 1, column: 1 });
 
-    const scrollSettings = getItem(NAMESPACE, KEYS.scrollBar) === true;
+    const scrollSettings = safeGet(NAMESPACE, KEYS.scrollBar, 'boolean') === true;
     initScrollBarSync(scrollSettings);
 
-    const rawTheme = getItem(NAMESPACE, KEYS.theme);
-    const dark = rawTheme === true || rawTheme === 'true';
+    const dark = safeGet(NAMESPACE, KEYS.theme, 'boolean') === true;
     initThemeToggle(dark);
 
     setupDivider();

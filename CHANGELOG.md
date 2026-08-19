@@ -11,10 +11,13 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **Mermaid** reentrante (`src/render/mermaid.js`): `renderMermaidDiagramsIn` serializa passagens concorrentes (single-flight) — `mermaid.render` não é reentrante e duas passagens sobrepostas podiam corromper o preview.
 - **Exportar PDF vs troca de tema**: `exportPreviewToPdf` pausa o agendamento do re-render Mermaid durante a captura (`pauseMermaidScheduling`/`resumeMermaidScheduling`), evitando que o debounce de tema mute o DOM enquanto o `html2pdf` clona o preview.
 - **Jank de digitação**: conversão do preview agora é debounced (~80ms) no `onDidChangeModelContent` (`scheduleConvertAndRender`), reduzindo re-render por tecla em documentos longos.
+- **Boot key de tema divergente** (`src/main.js`): `initThemeToggle` re-sincroniza `com.markdownstudio_theme` a partir da fonte de verdade (persistência), eliminando o double-flip de tema no next load em storage legado com boot key ausente/incoerente.
+- **Leitura tipada na fronteira do storage** (`src/storage.js`): `getItem(namespace, key, { type })` valida o tipo do valor ao ler (boolean com mapeamento de legado `true/false/1/0`, string, number); fragmentos corrompidos lançam `StorageError` em vez de restaurar silenciosamente. O boot usa `safeGet` que degrada para o padrão (`null`) sem crash.
 
 ### Changed
 
-- Novo módulo `src/ui/editorActions.js` com `resetMarkdownEditor`/`newMarkdownEditor` (lógica testável, persistência e scroll separados do boot).
+- Novo módulo `src/ui/editorActions.js` com `resetMarkdownEditor`/`newMarkdownEditor` (lógica testável, persistência e scroll separados do boot) + `resolveBootInput` (decide entre rascunho restaurado e template do idioma corrente).
+- `applyI18n` extraído para novo módulo `src/ui/i18nElements.js`, testável isoladamente.
 
 ## [1.1.0] — 2026-08-19
 

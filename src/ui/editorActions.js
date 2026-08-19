@@ -1,6 +1,10 @@
 import { NAMESPACE, KEYS } from '../i18n/index.js';
 import { removeItem } from '../storage.js';
 
+export function resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate }) {
+  return !lastContent || isUntouchedTemplate(lastContent) ? defaultInput : lastContent;
+}
+
 export function resetMarkdownEditor({
   editor,
   defaultInput,

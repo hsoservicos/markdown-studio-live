@@ -16,7 +16,36 @@ function isExpired(entry) {
   return entry.expiresAt != null && Number(entry.expiresAt) <= safeNow();
 }
 
-export function getItem(namespace, key) {
+const BOOLEAN_LEGACY = { true: true, false: false, 1: true, 0: false };
+
+function validateValue(fullKey, value, type) {
+  if (value == null) {
+    return value;
+  }
+  if (type === 'boolean') {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'string' && value in BOOLEAN_LEGACY) {
+      return BOOLEAN_LEGACY[value];
+    }
+    throw new StorageError(`Valor inválido para '${fullKey}': esperado booleano`);
+  }
+  if (type === 'string' && typeof value !== 'string') {
+    throw new StorageError(`Valor inválido para '${fullKey}': esperado string`);
+  }
+  if (type === 'number' && typeof value !== 'number') {
+    throw new StorageError(`Valor inválido para '${fullKey}': esperado número`);
+  }
+  return value;
+}
+
+/**
+ * Lê o valor do storage aplicando validação opcional de tipo na fronteira.
+ * Fragmentos corrompidos (schema inesperado) lançam `StorageError` em vez de
+ * restaurarem silenciosamente — cabe ao chamador decidir o fallback.
+ */
+export function getItem(namespace, key, { type } = {}) {
   const fullKey = `${namespace}.${key}`;
   let raw;
   try {
@@ -27,6 +56,7 @@ export function getItem(namespace, key) {
   if (raw == null) {
     return null;
   }
+  let value;
   try {
     const entry = JSON.parse(raw);
     if (entry && typeof entry === 'object' && 'value' in entry) {
@@ -34,13 +64,16 @@ export function getItem(namespace, key) {
         removeItem(namespace, key);
         return null;
       }
-      return entry.value;
+      value = entry.value;
+    } else {
+      // valor legado não-JSON → devolve como está
+      value = raw;
     }
-    return raw;
   } catch {
     // valor legado não-JSON → devolve como está
-    return raw;
+    value = raw;
   }
+  return validateValue(fullKey, value, type);
 }
 
 export function setItem(namespace, key, value, expiresAt = DEFAULT_EXPIRY) {

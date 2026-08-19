@@ -68,3 +68,45 @@ describe('storage wrapper', () => {
     });
   });
 });
+
+describe('getItem com validação de tipo (M4)', () => {
+  beforeEach(() => {
+    store().clear();
+  });
+  afterEach(() => {
+    store().clear();
+  });
+
+  it('valida string na fronteira', () => {
+    setItem(NAMESPACE, KEYS.lastState, '# título');
+    expect(getItem(NAMESPACE, KEYS.lastState, { type: 'string' })).toBe('# título');
+  });
+
+  it('lança StorageError quando last_state não é string (corrompido)', () => {
+    setItem(NAMESPACE, KEYS.lastState, { corrompido: true });
+    expect(() => getItem(NAMESPACE, KEYS.lastState, { type: 'string' })).toThrow(StorageError);
+  });
+
+  it('lança StorageError quando valor numérico corrompe chave boolean', () => {
+    setItem(NAMESPACE, KEYS.theme, 42);
+    expect(() => getItem(NAMESPACE, KEYS.theme, { type: 'boolean' })).toThrow(StorageError);
+  });
+
+  it('normaliza boolean legado salvo como string "true"/"false"', () => {
+    store().setItem(`${NAMESPACE}.${KEYS.theme}`, 'true');
+    expect(getItem(NAMESPACE, KEYS.theme, { type: 'boolean' })).toBe(true);
+    store().setItem(`${NAMESPACE}.${KEYS.theme}`, 'false');
+    expect(getItem(NAMESPACE, KEYS.theme, { type: 'boolean' })).toBe(false);
+  });
+
+  it('boolean legado numérico (1/0) também é normalizado', () => {
+    store().setItem(`${NAMESPACE}.${KEYS.scrollBar}`, '1');
+    expect(getItem(NAMESPACE, KEYS.scrollBar, { type: 'boolean' })).toBe(true);
+    store().setItem(`${NAMESPACE}.${KEYS.scrollBar}`, '0');
+    expect(getItem(NAMESPACE, KEYS.scrollBar, { type: 'boolean' })).toBe(false);
+  });
+
+  it('chave ausente volta null mesmo com tipo exigido', () => {
+    expect(getItem(NAMESPACE, 'nao-existe', { type: 'string' })).toBeNull();
+  });
+});

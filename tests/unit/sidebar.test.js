@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { setLocale } from '../../src/i18n/index.js';
+import { setLocale, t } from '../../src/i18n/index.js';
 import { convert } from '../../src/render/convert.js';
 import {
   isSidebarCollapsed,
@@ -200,8 +200,15 @@ describe('sidebar helpers', () => {
   });
 
   describe('renderManual', () => {
+    let realDocument;
+
     beforeEach(() => {
+      realDocument = globalThis.document;
       globalThis.document = { querySelector: () => null };
+    });
+
+    afterEach(() => {
+      globalThis.document = realDocument;
     });
 
     it('renderiza manual via convert e injeta no alvo', async () => {
@@ -252,6 +259,43 @@ describe('sidebar helpers', () => {
       const onError = vi.fn();
       await openFileDialog({ openPicker: () => true }, { onError });
       expect(onError).toHaveBeenCalled();
+    });
+
+    it('cai para input de arquivo legado quando não há picker (Safari/Firefox)', async () => {
+      const file = { name: 'a.md', text: async () => '# texto' };
+      const onContent = vi.fn();
+      const onStatus = vi.fn();
+      const originalDocument = globalThis.document;
+      let changeHandler;
+      globalThis.document = {
+        createElement: (tag) => {
+          if (tag !== 'input') {
+            return {};
+          }
+          const el = {
+            type: '',
+            accept: '',
+            files: [],
+            addEventListener: vi.fn((type, fn) => {
+              if (type === 'change') {
+                changeHandler = fn;
+              }
+            }),
+            click: vi.fn(() => {
+              el.files = [file];
+              changeHandler?.();
+            }),
+            remove: vi.fn(),
+          };
+          return el;
+        },
+        body: { appendChild: vi.fn() },
+      };
+      await openFileDialog({ openPicker: () => false }, { onContent, onStatus });
+      await new Promise((r) => setTimeout(r, 0));
+      expect(onContent).toHaveBeenCalledWith('# texto');
+      expect(onStatus).toHaveBeenCalledWith(t('filePickerFallback'));
+      globalThis.document = originalDocument;
     });
   });
 
@@ -306,6 +350,39 @@ describe('sidebar helpers', () => {
       expect(onSaved).toHaveBeenCalledWith('documento.md');
       globalThis.URL = originalURL;
       globalThis.Blob = originalBlob;
+    });
+
+    it('erro não-abortável do createWritable cai no fallback de download', async () => {
+      const writable = {
+        write: vi.fn().mockRejectedValue(new Error('disk-full')),
+        close: vi.fn(),
+      };
+      const handle = { name: 'a.md', createWritable: vi.fn().mockResolvedValue(writable) };
+      const originalURL = globalThis.URL;
+      const originalBlob = globalThis.Blob;
+      const originalDocument = globalThis.document;
+      globalThis.URL = { createObjectURL: () => 'blob:fake', revokeObjectURL: vi.fn() };
+      globalThis.Blob = class {};
+      delete globalThis.document;
+      globalThis.document = {
+        createElement: () => {
+          const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() };
+          return anchor;
+        },
+        body: { appendChild: vi.fn() },
+      };
+      const onSaved = vi.fn();
+      await saveFileDialog(
+        '# conteúdo',
+        { currentHandle: handle, canWrite: () => true, openSavePicker: () => false },
+        { onSaved },
+      );
+      expect(handle.createWritable).toHaveBeenCalled();
+      expect(writable.write).toHaveBeenCalledWith('# conteúdo');
+      expect(onSaved).toHaveBeenCalledWith('documento.md');
+      globalThis.URL = originalURL;
+      globalThis.Blob = originalBlob;
+      globalThis.document = originalDocument;
     });
   });
 });

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resetMarkdownEditor, newMarkdownEditor } from '../../src/ui/editorActions.js';
+import {
+  resetMarkdownEditor,
+  newMarkdownEditor,
+  resolveBootInput,
+} from '../../src/ui/editorActions.js';
 import { NAMESPACE, KEYS } from '../../src/i18n/index.js';
 import { getItem, setItem } from '../../src/storage.js';
 
@@ -75,6 +79,38 @@ describe('resetMarkdownEditor', () => {
 
     expect(ok).toBe(true);
     expect(confirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveBootInput', () => {
+  const defaultInput = '<h1>Template</h1>';
+  const isUntouchedTemplate = (v) => v === 'PT' || v === 'EN';
+
+  it('usa o template quando não há rascunho', () => {
+    expect(resolveBootInput({ lastContent: null, defaultInput, isUntouchedTemplate })).toBe(
+      defaultInput,
+    );
+  });
+
+  it('usa o template quando o rascunho é vazio', () => {
+    expect(resolveBootInput({ lastContent: '', defaultInput, isUntouchedTemplate })).toBe(
+      defaultInput,
+    );
+  });
+
+  it('usa o template quando o rascunho é um template não editado', () => {
+    expect(resolveBootInput({ lastContent: 'PT', defaultInput, isUntouchedTemplate })).toBe(
+      defaultInput,
+    );
+    expect(resolveBootInput({ lastContent: 'EN', defaultInput, isUntouchedTemplate })).toBe(
+      defaultInput,
+    );
+  });
+
+  it('restaura o rascunho editado no boot', () => {
+    expect(resolveBootInput({ lastContent: '# rascunho', defaultInput, isUntouchedTemplate })).toBe(
+      '# rascunho',
+    );
   });
 });
 

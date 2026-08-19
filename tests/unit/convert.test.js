@@ -40,6 +40,26 @@ describe('convert (pipeline marked → DOMPurify)', () => {
 
   it('escapeHtml escapa caracteres perigosos', () => {
     expect(escapeHtml('<img src="x">')).toBe('&lt;img src=&quot;x&quot;&gt;');
+    expect(escapeHtml('a & b < c > d "e" \'f\'')).toBe(
+      'a &amp; b &lt; c &gt; d &quot;e&quot; &#39;f&#39;',
+    );
+  });
+
+  it('bloco mermaid escapa conteúdo HTML injetado', () => {
+    const html = convert('```mermaid\ngraph TD\n  A --> B <script>alert(1)</script>\n```');
+    expect(html).toContain('<pre class="mermaid">');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).toContain('A --&gt; B');
+  });
+
+  it('comentário/atributo no bloco mermaid não escapa do <pre>', () => {
+    const html = convert('```mermaid\nA --> B "><img src=x>\n```');
+    expect(html).toContain('<pre class="mermaid">');
+    expect(html).not.toContain('<img');
+    // ">" é escapado (&gt;); aspas em texto são re-serializadas literais pelo
+    // DOM após sanitização — o importante é que < / > impedem criar elemento.
+    expect(html).toContain('&gt;&lt;img src=x&gt;');
   });
 
   it('tabela renderiza com célula', () => {
