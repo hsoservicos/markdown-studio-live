@@ -31,3 +31,9 @@ Versão **estável e utilizável** nas operações do dia a dia (escrever, visua
 - PDF exportado é rasterizado (html2canvas/jpeg) — conteúdo não pesquisável.
 - Projeto ainda **sem repositório git** (bump de versão manual; sem tag `v1.1.0`).
 - BMAD tem conectores (MCP/CLI) mas **nenhum módulo de método (`bmm`) instalado** — agents/workflows em 0.
+
+## Pós-snapshot (2026-08-19, mesmo dia)
+
+- **Git inicializado** (`master`): commit `release: v1.1.0` + tag `v1.1.0`; workflow de release `npm run release` volta a valer.
+- **BMAD Method (bmm) v6.11.0 instalado** via installer oficial: `_bmad/` (core+bmm+config), **49 skills → `.agents/skills`**, **49 commands → `.opencode/commands`**, tool **opencode** configurado. `.agents/`/`_bmad/` ignorados por prettier/markdownlint (gate mantido verde) e `_bmad/config.user.toml` gitignored (pessoal/máquina).
+- **Verificação/análise BMAD concluída** (estilo `bmad-code-review`): 3 camadas paralelas (código, testes, produto) → achados A1–A3 e M1–M5 resolvidos/registrados, e 10 propostas de features P0–P2 documentadas em `_bmad-output/`. Ver análise em `_bmad-output/verifications/`.
