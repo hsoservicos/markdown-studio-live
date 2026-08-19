@@ -246,6 +246,12 @@ footer {
   align-items: center;
 }
 
+.status-stats {
+  font-size: 0.8em;
+  line-height: 1;
+  opacity: 0.85;
+}
+
 /* ---------- Workspace ---------- */
 
 #workspace {

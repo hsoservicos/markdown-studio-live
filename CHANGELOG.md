@@ -5,6 +5,14 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- **Configuração de página para PDF/Imprimir** (P0-1): novo `src/ui/printSettings.js` + diálogo na sidebar (`Configurar impressão`) com margem, papel (A4/Letter), orientação e textos de cabeçalho/rodapé (`{page}` = nº da página); preferências persistem em `com.markdownstudio.print_settings` e alimentam `buildExportOptions` (jsPDF format/orientation/margin), a folha `@page` injetada no documento e o carimbo por página no PDF via hook `toPdf().get('pdf')` (`stampPageHeaderFooter`).
+- **Barra de status com estatísticas** (P0-3): `src/ui/statusBar.js` conta palavras, caracteres, linhas e tempo de leitura (~200 palavras/min) no `<footer>`, atualizando a cada edição; nome do arquivo aberto aparece à frente quando há arquivo carregado.
+- **Quebras de página conscientes** (P0-2): marcador `<!-- page-break -->` vira `<div class="page-break">` no preview/impressão; `break-inside: avoid` em tabelas, código, citações, figuras, itens de lista, mermaid e KaTeX display, e `break-after: avoid` em headings — no `@media print` e no clone do PDF.
+- **Sumário (TOC) bidirecional** (P0-4): `src/render/toc.js` extrai headings do markdown (mesmos ids/slugify do renderer, ignorando cercas de código) e `src/ui/tocDialog.js` lista os títulos em diálogo; clicar num item posiciona o cursor do editor na linha e clicar num heading do preview revela a linha correspondente no editor.
+- **Suporte a matemática (KaTeX)** (P0-5): fórmulas `$...$` (inline) e `$$...$$` (bloco) via extensões marked (`src/render/katexExt.js`), katex promovido a dependência direta (`^0.16.47`, CSS bundled — sem CDN); saída passa pelo DOMPurify com allowlist MathML; `$` dentro de código inline não vira fórmula.
+
 ### Fixed
 
 - **Redefinir** remove o rascunho persistido (`last_state`): após reset, um reload volta ao template do idioma corrente em vez de restaurar o conteúdo antigo (`src/ui/editorActions.js`). O fluxo de reset/novo arquivo foi extraído do boot para módulo testável.
@@ -18,6 +26,8 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 - Novo módulo `src/ui/editorActions.js` com `resetMarkdownEditor`/`newMarkdownEditor` (lógica testável, persistência e scroll separados do boot) + `resolveBootInput` (decide entre rascunho restaurado e template do idioma corrente).
 - `applyI18n` extraído para novo módulo `src/ui/i18nElements.js`, testável isoladamente.
+- `buildExportOptions(filename, settings)` agora recebe configuração de impressão; `exportPreviewToPdf({ onStatus }, printSettings)` usa a cadeia `toPdf().get('pdf')` do html2pdf.
+- `convert.js` exporta `slugifyHeading` para consumidores que precisam dos mesmos ids de âncora (TOC).
 
 ## [1.1.0] — 2026-08-19
 

@@ -44,6 +44,7 @@
     "dompurify": "^3.4.13",
     "github-markdown-css": "^5.9.0",
     "html2pdf.js": "^0.14.0",
+    "katex": "^0.16.47",
     "marked": "^15.0.7",
     "mermaid": "^11.16.1",
     "monaco-editor": "^0.52.2"

@@ -5,15 +5,19 @@ princípios do produto: offline, sem backend, sem rastreamento, localStorage,
 deps via npm (sem CDN), design "The Quiet Studio". Nenhuma proposta exige lib nova
 que não exista já no repositório.
 
-## P0 — alto valor, baixo risco, escopo v1
+## P0 — alto valor, baixo risco, escopo v1 — **IMPLEMENTADO (2026-08-19)**
 
 | # | Feature | Benefício | Esforço | Dependências técnicas |
 | - | ------- | --------- | ------- | --------------------- |
-| 1 | **Configuração de página p/ PDF/Imprimir** | margens, papel, orientação e cabeçalho/rodapé configuráveis (fecha open decision do PRODUCT.md) | M | `src/ui/printSettings.js`; `buildExportOptions` lê config; `@page`+contadores CSS no print; hook `toPdf().get('pdf')` do html2pdf |
-| 2 | **Quebras de página conscientes** | sem heading órfão, tabela/código partidos nem viúvas na impressão (defeito mais visível hoje) | S | `break-inside: avoid` em table/pre/blockquote/figure no `@media print` e no clone do PDF; marcador `<!-- page-break -->` |
-| 3 | **Barra de status com estatísticas** | palavras, caracteres, linhas, tempo de leitura e arquivo aberto num relance | S | `<footer>` vazio já existe; contagem no `scheduleSave`; chaves i18n; sem storage novo |
-| 4 | **Sumário (TOC) bidirecional** | navegar por seções; clique num título leva o cursor ao ponto no editor | M | reusa `id` de headings de `convert.js`; `src/render/toc.js` puro; `editor.revealPosition` |
-| 5 | **Suporte a matemática (KaTeX)** | fórmulas `$...$`/`$$...$$` em relatórios — katex **já** em `node_modules` (chunk do build) | M | promover katex a dep direta; extensão do `marked`; saída passa pelo DOMPurify |
+| 1 | **Configuração de página p/ PDF/Imprimir** ✅ | margens, papel, orientação e cabeçalho/rodapé configuráveis (fecha open decision do PRODUCT.md) | M | `src/ui/printSettings.js`; `buildExportOptions` lê config; `@page`+contadores CSS no print; hook `toPdf().get('pdf')` do html2pdf |
+| 2 | **Quebras de página conscientes** ✅ | sem heading órfão, tabela/código partidos nem viúvas na impressão (defeito mais visível hoje) | S | `break-inside: avoid` em table/pre/blockquote/figure no `@media print` e no clone do PDF; marcador `<!-- page-break -->` |
+| 3 | **Barra de status com estatísticas** ✅ | palavras, caracteres, linhas, tempo de leitura e arquivo aberto num relance | S | `<footer>` vazio já existe; contagem no `scheduleSave`; chaves i18n; sem storage novo |
+| 4 | **Sumário (TOC) bidirecional** ✅ | navegar por seções; clique num título leva o cursor ao ponto no editor | M | reusa `id` de headings de `convert.js`; `src/render/toc.js` puro; `editor.revealPosition` |
+| 5 | **Suporte a matemática (KaTeX)** ✅ | fórmulas `$...$`/`$$...$$` em relatórios — katex **já** em `node_modules` (chunk do build) | M | promover katex a dep direta; extensão do `marked`; saída passa pelo DOMPurify |
+
+Validação: 177 testes unitários verdes + probe e2e `p0_features_probe.js`
+(KaTeX inline/bloco, page-break, stats, TOC com âncoras, config de impressão
+persistida com `@page` aplicado; regressões M3/A2 intactas).
 
 ## P1 — boa relação valor/esforço, v1
 
@@ -35,3 +39,6 @@ que não exista já no repositório.
 Ordem sugerida pela revisão adversarial: **A1 → A2 → M1 → M2 → M3 → M4** (robustez e
 segurança do que já existe) seguidas das lacunas de teste 1–5. Só então features P0
 na sequência **1 → 3 → 2 → 4 → 5**.
+
+**Status**: A1–M4 e lacunas 1–5 concluídos (commits `e6546e7`, `a1334e3`); P0 1–5
+implementados e validados por probe e2e. Próximos candidatos: P1 (6–8).

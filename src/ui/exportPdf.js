@@ -3,12 +3,27 @@ import { getMermaidTheme } from '../render/mermaid.js';
 import { pauseMermaidScheduling } from '../render/mermaid.js';
 import { resumeMermaidScheduling } from '../render/mermaid.js';
 import { t } from '../i18n/index.js';
+import {
+  DEFAULT_PRINT_SETTINGS,
+  getPrintStylesheetCss,
+  normalizePrintSettings,
+  stampPageHeaderFooter,
+} from './printSettings.js';
 
 export const DEFAULT_PDF_FILENAME = 'markdown-preview.pdf';
 
-export function buildExportOptions(filename = DEFAULT_PDF_FILENAME) {
+const PAPER_WIDTH_MM = { a4: 210, letter: 216 };
+
+export function buildExportOptions(
+  filename = DEFAULT_PDF_FILENAME,
+  settings = DEFAULT_PRINT_SETTINGS,
+) {
+  const { margin, paperSize, orientation } = normalizePrintSettings(settings);
+  const paperWidth = PAPER_WIDTH_MM[paperSize] ?? 210;
+  const previewWidth = orientation === 'landscape' ? `${paperWidth}mm` : '190mm';
+  const stylesheet = getPrintStylesheetCss(settings);
   return {
-    margin: 10,
+    margin,
     filename,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: {
@@ -22,12 +37,17 @@ export function buildExportOptions(filename = DEFAULT_PDF_FILENAME) {
         }
         const clonedPreview = clonedDoc.getElementById('preview-wrapper');
         if (clonedPreview) {
-          clonedPreview.style.width = '190mm';
-          clonedPreview.style.maxWidth = '190mm';
+          clonedPreview.style.width = previewWidth;
+          clonedPreview.style.maxWidth = previewWidth;
         }
+        // P0-2: quebras de página conscientes + @page no clone do PDF.
+        const styleEl = clonedDoc.createElement('style');
+        styleEl.id = 'pdf-print-style';
+        styleEl.textContent = stylesheet;
+        clonedDoc.head?.appendChild(styleEl);
       },
     },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    jsPDF: { unit: 'mm', format: paperSize, orientation },
   };
 }
 
@@ -42,7 +62,10 @@ export async function loadHtml2Pdf() {
   return html2pdf;
 }
 
-export async function exportPreviewToPdf({ onStatus } = {}) {
+export async function exportPreviewToPdf(
+  { onStatus } = {},
+  printSettings = DEFAULT_PRINT_SETTINGS,
+) {
   const previewElement = document.querySelector('#preview-wrapper');
   if (!previewElement) {
     return;
@@ -64,8 +87,15 @@ export async function exportPreviewToPdf({ onStatus } = {}) {
   pauseMermaidScheduling();
 
   try {
+    // M1: renderiza mermaid no tema claro antes de clonar o DOM.
     await renderMermaidDiagrams('default');
-    await html2pdf().set(buildExportOptions()).from(previewElement).save();
+    const worker = html2pdf()
+      .set(buildExportOptions(DEFAULT_PDF_FILENAME, printSettings))
+      .from(previewElement)
+      .toPdf();
+    // P0-1: cabeçalho/rodapé configuráveis via hook toPdf().get('pdf').
+    stampPageHeaderFooter(worker.get('pdf'), printSettings);
+    await worker.save();
     onStatus?.(t('pdfExported'));
   } catch (error) {
     console.error(t('exportError'), error);

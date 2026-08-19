@@ -27,6 +27,8 @@ function buildChain() {
   const worker = {
     set: vi.fn(() => worker),
     from: vi.fn(() => worker),
+    toPdf: vi.fn(() => worker),
+    get: vi.fn(() => ({ internal: { pageSize: {}, events: {} }, text: vi.fn() })),
     save: vi.fn(() => Promise.resolve()),
   };
   return worker;
@@ -44,10 +46,18 @@ describe('buildExportOptions', () => {
     expect(buildExportOptions('nota.pdf').filename).toBe('nota.pdf');
   });
 
-  it('onclone força tema light e largura A4 no clone', () => {
-    const options = buildExportOptions();
+  it('onclone força tema light, largura conforme papel/orientação e injeta print style', () => {
+    const options = buildExportOptions('nota.pdf', {
+      margin: 15,
+      paperSize: 'a4',
+      orientation: 'landscape',
+    });
+    expect(options.margin).toBe(15);
+    expect(options.jsPDF).toMatchObject({ format: 'a4', orientation: 'landscape' });
     const preview = { style: { width: '', maxWidth: '' } };
     const markdownLink = { setAttribute: vi.fn() };
+    const appended = [];
+    const clonedHead = { appendChild: (el) => appended.push(el) };
     const clonedDoc = {
       documentElement: { setAttribute: vi.fn() },
       getElementById: vi.fn((id) => {
@@ -59,12 +69,31 @@ describe('buildExportOptions', () => {
         }
         return null;
       }),
+      createElement: vi.fn(() => ({ textContent: '' })),
+      head: clonedHead,
     };
     options.html2canvas.onclone(clonedDoc);
     expect(clonedDoc.documentElement.setAttribute).toHaveBeenCalledWith('data-theme', 'light');
     expect(markdownLink.setAttribute).toHaveBeenCalledWith('href', 'css/github-markdown-light.css');
+    expect(preview.style.width).toBe('210mm');
+    expect(preview.style.maxWidth).toBe('210mm');
+    expect(appended).toHaveLength(1);
+    expect(appended[0].id).toBe('pdf-print-style');
+    expect(appended[0].textContent).toContain('@page');
+  });
+
+  it('onclone usa largura A4 retrato padrão', () => {
+    const options = buildExportOptions();
+    const preview = { style: { width: '', maxWidth: '' } };
+    const clonedDoc = {
+      documentElement: { setAttribute: vi.fn() },
+      getElementById: vi.fn((id) => (id === 'preview-wrapper' ? preview : null)),
+      createElement: vi.fn(() => ({ textContent: '' })),
+      head: { appendChild: vi.fn() },
+    };
+    options.html2canvas.onclone(clonedDoc);
     expect(preview.style.width).toBe('190mm');
-    expect(preview.style.maxWidth).toBe('190mm');
+    expect(options.jsPDF).toMatchObject({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   });
 });
 
@@ -107,12 +136,31 @@ describe('exportPreviewToPdf', () => {
     await expect(exportPreviewToPdf({ onStatus })).resolves.toBeUndefined();
     expect(chain.set).toHaveBeenCalled();
     expect(chain.from).toHaveBeenCalledWith(document.querySelector('#preview-wrapper'));
+    expect(chain.toPdf).toHaveBeenCalled();
+    expect(chain.get).toHaveBeenCalledWith('pdf');
     expect(chain.save).toHaveBeenCalled();
     expect(onStatus).toHaveBeenCalledWith('PDF exportado!');
     expect(state.pauseMermaidScheduling).toHaveBeenCalled();
     expect(state.resumeMermaidScheduling).toHaveBeenCalled();
     expect(renderMermaidDiagrams).toHaveBeenCalledWith('default');
     expect(renderMermaidDiagrams).toHaveBeenCalledTimes(1);
+  });
+
+  it('exporta com configurações de impressão customizadas', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const onStatus = vi.fn();
+    await exportPreviewToPdf(
+      { onStatus },
+      { margin: 20, paperSize: 'letter', orientation: 'landscape', headerText: '', footerText: '' },
+    );
+    expect(chain.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        margin: 20,
+        jsPDF: expect.objectContaining({ format: 'letter', orientation: 'landscape' }),
+      }),
+    );
+    expect(onStatus).toHaveBeenCalledWith('PDF exportado!');
+    console.warn.mockRestore();
   });
 
   it('informa erro quando o save falha e restaura mermaid dark', async () => {

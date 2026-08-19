@@ -10,12 +10,19 @@ import { applyI18n } from './ui/i18nElements.js';
 import { scrollPreviewTo } from './ui/scrollSync.js';
 import { exportPreviewToPdf } from './ui/exportPdf.js';
 import { resetMarkdownEditor, newMarkdownEditor, resolveBootInput } from './ui/editorActions.js';
+import { loadPrintSettings, applyPrintSettingsCss } from './ui/printSettings.js';
+import { setupPrintSettingsDialog } from './ui/printSettingsDialog.js';
+import { setupStatusBar } from './ui/statusBar.js';
+import { setupTocDialog } from './ui/tocDialog.js';
+// P0-5: estilos do KaTeX (bundled via npm, sem CDN).
+import 'katex/dist/katex.min.css';
 
 applyStoredLocale();
 
 const init = () => {
   let hasEdited = false;
   let scrollBarSync = false;
+  let statusBar = null;
 
   const defaultInput = getDefaultTemplate();
 
@@ -54,6 +61,7 @@ const init = () => {
       const value = editor.getValue();
       scheduleConvertAndRender(value);
       scheduleSave(value);
+      statusBar?.update();
     });
 
     editor.onDidScrollChange((e) => {
@@ -209,6 +217,18 @@ const init = () => {
       }
     };
 
+    const printDialog = setupPrintSettingsDialog({
+      onSaved: () => {
+        report(t('printSettingsSaved'));
+      },
+    });
+    const tocDialog = setupTocDialog({
+      container: document,
+      editor,
+      getContent: () => editor.getValue(),
+      onEmpty: () => report(t('tocEmpty')),
+    });
+
     const handlers = {
       reset: () => reset(),
       new: () => newFile(),
@@ -221,10 +241,12 @@ const init = () => {
           // nada a fazer — clipboard negado
         }
       },
-      exportPdf: ({ report }) => exportPreviewToPdf({ onStatus: report }),
+      exportPdf: ({ report }) => exportPreviewToPdf({ onStatus: report }, loadPrintSettings()),
+      printSettings: () => printDialog.open(),
+      toc: () => tocDialog.open(),
     };
 
-    setupSidebar({
+    sidebarApi = setupSidebar({
       container: document,
       editor,
       getContent: () => editor.getValue(),
@@ -240,6 +262,9 @@ const init = () => {
   }
 
   let editor;
+  let sidebarApi = null;
+  const getCurrentFileName = () => sidebarApi?.getCurrentName?.() ?? null;
+
   setupEditor().then((ed) => {
     editor = ed;
 
@@ -255,6 +280,16 @@ const init = () => {
 
     const dark = safeGet(NAMESPACE, KEYS.theme, 'boolean') === true;
     initThemeToggle(dark);
+
+    applyPrintSettingsCss(loadPrintSettings());
+
+    statusBar = setupStatusBar({
+      container: document,
+      getContent: () => editor.getValue(),
+      tFn: t,
+      getFileName: () => getCurrentFileName(),
+    });
+    statusBar?.update();
 
     setupDivider();
 

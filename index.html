@@ -278,6 +278,59 @@
           <button
             type="button"
             class="sidebar-item"
+            data-sidebar-action="toc"
+            data-i18n-title="tocTitle"
+            title="Sumário"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M4 5h9M4 12h9M4 19h9"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <path
+                d="M16 6.5h4M17 9.5l2-2v5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="toc">Sumário</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="printSettings"
+            data-i18n-title="printSettingsTitle"
+            title="Configurar impressão"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M4 7h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2v-2h2V9H4v7h2v2H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M8 3h8v4H8zM8 13h8v8H8z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="printSettings">Configurar impressão</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
             data-sidebar-action="exportPdf"
             data-i18n-title="exportPdf"
             title="Exportar PDF"
@@ -353,6 +406,61 @@
       <div id="manual-content" class="manual-content markdown-body" tabindex="0"></div>
     </dialog>
 
-    <footer></footer>
+    <dialog id="toc-dialog" class="manual-dialog" aria-labelledby="toc-title">
+      <div class="manual-dialog-head">
+        <h2 id="toc-title" class="manual-dialog-title" data-i18n="toc">Sumário</h2>
+        <button type="button" id="toc-close" class="link-button" data-i18n="closeManual">
+          Fechar
+        </button>
+      </div>
+      <div id="toc-list" class="manual-content" tabindex="0"></div>
+    </dialog>
+
+    <dialog id="print-settings-dialog" class="manual-dialog" aria-labelledby="print-settings-title">
+      <div class="manual-dialog-head">
+        <h2 id="print-settings-title" class="manual-dialog-title" data-i18n="printSettings">
+          Configurar impressão
+        </h2>
+        <button type="button" id="print-settings-close" class="link-button" data-i18n="closeManual">
+          Fechar
+        </button>
+      </div>
+      <form id="print-settings-form" class="print-settings-form">
+        <label class="print-settings-field">
+          <span data-i18n="printMarginLabel">Margem (mm)</span>
+          <input type="number" id="print-margin" min="0" max="40" step="1" />
+        </label>
+        <label class="print-settings-field">
+          <span data-i18n="printPaperLabel">Papel</span>
+          <select id="print-paper">
+            <option value="a4">A4</option>
+            <option value="letter">Letter</option>
+          </select>
+        </label>
+        <label class="print-settings-field">
+          <span data-i18n="printOrientationLabel">Orientação</span>
+          <select id="print-orientation">
+            <option value="portrait" data-i18n="printPortrait">Retrato</option>
+            <option value="landscape" data-i18n="printLandscape">Paisagem</option>
+          </select>
+        </label>
+        <label class="print-settings-field">
+          <span data-i18n="printHeaderLabel">Cabeçalho ({page} = nº)</span>
+          <input type="text" id="print-header" maxlength="200" />
+        </label>
+        <label class="print-settings-field">
+          <span data-i18n="printFooterLabel">Rodapé ({page} = nº)</span>
+          <input type="text" id="print-footer" maxlength="200" />
+        </label>
+        <div class="print-settings-actions">
+          <button type="submit" class="link-button" data-i18n="printSave">Salvar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <footer>
+      <span id="status-stats" class="status-stats" data-i18n-aria-label="statsLabel"
+        aria-label="Estatísticas do documento"></span>
+    </footer>
   </body>
 </html>

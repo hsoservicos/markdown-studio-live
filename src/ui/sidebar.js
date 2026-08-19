@@ -336,5 +336,6 @@ export function setupSidebar({
   return {
     getState: () => ({ collapsed: sidebar.classList.contains('is-collapsed') }),
     openManual: () => openManualDialog(),
+    getCurrentName: () => currentName,
   };
 }

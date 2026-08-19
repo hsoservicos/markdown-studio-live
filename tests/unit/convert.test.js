@@ -77,4 +77,38 @@ describe('convert (pipeline marked → DOMPurify)', () => {
     expect(html).toContain('<h1 id="titulo">');
     expect(html).toContain('<h1 id="titulo-1">');
   });
+
+  it('<!-- page-break --> vira divisor semântico de quebra de página', () => {
+    const html = convert('Capítulo A\n\n<!-- page-break -->\n\nCapítulo B');
+    expect(html).toContain('<div class="page-break"');
+    expect(html).not.toContain('page-break -->');
+  });
+
+  it('comentário comum continua sendo removido pelo DOMPurify', () => {
+    const html = convert('Olá\n\n<!-- notícia interna -->\n\nMundo');
+    expect(html).not.toContain('<!--');
+  });
+
+  it('fórmula inline $...$ renderiza KaTeX', () => {
+    const html = convert('A energia é $E=mc^2$ hoje.');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('$E=mc^2$');
+  });
+
+  it('fórmula em bloco $$...$$ renderiza KaTeX display', () => {
+    const html = convert('Texto\n\n$$\n\\frac{a}{b}\n$$\n\nFim');
+    expect(html).toContain('katex-display');
+  });
+
+  it('XSS dentro de fórmula é neutralizado', () => {
+    const html = convert('$<script>alert(1)</script>$');
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('alert(1)</script>');
+  });
+
+  it('cifra dentro de código inline não vira fórmula', () => {
+    const html = convert('Use `$x$` como literal.');
+    expect(html).toContain('<code>');
+    expect(html).not.toContain('katex');
+  });
 });
