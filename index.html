@@ -282,6 +282,84 @@
           <button
             type="button"
             class="sidebar-item"
+            data-sidebar-action="copyHtml"
+            data-i18n-title="copyHtmlTitle"
+            title="Copiar como HTML rico"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M8 8h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M5 15H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v1M10 12l2 2 3-4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="copyHtml">Copiar HTML</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="exportHtml"
+            data-i18n-title="exportHtmlTitle"
+            title="Exportar HTML standalone"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M7 3h8l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 3v4h4M9 13l-2 2 2 2M15 13l2 2-2 2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="exportHtml">Exportar HTML</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
+            data-sidebar-action="snapshots"
+            data-i18n-title="snapshotsTitle"
+            title="Snapshots locais"
+          >
+            <svg class="sidebar-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M12 4v4M12 16v4M4 12h4M16 12h4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="3.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+            </svg>
+            <span class="sidebar-item-label" data-i18n="snapshots">Snapshots</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-item"
             data-sidebar-action="toc"
             data-i18n-title="tocTitle"
             title="Sumário"
@@ -424,6 +502,19 @@
         </button>
       </div>
       <div id="toc-list" class="manual-content" tabindex="0"></div>
+    </dialog>
+
+    <dialog id="snapshots-dialog" class="manual-dialog" aria-labelledby="snapshots-title">
+      <div class="manual-dialog-head">
+        <h2 id="snapshots-title" class="manual-dialog-title" data-i18n="snapshots">Snapshots</h2>
+        <button type="button" id="snapshots-close" class="link-button" data-i18n="closeManual">
+          Fechar
+        </button>
+      </div>
+      <p id="snapshots-empty" class="snapshots-empty" data-i18n="snapshotsEmpty" hidden>
+        Nenhum snapshot ainda. Eles são criados automaticamente ao editar.
+      </p>
+      <div id="snapshots-list" class="snapshots-list" tabindex="0"></div>
     </dialog>
 
     <dialog id="print-settings-dialog" class="manual-dialog" aria-labelledby="print-settings-title">

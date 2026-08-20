@@ -8,6 +8,7 @@ import {
   readFileAsText,
   supportsOpenPicker,
   supportsWriteOn,
+  downloadBlob as downloadBlobFile,
 } from './files.js';
 
 export const SIDEBAR_STORAGE_KEY = 'com.markdownstudio.sidebar_collapsed';
@@ -76,15 +77,7 @@ export async function renderManual(base = document, mdUrl = getManualUrl()) {
 }
 
 function downloadBlob(name, content) {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = name;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadBlobFile(name, content, 'text/markdown;charset=utf-8');
 }
 
 function fileInputPicker(accept, onChange) {

@@ -7,6 +7,9 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+- **Copiar como HTML rico** (P1-6): `src/ui/copyRich.js` copia o preview via `ClipboardItem` (`text/html` + `text/plain`) para colar formatado em e-mail/Word/Docs; fallback `writeText` plain quando o navegador não expõe ClipboardItem; botão na sidebar (`copyHtml`).
+- **Exportar HTML standalone** (P1-7): `src/ui/exportHtml.js` gera um `.html` offline com CSS github-markdown embutido (`buildStandaloneHtml` + `loadCssText`) e baixa via `downloadBlob` (agora em `files.js` com mime configurável); botão na sidebar (`exportHtml`).
+- **Snapshots locais com recuperação** (P1-8): anel de backup `com.markdownstudio.backup` (máx. 5) em `src/ui/snapshots.js`, snapshot automático com throttle de 60s no `scheduleSave`, diálogo `src/ui/snapshotsDialog.js` para listar/restaurar/remover.
 - **Configuração de página para PDF/Imprimir** (P0-1): novo `src/ui/printSettings.js` + diálogo na sidebar (`Configurar impressão`) com margem, papel (A4/Letter), orientação e textos de cabeçalho/rodapé (`{page}` = nº da página); preferências persistem em `com.markdownstudio.print_settings` e alimentam `buildExportOptions` (jsPDF format/orientation/margin), a folha `@page` injetada no documento e o carimbo por página no PDF via hook `toPdf().get('pdf')` (`stampPageHeaderFooter`).
 - **Barra de status com estatísticas** (P0-3): `src/ui/statusBar.js` conta palavras, caracteres, linhas e tempo de leitura (~200 palavras/min) no `<footer>`, atualizando a cada edição; nome do arquivo aberto aparece à frente quando há arquivo carregado.
 - **Quebras de página conscientes** (P0-2): marcador `<!-- page-break -->` vira `<div class="page-break">` no preview/impressão; `break-inside: avoid` em tabelas, código, citações, figuras, itens de lista, mermaid e KaTeX display, e `break-after: avoid` em headings — no `@media print` e no clone do PDF.

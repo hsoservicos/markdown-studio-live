@@ -14,6 +14,11 @@ import { loadPrintSettings, applyPrintSettingsCss } from './ui/printSettings.js'
 import { setupPrintSettingsDialog } from './ui/printSettingsDialog.js';
 import { setupStatusBar } from './ui/statusBar.js';
 import { setupTocDialog } from './ui/tocDialog.js';
+import { copyRichHtml } from './ui/copyRich.js';
+import { exportStandaloneHtml } from './ui/exportHtml.js';
+import { maybeAutoSnapshot } from './ui/snapshots.js';
+import { setupSnapshotsDialog } from './ui/snapshotsDialog.js';
+import { getLocaleCode } from './i18n/index.js';
 // P0-5: estilos do KaTeX (bundled via npm, sem CDN).
 import 'katex/dist/katex.min.css';
 
@@ -98,6 +103,8 @@ const init = () => {
   const isUntouchedTemplate = (value) =>
     value === DEFAULT_TEMPLATE_PT || value === DEFAULT_TEMPLATE_EN;
 
+  let lastAutoSnapshotTs = 0;
+
   function scheduleSave(value) {
     if (saveTimer) {
       clearTimeout(saveTimer);
@@ -108,6 +115,9 @@ const init = () => {
       // editor volta ao template do idioma corrente em vez do outro.
       if (!isUntouchedTemplate(value)) {
         setItem(NAMESPACE, KEYS.lastState, value);
+        // P1-8: anel de backup com throttle — protege se last_state corromper.
+        const result = maybeAutoSnapshot(value, { lastAutoTs: lastAutoSnapshotTs });
+        lastAutoSnapshotTs = result.lastAutoTs;
       }
     }, 300);
   }
@@ -228,6 +238,16 @@ const init = () => {
       getContent: () => editor.getValue(),
       onEmpty: () => report(t('tocEmpty')),
     });
+    const snapshotsDialog = setupSnapshotsDialog({
+      container: document,
+      getLocale: () => getLocaleCode(),
+      onStatus: report,
+      onRestore: (content) => {
+        editor.setValue(content);
+        editor.revealPosition({ lineNumber: 1, column: 1 });
+        hasEdited = true;
+      },
+    });
 
     const handlers = {
       reset: () => reset(),
@@ -241,9 +261,34 @@ const init = () => {
           // nada a fazer — clipboard negado
         }
       },
+      copyHtml: async ({ report: statusReport }) => {
+        try {
+          await copyRichHtml({
+            getHtml: () => document.querySelector('#output')?.innerHTML ?? '',
+            getPlain: () => editor.getValue(),
+          });
+          statusReport(t('copiedHtml'));
+        } catch {
+          statusReport(t('copyError'));
+        }
+      },
+      exportHtml: async ({ report: statusReport }) => {
+        try {
+          const name = await exportStandaloneHtml({
+            getHtml: () => document.querySelector('#output')?.innerHTML ?? '',
+            filename: getCurrentFileName() || 'document.html',
+            title: getCurrentFileName() || t('appTitle'),
+            lang: getLocaleCode(),
+          });
+          statusReport(t('htmlExported').replace('{name}', name));
+        } catch {
+          statusReport(t('exportHtmlError'));
+        }
+      },
       exportPdf: ({ report }) => exportPreviewToPdf({ onStatus: report }, loadPrintSettings()),
       printSettings: () => printDialog.open(),
       toc: () => tocDialog.open(),
+      snapshots: () => snapshotsDialog?.open(),
     };
 
     sidebarApi = setupSidebar({

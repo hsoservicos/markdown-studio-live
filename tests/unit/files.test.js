@@ -5,6 +5,7 @@ import {
   readFileAsText,
   supportsOpenPicker,
   supportsWriteOn,
+  downloadBlob,
   MARKDOWN_ACCEPT,
 } from '../../src/ui/files.js';
 
@@ -103,6 +104,40 @@ describe('files helpers', () => {
   describe('MARKDOWN_ACCEPT', () => {
     it('aceita tipos text/markdown', () => {
       expect(MARKDOWN_ACCEPT.accept['text/markdown']).toContain('.md');
+    });
+  });
+
+  describe('downloadBlob', () => {
+    it('cria anchor com download e revoga o object URL', () => {
+      vi.useFakeTimers();
+      const click = vi.fn();
+      const remove = vi.fn();
+      const appendChild = vi.fn();
+      const createObjectURL = vi.fn(() => 'blob:x');
+      const revokeObjectURL = vi.fn();
+      const originalURL = globalThis.URL;
+      const originalCreate = document.createElement.bind(document);
+      globalThis.URL = { createObjectURL, revokeObjectURL };
+      vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+        if (tag === 'a') {
+          return { href: '', download: '', click, remove };
+        }
+        return originalCreate(tag);
+      });
+      vi.spyOn(document.body, 'appendChild').mockImplementation(appendChild);
+
+      downloadBlob('nota.html', '<p>x</p>', 'text/html;charset=utf-8');
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(click).toHaveBeenCalled();
+      expect(remove).toHaveBeenCalled();
+      expect(appendChild).toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:x');
+
+      document.createElement.mockRestore();
+      document.body.appendChild.mockRestore();
+      globalThis.URL = originalURL;
+      vi.useRealTimers();
     });
   });
 

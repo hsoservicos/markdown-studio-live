@@ -19,13 +19,17 @@ Validação: 177 testes unitários verdes + probe e2e `p0_features_probe.js`
 (KaTeX inline/bloco, page-break, stats, TOC com âncoras, config de impressão
 persistida com `@page` aplicado; regressões M3/A2 intactas).
 
-## P1 — boa relação valor/esforço, v1
+## P1 — boa relação valor/esforço, v1 — **IMPLEMENTADO (2026-08-20)**
 
 | # | Feature | Benefício | Esforço | Dependências |
 | - | ------- | --------- | ------- | ------------- |
-| 6 | **Copiar como HTML rico** | colar formatado em e-mail/Word/Google Docs | S | `ClipboardItem` `text/html` com HTML sanitizado de `#output`; fallback plain |
-| 7 | **Exportar HTML standalone** | compartilhar artefato renderizado em um `.html` offline único | S | template estático + CSS github-markdown local; `downloadBlob` já existe |
-| 8 | **Snapshots locais com recuperação** | anéis de backup no navegador evitam perda se `last_state` for corrompido | M | contratos `com.markdownstudio.backup.*` no storage; dialog sidebar |
+| 6 | **Copiar como HTML rico** ✅ | colar formatado em e-mail/Word/Google Docs | S | `ClipboardItem` `text/html` com HTML sanitizado de `#output`; fallback plain |
+| 7 | **Exportar HTML standalone** ✅ | compartilhar artefato renderizado em um `.html` offline único | S | template estático + CSS github-markdown local; `downloadBlob` já existe |
+| 8 | **Snapshots locais com recuperação** ✅ | anéis de backup no navegador evitam perda se `last_state` for corrompido | M | contratos `com.markdownstudio.backup.*` no storage; dialog sidebar |
+
+Validação: testes unitários (`copyRich`, `exportHtml`, `snapshots`, `snapshotsDialog`) +
+probe e2e `p1_features_probe.mjs` (botões na sidebar, export HTML com CSS embutido,
+anel de backup no storage, regressões A2/M2).
 
 ## P2 — v2
 
@@ -41,4 +45,6 @@ segurança do que já existe) seguidas das lacunas de teste 1–5. Só então fe
 na sequência **1 → 3 → 2 → 4 → 5**.
 
 **Status**: A1–M4 e lacunas 1–5 concluídos (commits `e6546e7`, `a1334e3`); P0 1–5
-implementados e validados por probe e2e. Próximos candidatos: P1 (6–8).
+implementados e validados por probe e2e; B1–B5 resolvidos (`4856023`); P1 6–8
+implementados e validados. Próximos candidatos: P2 (9–10) — PDF vetorial pesquisável,
+múltiplos documentos.

@@ -47,3 +47,21 @@ export function supportsOpenPicker() {
 export function supportsWriteOn(handle) {
   return !!handle && typeof handle.createWritable === 'function';
 }
+
+/**
+ * Dispara o download de um Blob no navegador (fallback de save / export HTML).
+ * @param {string} name
+ * @param {string|Blob} content
+ * @param {string} [mime='text/markdown;charset=utf-8']
+ */
+export function downloadBlob(name, content, mime = 'text/markdown;charset=utf-8') {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = name;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
