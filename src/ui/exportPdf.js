@@ -76,7 +76,9 @@ export async function exportPreviewToPdf(
     html2pdf = await loadHtml2Pdf();
   } catch (error) {
     console.warn(error);
-    window.alert(t('pdfUnavailable'));
+    // B5: erro reportado no canal único de status (aria-live), sem dialog
+    // nativo bloqueante.
+    onStatus?.(t('pdfUnavailable'));
     return;
   }
 

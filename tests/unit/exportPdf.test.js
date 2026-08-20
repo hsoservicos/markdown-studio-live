@@ -121,11 +121,12 @@ describe('exportPreviewToPdf', () => {
     expect(onStatus).not.toHaveBeenCalled();
   });
 
-  it('alerta indisponível quando a lib não carrega', async () => {
+  it('reporta indisponibilidade no status quando a lib não carrega (B5)', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     state.default = undefined;
-    await exportPreviewToPdf({});
-    expect(window.alert).toHaveBeenCalledWith(
+    const onStatus = vi.fn();
+    await exportPreviewToPdf({ onStatus });
+    expect(onStatus).toHaveBeenCalledWith(
       'A exportação de PDF ainda não está disponível. Tente novamente em instantes.',
     );
     console.warn.mockRestore();

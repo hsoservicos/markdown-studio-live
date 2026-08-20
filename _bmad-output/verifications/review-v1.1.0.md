@@ -15,7 +15,7 @@ tool opencode. Método: revisão adversarial em camadas paralelas
 | M2 | Média | `src/main.js:64-89` | `convertAndRender` síncrono a cada tecla + recria nós `.mermaid` (jank em docs longas) | Debounce ~60-100ms mantendo save em 300ms — **RESOLVIDO** |
 | M3 | Média | `index.html:13-35` vs `main.js:185-251` | Boot key do tema diverge da persistência (`theme_settings` vs `_theme`); anti-FOUC pode falhar em storage legado | Re-sincronizar boot key no init — **RESOLVIDO** |
 | M4 | Média | `src/storage.js:19-44` | `getItem` sem validação de tipo na fronteira; `last_state` corrompido restaura em silêncio | Validar schema e lançar `StorageError` — **RESOLVIDO** |
-| B1–B5 | Baixa | divider/files/sidebar | Acessibilidade do divisor, aria-label estático, perfil DOMPurify p/ recursos externos, input picker, duplo prompt em erro | Refinamentos |
+| B1–B5 | Baixa | divider/files/sidebar | Acessibilidade do divisor, aria-label estático, perfil DOMPurify p/ recursos externos, input picker, duplo prompt em erro | **RESOLVIDO** — ver seção abaixo |
 
 Positivos confirmados: nenhum XSS na cadeia `marked → DOMPurify`; mermaid em
 `securityLevel:'strict'`; botões semânticos; `aria-live`; i18n com fallback segura.
@@ -57,3 +57,25 @@ Commit subsequente, 2026-08-19, 115 testes verdes em 12 arquivos:
 Ver `features-proposals.md` no mesmo diretório (P0: configuração de página, quebras
 conscientes, estatísticas, TOC, KaTeX — todas usam o que já existe no repo; v2: PDF
 vetorial, múltiplos documentos, snapshots locais).
+
+## Correções aplicadas (B1–B5)
+
+Bloco de refinamentos baixa-severidade, 2026-08-20, 187 testes verdes:
+
+- **B1 — divisor acessível por teclado** (`src/ui/divider.js`): `tabindex`, setas
+  ±2%, Home/End nos limites, `aria-valuenow` (0–100) e `aria-orientation`
+  sincronizado no resize (vertical/horizontal conforme `isStacked()`). Testes em
+  `divider.test.js` (12 total, 5 novos).
+- **B2 — aria-label estático** (`index.html`, `src/i18n`): toggles da sidebar e
+  divisor com fallback `aria-label` no HTML + `data-i18n-aria-label`
+  (`sidebarOpen`/`dividerLabel`, pt/en).
+- **B3 — perfil DOMPurify** (`src/render/convert.js`): `ALLOWED_URI_REGEXP` +
+  hook `afterSanitizeAttributes` (links http(s) ganham `target="_blank"` +
+  `rel="noopener noreferrer"`). Testes em `convert.test.js` (21 total, 4 novos).
+- **B4 — input picker** (`src/ui/sidebar.js`): `fileInputPicker` remove o input
+  só após `change`/`cancel` (remoção imediata pós-`click()` cancelava o diálogo
+  em alguns navegadores). Teste de cancel/cleanup em `sidebar.test.js`.
+- **B5 — prompt único em erro** (`src/ui/exportPdf.js`, `sidebar.js`):
+  `pdfUnavailable` sai do `window.alert` para o canal de status `aria-live`;
+  `AbortError` no openFileDialog segue silencioso. Testes atualizados/novos em
+  `exportPdf.test.js` e `sidebar.test.js` (24 total).

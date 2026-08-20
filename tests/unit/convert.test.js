@@ -111,4 +111,26 @@ describe('convert (pipeline marked → DOMPurify)', () => {
     expect(html).toContain('<code>');
     expect(html).not.toContain('katex');
   });
+
+  it('link externo abre em nova aba com rel=noopener (B3)', () => {
+    const html = convert('[site](https://example.com/)');
+    expect(html).toContain('href="https://example.com/"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it('link relativo e mailto preservam href sem target (B3)', () => {
+    const relative = convert('[img](/image/Markdown-mark.svg)');
+    expect(relative).toContain('href="/image/Markdown-mark.svg"');
+    expect(relative).not.toContain('target=');
+
+    const mailto = convert('[contato](mailto:a@b.c)');
+    expect(mailto).toContain('href="mailto:a@b.c"');
+    expect(mailto).not.toContain('target=');
+  });
+
+  it('schemes não permitidos perdem o href (B3)', () => {
+    expect(convert('[x](tel:5511999)')).not.toContain('href=');
+    expect(convert('[x](javascript:alert(1))')).not.toContain('href=');
+  });
 });

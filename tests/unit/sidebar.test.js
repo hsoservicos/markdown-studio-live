@@ -261,6 +261,15 @@ describe('sidebar helpers', () => {
       expect(onError).toHaveBeenCalled();
     });
 
+    it('cancelamento do usuário (AbortError) não vira erro (B5)', async () => {
+      globalThis.window = {
+        showOpenFilePicker: vi.fn().mockRejectedValue({ name: 'AbortError' }),
+      };
+      const onError = vi.fn();
+      await openFileDialog({ openPicker: () => true }, { onError });
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     it('cai para input de arquivo legado quando não há picker (Safari/Firefox)', async () => {
       const file = { name: 'a.md', text: async () => '# texto' };
       const onContent = vi.fn();
@@ -295,6 +304,34 @@ describe('sidebar helpers', () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(onContent).toHaveBeenCalledWith('# texto');
       expect(onStatus).toHaveBeenCalledWith(t('filePickerFallback'));
+      globalThis.document = originalDocument;
+    });
+
+    it('mantém o input no DOM após click e remove só no cancel (B4)', async () => {
+      const originalDocument = globalThis.document;
+      let cancelHandler;
+      const el = {
+        type: '',
+        accept: '',
+        files: [],
+        style: {},
+        addEventListener: vi.fn((type, fn) => {
+          if (type === 'cancel') {
+            cancelHandler = fn;
+          }
+        }),
+        click: vi.fn(),
+        remove: vi.fn(),
+      };
+      globalThis.document = {
+        createElement: () => el,
+        body: { appendChild: vi.fn() },
+      };
+      await openFileDialog({ openPicker: () => false }, {});
+      expect(el.click).toHaveBeenCalled();
+      expect(el.remove).not.toHaveBeenCalled();
+      cancelHandler?.();
+      expect(el.remove).toHaveBeenCalledTimes(1);
       globalThis.document = originalDocument;
     });
   });

@@ -91,15 +91,23 @@ function fileInputPicker(accept, onChange) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = accept;
+  if (input.style) {
+    input.style.display = 'none';
+  }
+  // B4: remove o input somente após a seleção (change) ou cancelamento
+  // (cancel) — remover logo após click() faz alguns navegadores fecharem o
+  // diálogo de arquivo antes da escolha.
+  const cleanup = () => input.remove();
   input.addEventListener('change', () => {
+    cleanup();
     const file = input.files && input.files[0];
     if (file) {
       onChange(file);
     }
   });
+  input.addEventListener('cancel', cleanup);
   document.body.appendChild(input);
   input.click();
-  input.remove();
 }
 
 export function openFileDialog(opts, { onContent, onError, onStatus } = {}) {
@@ -126,7 +134,14 @@ export function openFileDialog(opts, { onContent, onError, onStatus } = {}) {
           }
         }
       })
-      .catch(onError);
+      .catch((error) => {
+        // B5: cancelamento do usuário (AbortError) não é erro — segue silencioso
+        // em vez de reportar "não foi possível abrir o arquivo".
+        if (error && error.name === 'AbortError') {
+          return;
+        }
+        onError?.(error);
+      });
   }
 
   if (onStatus) {

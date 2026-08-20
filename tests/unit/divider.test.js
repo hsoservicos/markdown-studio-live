@@ -126,4 +126,71 @@ describe('setupDivider', () => {
     expect(left).toBeCloseTo(375.95, 1);
     expect(right).toBeCloseTo(614.05, 1);
   });
+
+  describe('B1 — acessibilidade por teclado', () => {
+    const keydown = (key) =>
+      new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+
+    it('setas ajustam em passos de 2% e atualizam aria-valuenow', () => {
+      const { leftPane, divider } = buildLayout({ width: 800, dividerSize: 10 });
+      setupDivider();
+
+      const event = keydown('ArrowRight');
+      divider.dispatchEvent(event);
+
+      // 0.5 + 0.02 = 0.52 de 790px disponíveis = 410.8px
+      expect(parseFloat(leftPane.style.width)).toBeCloseTo(410.8, 1);
+      expect(divider.getAttribute('aria-valuenow')).toBe('52');
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('ArrowLeft diminui e Home/End vão aos limites (clamp 100px)', () => {
+      const { leftPane, divider } = buildLayout({ width: 800, dividerSize: 10 });
+      setupDivider();
+
+      divider.dispatchEvent(keydown('ArrowLeft'));
+      expect(divider.getAttribute('aria-valuenow')).toBe('48');
+
+      divider.dispatchEvent(keydown('Home'));
+      expect(leftPane.style.width).toBe('100px'); // mínimo
+      expect(divider.getAttribute('aria-valuenow')).toBe('13');
+
+      divider.dispatchEvent(keydown('End'));
+      expect(leftPane.style.width).toBe('700px'); // máximo (800-100)
+      expect(divider.getAttribute('aria-valuenow')).toBe('89');
+    });
+
+    it('teclas sem ação não alteram nada', () => {
+      const { leftPane, divider } = buildLayout({ width: 800, dividerSize: 10 });
+      setupDivider();
+
+      const event = keydown('Enter');
+      divider.dispatchEvent(event);
+
+      expect(leftPane.style.width).toBe('');
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('aria-orientation acompanha o layout (vertical/horizontal)', () => {
+      const { divider } = buildLayout({ width: 800, stacked: false });
+      setupDivider();
+      expect(divider.getAttribute('aria-orientation')).toBe('vertical');
+
+      document.body.innerHTML = '';
+      const stacked = buildLayout({ height: 600, stacked: true });
+      setupDivider();
+      expect(stacked.divider.getAttribute('aria-orientation')).toBe('horizontal');
+    });
+
+    it('teclado também funciona empilhado (altura)', () => {
+      const { leftPane, divider } = buildLayout({ height: 600, dividerSize: 10, stacked: true });
+      setupDivider();
+
+      divider.dispatchEvent(keydown('ArrowDown'));
+
+      // 0.52 de 590px disponíveis = 306.8px
+      expect(parseFloat(leftPane.style.height)).toBeCloseTo(306.8, 1);
+      expect(divider.getAttribute('aria-valuenow')).toBe('52');
+    });
+  });
 });

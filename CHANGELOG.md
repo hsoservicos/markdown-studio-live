@@ -21,6 +21,11 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **Jank de digitação**: conversão do preview agora é debounced (~80ms) no `onDidChangeModelContent` (`scheduleConvertAndRender`), reduzindo re-render por tecla em documentos longos.
 - **Boot key de tema divergente** (`src/main.js`): `initThemeToggle` re-sincroniza `com.markdownstudio_theme` a partir da fonte de verdade (persistência), eliminando o double-flip de tema no next load em storage legado com boot key ausente/incoerente.
 - **Leitura tipada na fronteira do storage** (`src/storage.js`): `getItem(namespace, key, { type })` valida o tipo do valor ao ler (boolean com mapeamento de legado `true/false/1/0`, string, number); fragmentos corrompidos lançam `StorageError` em vez de restaurar silenciosamente. O boot usa `safeGet` que degrada para o padrão (`null`) sem crash.
+- **Divisor acessível por teclado** (B1): `#split-divider` ganha foco (`tabindex`), setas ajustam ±2%, Home/End vão aos limites, com `aria-valuenow` (0–100) e `aria-orientation` sincronizado com o modo empilhado/lado a lado.
+- **Nomes acessíveis estáticos** (B2): toggles da sidebar (header + painel) e o divisor têm `aria-label` de fallback no HTML e localização via `data-i18n-aria-label` (`sidebarOpen`/`dividerLabel`).
+- **Perfil DOMPurify para recursos externos** (B3): `ALLOWED_URI_REGEXP` restringe schemes de URL e hook `afterSanitizeAttributes` aplica `target="_blank"` + `rel="noopener noreferrer"` em links `http(s)` do preview (anti-tabnabbing); `mailto:` e relativos preservados, `tel:`/`javascript:` perdem o href.
+- **Seletor de arquivo legado estável** (B4): `fileInputPicker` só remove o `<input type=file>` do DOM após `change`/`cancel` — remover logo após `click()` cancelava o diálogo em alguns navegadores.
+- **Erros sem prompt duplo** (B5): indisponibilidade do PDF sai do `window.alert` bloqueante para o canal único de status (`aria-live`); cancelamento do usuário (`AbortError`) no _Abrir arquivo_ não reporta mais "não foi possível abrir o arquivo".
 
 ### Changed
 
