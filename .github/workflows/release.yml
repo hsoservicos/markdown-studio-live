@@ -86,7 +86,7 @@ jobs:
             VITE_BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
