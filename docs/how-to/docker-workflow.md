@@ -41,7 +41,7 @@ FROM nginx:alpine AS runtime
     CMD ["nginx", "-g", "daemon off;"]
 ```
 
-Imagem final carrega **apenas** nginx + `dist/` (103 MB total confirmado em 18/08/2026); o build inteiro fica no
+Imagem final carrega **apenas** nginx + `dist/` (116 MB total confirmado em 04/09/2026); o build inteiro fica no
 stage `builder` e é descartado.
 
 ### `nginx.conf` — decisões
@@ -72,6 +72,17 @@ docker compose build --no-cache   # --no-cache só se o npm ci agir estranho
 docker compose up -d
 ```
 
+> **Conflito de nome de container órfão**: se um container antigo chamado `markdown-studio`
+> ficou órfão (não pertence ao projeto compose — ex.: criado com `docker run` ou projeto
+> renomeado), `docker compose up` falha com `Conflict: container name already in use` mesmo
+> com `docker compose ps` vazio. Resolver listando e removendo o órfão antes de subir:
+>
+> ```bash
+> docker ps -a --filter "name=markdown-studio"
+> docker rm <CONTAINER_ID>     # se confirmado órfão/stale (nada valioso nele)
+> docker compose up -d
+> ```
+
 ## Auditoria da 1ª execução (18/08/2026)
 
 Registro da primeira validação local, via Docker 29.7.2 / Compose v5.4.0:
@@ -90,6 +101,28 @@ Observações:
 - MySQL/redes de exemplo não envolvidas; nenhuma porta além da 5001 exposta.
 - Se a porta 5001 estiver em uso (ex.: `npm run serve-dist`), parar o servidor local antes:
   `Get-NetTCPConnection -LocalPort 5001 | % { Stop-Process $_.OwningProcess -Force }`.
+
+## Auditoria da 2ª execução (04/09/2026)
+
+Revalidação após a Story 2.1 (camada de documentos), Docker 29.7.2:
+
+| Etapa                        | Resultado                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| `docker compose build`       | ✅ imagem `markdown-studio:local` reconstruída (116 MB; `npm ci` + `vite build` 39s) |
+| `docker compose up -d`       | ✅ container `markdown-studio` Up; porta `0.0.0.0:5001→80/tcp`                       |
+| `GET http://localhost:5001`  | ✅ HTTP 200 (index.html do build atual — `index-DAW28NGy.js`)                        |
+| SPA fallback (rota profunda) | ✅ `/some/deep/route` → 200 (queda para `index.html`)                                |
+| Asset `/assets/*.css`        | ✅ HTTP 200 + `Cache-Control: max-age=31536000, public, immutable`                   |
+| `/.env`                      | ✅ HTTP 403 (negado no nginx)                                                        |
+| HEALTHCHECK                  | ✅ `healthy` (wget busybox; ~40s)                                                    |
+| Navegador/Editor             | ✅ bundle atual presente (`editor-BSnEfEh9.js` lazy chunk)                           |
+
+Observações:
+
+- Imagem cresceu de 103 MB (18/08) para 116 MB pelo acúmulo de deps/features; ainda é
+  só nginx + `dist/`, sem runtime de build.
+- Encontrado e removido um container `markdown-studio` **órfão** (Exited 255, imagem
+  antiga `ced25ee51`) que bloqueava o nome — ver nota de rebuild acima.
 
 ## Limites e convenções
 

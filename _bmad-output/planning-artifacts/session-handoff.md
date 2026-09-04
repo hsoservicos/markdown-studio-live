@@ -24,8 +24,13 @@
   `quotaExceeded`/`storageDisabled`, `tests/unit/documents.test.js` (17 casos) + casos
   `type:'object'`/`safeGet` em `storage.test.js`; quality gate verde (234 testes). Review
   (blind/edge/verification-gap) aplicou 2 patches: erro tipado `.code` consistente em
-  `saveIndex`/`atomicWrite` (incl. falha na 1ª chave e rollback best-effort). Spec 2.1 →
+  `saveIndex`/`atomicWrite` (incl. falha na 1ª chave e rollback best-effort).   Spec 2.1 →
   `status: done`; CHANGELOG e sprint-status atualizados.
+- **Verificação de release Docker (04/09/2026)**: imagem `markdown-studio:local`
+  reconstruída do código atual (116 MB), container `markdown-studio` **healthy** na porta
+  5001; HTTP 200 + SPA fallback + cache imutável de assets + `/.env` 403 confirmados.
+  Removido container órfão que bloqueava o nome; auditoria nova registrada em
+  `docs/how-to/docker-workflow.md`.
 
 ## Ações pendentes (próxima sessão)
 
