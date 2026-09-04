@@ -61,7 +61,7 @@ jobs:
 
       - name: Log in to GHCR (main branch only)
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
