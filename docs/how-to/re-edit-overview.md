@@ -33,8 +33,8 @@ Guia operacional para qualquer mudança no projeto — do planejamento ao merge 
 
 ## Como adicionar uma nova função pura (exemplo rápido)
 
-1. Add a função em `src/render/` (ex.: `srRenderMermaid`).
-2. Escreva o teste em `tests/unit/render.test.js` cobrindo: normal, erro, edge case.
+1. Add a função em `src/render/` (ex.: `src/render/toc.js`).
+2. Escreva o teste em `tests/unit/<modulo>.test.js` (ex.: `toc.test.js`, `convert.test.js`, `mermaid.test.js`) cobrindo: normal, erro, edge case.
 3. Registre a string de UI (se houver) em `src/i18n/index.js`.
 4. Expõe o comportamento no `main.js` apenas como _glue_.
 5. Rode `npm test` e `npm run lint`.
@@ -86,10 +86,18 @@ Guia operacional para qualquer mudança no projeto — do planejamento ao merge 
 
 ## Como publicar um release
 
-1. Garanta `npm run quality` verde em HEAD.
-2. Atualize `CHANGELOG.md`: promova `## [Unreleased]` → `## [X.Y.Z] — <AAAA-MM-DD>` e crie um novo `[Unreleased]` vazio.
-3. Rode a tag: `npm run release` (padrão: patch) ou `npm run release:minor|major`.
-4. Se quiser deploy: `firebase login` e `firebase deploy` (config em `firebase.json`, hosta `dist/`).
+1. Garanta `npm run quality` verde em HEAD (o husky `pre-push` roda o gate automaticamente).
+2. Garanta que `CHANGELOG.md` tenha entradas sob `## [Unreleased]` (Added/Changed/Deprecated/Removed/Fixed/Security).
+3. Rode a tag: `npm run release` (padrão: patch) ou `npm run release:minor|major` — o script promove `[Unreleased]` → `[X.Y.Z] — <data>`, bumpa o `package.json`, commita (`chore: release vX.Y.Z`) e cria a tag.
+4. Reabra uma seção `## [Unreleased]` vazia no topo do `CHANGELOG.md` (commit próprio) e publique no GitHub: `git push origin master --tags` (branch padrão é `master`).
+5. Confira o workflow `Quality` no GitHub Actions (dispara em push/PR para `master`).
+6. Se quiser deploy: `firebase login` e `firebase deploy` (config em `firebase.json`, hosta `dist/`).
+
+## Husky (hooks locais)
+
+- `pre-commit` executa `lint-staged` (lint:fix + format + lint:md nos arquivos staged).
+- `pre-push` executa `npm run quality` — o push falha se o gate não passar.
+- Os hooks reais ficam em `.husky/pre-commit` e `.husky/pre-push` (versionados); o conteúdo de `.husky/_` é gerado pelo husky e não deve ser commitado.
 
 ## Limites do escopo v1
 
@@ -102,6 +110,7 @@ Guia operacional para qualquer mudança no projeto — do planejamento ao merge 
 - [ ] `npm test` passa
 - [ ] `npm run lint` passa (sem warnings)
 - [ ] `npm run lint:md` passa
-- [ ] `npm run format:check` passa
+- [ ] `npm run format:check` passa (fim de linha LF — `.gitattributes`/`.editorconfig`/`endOfLine:'lf'`)
 - [ ] CHANGELOG atualizado sob `[Unreleased]`
 - [ ] Commit em Conventional Commits
+- [ ] Push via `git push origin master` (hook `pre-push` roda o quality gate) — para releases, `--tags`

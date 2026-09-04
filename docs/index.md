@@ -9,6 +9,7 @@ Documentação em **Diataxis** (tutorial → how-to → explanation → referenc
 | **[Explanation](explanation/architecture.md)** | Entender o sistema: o fluxo de renderização, contratos e decisões         | `explanation/architecture.md`  |
 | **[Reference](reference/api-convert.md)**      | Consulta precisa de APIs, chaves de storage e scripts                     | `reference/api-convert.md`     |
 | **Snapshot v1.1.0**                            | Registro compacto do estado estável desta release                         | `reference/snapshot-v1.1.0.md` |
+| **Snapshot v1.2.0**                            | Registro compacto do estado estável desta release                         | `reference/snapshot-v1.2.0.md` |
 
 ## Convenções de escrita
 
