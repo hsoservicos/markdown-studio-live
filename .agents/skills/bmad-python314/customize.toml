@@ -1,0 +1,19 @@
+# Python 3.14 Skill Configuration
+
+[skill]
+name = "bmad-python314"
+version = "1.0.0"
+description = "Python 3.14+ specialization: free-threading, subinterpreters, t-strings, deferred annotations, compression.zstd"
+
+[min_version]
+python = "3.14"
+
+[features]
+free_threading = true
+subinterpreters = true
+tstrings = true
+deferred_annotations = true
+compression_zstd = true
+except_without_parens = true
+pep768_debugger = true
+uuid_v7 = true

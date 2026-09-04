@@ -44,14 +44,22 @@ describe('setupPrintSettingsDialog', () => {
   let container;
 
   beforeEach(() => {
-    globalThis.localStorage = fakeStorage();
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: fakeStorage(),
+      writable: true,
+      configurable: true,
+    });
     setLocale('pt-BR');
     container = buildDialog();
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    delete globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
     vi.restoreAllMocks();
   });
 

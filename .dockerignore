@@ -2,20 +2,44 @@
 node_modules/
 dist/
 coverage/
+.nyc_output/
 
 # Git / versionamento
 .git/
 .gitignore
+.gitattributes
+
+# CI/CD
+.github/
 
 # Ferramentas de IA / design system
 .opencode/
 .impeccable/
+.claude/
+.agents/
+_bmad/
+_bmad-output/
+
+# Docs (não necessárias na imagem)
+docs/
+specs/
+*.md
+!README.md
+
+# Ferramentas de dev
+scripts/
+.husky/
+.vscode/
+.idea/
+*.suo
+*.user
 
 # Logs e ambiente local
 *.log
 .env
 .env.*
 dev-server.log
+npm-debug.log*
 
 # Arquivos locais efêmeros
 *.local
@@ -23,6 +47,20 @@ dev-server.log
 # SO / IDE
 Thumbs.db
 .DS_Store
-.vscode/
-.idea/
-*.suo
+desktop.ini
+
+# Docker (evitar loop)
+Dockerfile
+Dockerfile.dev
+compose.yaml
+compose.dev.yaml
+.dockerignore
+
+# Testes
+tests/
+vitest.config.js
+eslint.config.mjs
+prettier.config.mjs
+.markdownlint-cli2.yaml
+.editorconfig
+.prettierignore

@@ -12,6 +12,16 @@ import {
 
 export const DEFAULT_PDF_FILENAME = 'markdown-preview.pdf';
 
+export const PDF_VECTOR_FLAG = 'com.markdownstudio.pdf.vector';
+
+function isVectorPdfEnabled(storage = globalThis.localStorage) {
+  try {
+    return storage.getItem(PDF_VECTOR_FLAG) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 const PAPER_WIDTH_MM = { a4: 210, letter: 216 };
 
 export function buildExportOptions(
@@ -62,7 +72,7 @@ export async function loadHtml2Pdf() {
   return html2pdf;
 }
 
-export async function exportPreviewToPdf(
+export async function exportRasterFallback(
   { onStatus } = {},
   printSettings = DEFAULT_PRINT_SETTINGS,
 ) {
@@ -76,26 +86,20 @@ export async function exportPreviewToPdf(
     html2pdf = await loadHtml2Pdf();
   } catch (error) {
     console.warn(error);
-    // B5: erro reportado no canal único de status (aria-live), sem dialog
-    // nativo bloqueante.
     onStatus?.(t('pdfUnavailable'));
     return;
   }
 
   const restoreDarkMermaid = getMermaidTheme() === 'dark';
 
-  // M1: enquanto o html2pdf clona o DOM (demorado), nenhum agendamento de
-  // re-render do mermaid (ex.: troca de tema no debounce) pode mutar o DOM.
   pauseMermaidScheduling();
 
   try {
-    // M1: renderiza mermaid no tema claro antes de clonar o DOM.
     await renderMermaidDiagrams('default');
     const worker = html2pdf()
       .set(buildExportOptions(DEFAULT_PDF_FILENAME, printSettings))
       .from(previewElement)
       .toPdf();
-    // P0-1: cabeçalho/rodapé configuráveis via hook toPdf().get('pdf').
     stampPageHeaderFooter(worker.get('pdf'), printSettings);
     await worker.save();
     onStatus?.(t('pdfExported'));
@@ -108,4 +112,21 @@ export async function exportPreviewToPdf(
       renderMermaidDiagrams();
     }
   }
+}
+
+export async function exportPreviewToPdf(
+  { onStatus, getMarkdown } = {},
+  printSettings = DEFAULT_PRINT_SETTINGS,
+) {
+  if (isVectorPdfEnabled() && getMarkdown) {
+    try {
+      const { exportPdfVector } = await import('./exportPdfVector.js');
+      return await exportPdfVector({ onStatus, getMarkdown }, printSettings);
+    } catch (error) {
+      console.warn('Vector PDF failed, falling back to raster:', error);
+      return exportRasterFallback({ onStatus }, printSettings);
+    }
+  }
+
+  return exportRasterFallback({ onStatus }, printSettings);
 }

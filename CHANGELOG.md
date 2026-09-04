@@ -9,35 +9,53 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 - **Camada de storage de múltiplos documentos (Story 2.1)**: `src/documents.js` é um índice
   versionado puro (`{ version: 1, activeId, documents[] }` em `com.markdownstudio.documents`)
-  - conteúdo por `com.markdownstudio.documents.content.<id>`, com ids
-    `crypto.randomUUID()`/fallback, gravação atômica (índice+conteúdo), dedupe de ids no índice
-    corrompido, reparo de `activeId` órfão e erros tipados (`quota`/`security`) via
-    `err.code`. `src/storage.js` exporta `safeGet` (leitura que degrada a `null`) e valida
-    `type: 'object'`; i18n ganha `quotaExceeded`/`storageDisabled` (pt-BR + en). Sem UI (Story 2.2).
+  com conteúdo por `com.markdownstudio.documents.content.<id>`, ids `crypto.randomUUID()`/
+  fallback, gravação atômica, dedupe, reparo de `activeId` órfão e erros tipados.
+- **ADR: Rota de PDF vetorial (Story 1.1 Spike)**: pdfmake escolhido (layout declarativo,
+  page breaks automáticos, tabelas built-in, ~1 MB via dynamic import).
+- **Camada de layout vetorial (Story 1.2)**: conversor markdown→pdfmake, adapter lazy-load,
+  entry point `exportPdfVector.js`, feature-flag `com.markdownstudio.pdf.vector`.
+- **Diagramas e matemática no PDF vetorial (Story 1.3)**: helpers SVG, KaTeX html→png via
+  html2canvas, mermaid SVG capture, `resolveKatexPlaceholders`.
+- **Fallback e paridade de contrato (Story 1.4)**: `exportRasterFallback` exportado, fallback
+  transparente vector→raster.
+- **Gerenciador de documentos UI (Story 2.2)**: `setupDocumentManager` com criar/renomear/
+  alternar/fechar, validação de nomes, `aria-current`, operável por teclado.
+- **Ações no documento ativo (Story 2.3)**: snapshots com `docId`, handlers usam doc ativo,
+  `exportHtml` usa nome do doc ativo para filename.
+- **Boot com restauração (Story 2.4)**: boot restaura docs do índice, migra `last_state`
+  legado para "Documento restaurado".
+- **Dependabot**: `.github/dependabot.yml` para atualizações semanais automáticas.
+- **Release workflow**: `.github/workflows/release.yml` — dispatch manual, bump, build,
+  Docker push GHCR, GitHub Release com release notes automáticas.
+- **Docker scripts**: `scripts/docker.sh`, `docker-audit.sh`, `docker-clean.sh` para
+  gerenciamento completo de containers.
+- **Testes scrollSync**: 2 novos testes para `scrollPreviewTo` (287 total).
+- **Quota warning**: `checkStorageQuota()` + i18n `storageQuotaWarning` para aviso de
+  armazenamento quase cheio.
 
 ### Changed
 
-- Plano P2 endurecido por revisão adversarial: `specs/spec-v2.md` e
-  `_bmad-output/planning-artifacts/epics-p2.md` corrigidos (21 achados) — ACs canônicas na
-  spec com referência por id nas stories (sem duplicação), AC-P2-9-1 cobre código/citações/
-  links como texto vetorial, AC-P2-9-2 define KaTeX html→SVG na rota vetorial, AC-P2-9-3
-  ganha feature-flag `com.markdownstudio.pdf.vector` com critérios de estabilidade,
-  AC-P2-10-1 define schema versionado do índice + ids `crypto.randomUUID()` + tratamento de
-  quota, AC-P2-10-2 valida nomes (trim/único/sufixo numérico) e promove o próximo documento
-  ao fechar o ativo, AC-P2-10-3 sanitiza nomes de arquivo e preserva snapshots legados,
-  AC-P2-10-4 cobre id órfão e conteúdo individual corrompido; stories unificadas em pt-BR.
-- Plano P2 endurecido por **re-revisão de precisão** (~19 achados): `specs/spec-v2.md` e
-  `_bmad-output/planning-artifacts/epics-p2.md` — AC-P2-10-1 fixa chaves
-  `com.markdownstudio.documents` (índice) + `com.markdownstudio.documents.content.<id>`
-  (conteúdo), exige `safeGet` com `type: 'object'` para o índice, id com fallback explícito,
-  gravação atômica índice+conteúdo e captura de `SecurityError` (storage desabilitado);
-  AC-P2-10-2 fixa limite de 128 caracteres para título e aplica sufixo numérico também ao
-  renomear; AC-P2-10-3 atribui snapshots/backup legados ao documento ativo e cobre
-  snapshots órfãos ao deletar; AC-P2-10-4 define migração de `last_state` legado não-template
-  para documento e dedupe de ids duplicados no índice corrompido; AC-P2-9-2 troca
-  "reaproveitar HTML" por re-render KaTeX `output:'svg'`; AC-P2-9-3 detalha o flip da flag
-  `pdf.vector` (default off) e remove critério e2e inverificável; Story 1.2 registra o
-  marcador `<!-- page-break -->` na rota vetorial; spec v2 promovida para status `approved`.
+- `marked` 15.0.12 → **18.0.11** (breaking: trim trailing blank lines, TS v6).
+- `katex` 0.16.47 → **0.18.5**.
+- `monaco-editor` 0.52.2 → **0.53.0** (dompurify vulnerability fix).
+- `vite` 6.4 → **8.2** (Rolldown bundler; `manualChunks` convertido de objeto para função).
+- `vitest` 3.2 → **5.0** + `@vitest/coverage-v8` 5.0.
+- `eslint` 9.33 → **10.10** + `@eslint/js` 10.0.
+- `jsdom` 26.1 → **30.0** (testes adaptados: `globalThis.localStorage`/`document` read-only).
+- `lint-staged` 16.1 → **17.4**.
+- `dompurify` 3.4.13 → **3.4.14** (patch).
+- `mermaid` 11.16 → **11.17** (minor).
+- CI quality.yml: usa `test:coverage` com thresholds (65/60/60/65).
+- `chunkSizeWarningLimit` ajustado para 4000 (chunks lazy-loaded).
+- CSP documentado: `unsafe-eval` (Monaco) e `unsafe-inline` (KaTeX/Mermaid).
+- Docker: multi-stage com 3 stages, USER app non-root, read_only, security_opt.
+- `.prettierignore` e `.markdownlint-cli2.yaml` expandidos para ignorar `.claude/`.
+
+### Security
+
+- Vulnerabilidade `qs` 2.2.5–6.15.3 (moderate: DoS) resolvida.
+- Vulnerabilidade `dompurify` em monaco-editor resolvida (upgrade para 0.53.0).
 
 ## [1.2.0] — 2026-09-04
 

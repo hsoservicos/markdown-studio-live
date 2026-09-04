@@ -1,0 +1,26 @@
+# customize.toml — PostgreSQL 18 Skill
+
+[skill]
+name = "bmad-postgres18"
+version = "1.0.0"
+description = "PostgreSQL 18 Architect — AIO, Skip Scan, UUIDv7, pgvector, RETURNING OLD/NEW"
+author = "BMAD Method"
+
+[skill.license]
+type = "MIT"
+year = 2026
+
+[skill.entry]
+command = "bmad-postgres18"
+render_script = "_bmad/scripts/render_skill.py"
+
+[skill.dependencies]
+python = ">=3.10"
+uv = ">=0.12"
+node = ">=20.12"
+
+[skill.constraints]
+postgres_version = "18"
+min_postgres_version = "18"
+max_postgres_version = "18"
+extensions = ["uuid-ossp", "vector", "pgcrypto"]

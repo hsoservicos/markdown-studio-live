@@ -13,6 +13,25 @@ export function renderBlockMath(source) {
   })}</span>`;
 }
 
+export async function katexHtmlToDataUrl(html) {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  try {
+    const container = document.createElement('div');
+    container.style.cssText =
+      'position:absolute;left:-9999px;top:-9999px;font-size:16px;line-height:1.3;white-space:nowrap;';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    const { default: html2canvas } = await import('html2canvas');
+    const canvas = await html2canvas(container, { scale: 2, backgroundColor: null });
+    document.body.removeChild(container);
+    return canvas.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+}
+
 // $$...$$ (bloco, em linha própria) e $...$ (inline). Os tokens passam pela
 // cadeia normal do marked e o HTML gerado pelo KaTeX é sanitizado pelo
 // DOMPurify junto com o resto do documento.

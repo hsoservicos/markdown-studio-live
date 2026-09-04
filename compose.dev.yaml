@@ -1,0 +1,26 @@
+# Docker Compose para desenvolvimento local
+# Uso: docker compose -f compose.dev.yaml up
+#
+# Servidor Vite com hot-reload na porta 5173.
+# Útil para testar o app em container sem rebuild manual.
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: markdown-studio-dev
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./index.html:/app/index.html:ro
+      - ./vite.config.js:/app/vite.config.js:ro
+    environment:
+      - NODE_ENV=development
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:5173/']
+      interval: 10s
+      timeout: 3s
+      retries: 3

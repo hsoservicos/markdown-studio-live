@@ -128,8 +128,118 @@ painel preview, por proporção — robusto a diferenças de altura.
 
 ## Limitações conhecidas (fora do escopo v1)
 
-- Export PDF usa html2pdf (html2canvas) — pode falhar em CSS muito moderno; conteúdo PDF é
-  rasterizado (não pesquisável). PDF vetorial pesquisável é candidato v2 (P2-9).
 - Monaco sem web workers (proxy no-op) — suporte de linguagem reduzido, aceitável para Markdown.
 - Chunks grandes no build (Monaco `editor`, `html2pdf`, famílias mermaid) — code-split já em
   vigor no export/editor; aviso de tamanho é conhecido (ver `docs/reference/snapshot-v1.1.0.md`).
+
+---
+
+## ADR: Rota de PDF vetorial pesquisável (P2-9)
+
+**Status:** approved (Spike Story 1.1 — 2026-09-04)
+
+**Contexto:** O export PDF atual (`html2pdf.js`) usa html2canvas que rasteriza tudo — texto vira
+imagem, impossibilitando Ctrl+F, seleção e acessibilidade. O projeto precisa de PDF com camada
+de texto real, 100% client-side, offline, sem CDN.
+
+### Rotas avaliadas
+
+| Rota              | Lib (versão)  | Bundle (min) | Texto Vetorial  | Tabelas            | Page Break Auto | Migração | Bundle Dinâmico |
+| ----------------- | ------------- | ------------ | --------------- | ------------------ | --------------- | -------- | --------------- |
+| **pdfmake**       | 0.3.11        | ~1 MB        | ✅ nativo       | ✅ built-in        | ✅ automático   | Média    | ✅ `import()`   |
+| jsPDF + autotable | 4.2.1 + 5.0.8 | ~190 KB      | ✅ manual (X/Y) | ✅ plugin (~40 KB) | ❌ manual       | Alta     | ✅ `import()`   |
+| pdf-lib           | 1.17.1        | ~430 KB      | ✅ manual       | ❌ manual          | ❌ manual       | Alta     | ✅ `import()`   |
+
+### Análise por critério
+
+**Fidelidade do layout:**
+
+- pdfmake: layout declarativo (JSON docDefinition), fluxo automático de texto, headings com
+  estilos, listas indentadas, tabelas com colSpan/rowSpan. Fidelidade média-alta para
+  documentos estruturados.
+- jsPDF: posicionamento pixel-perfect mas manual. Cada elemento precisa de coordenadas X/Y.
+  Layout complexo exige cálculo extenso. Fidelidade alta para documentos fixos, baixa para
+  conteúdo dinâmico.
+- pdf-lib: similar ao jsPDF — low-level, sem engine de layout.
+
+**Suporte a conteúdo Markdown:**
+
+- pdfmake: tabelas built-in, listas automáticas, columns, page breaks. Markdown → docDefinition
+  é uma transformação direta.
+- jsPDF: precisa de jspdf-autotable para tabelas (dependência extra). Listas e blocos de código
+  precisam de posicionamento manual.
+- pdf-lib: sem suporte nativo a tabelas ou listas.
+
+**Mermaid e KaTeX:**
+
+- pdfmake: aceita imagens via `image` content type. SVG do mermaid pode ser convertido para
+  PNG (canvas → dataURL) e embutido. KaTeX pode ser re-renderizado com `output: 'svg'` e
+  embutido como imagem.
+- jsPDF: similar — imagens via `addImage`. SVG requer conversão prévia.
+- pdf-lib: similar.
+
+**Custo de migração:**
+
+- pdfmake: criar conversor Markdown → docDefinition (transformação de AST). Custo médio.
+  O conversor é reutilizável e testável isoladamente.
+- jsPDF: criar renderizador que percorre AST e posiciona cada elemento. Custo alto.
+  Posicionamento manual é frágil e difícil de manter.
+- pdf-lib: similar ao jsPDF.
+
+**Bundle size:**
+
+- pdfmake: ~1 MB com fontes (Roboto bundled como base64). Aceitável — o chunk atual
+  `html2pdf` já é 935 KB. Dynamic import mantém boot enxuto.
+- jsPDF: ~190 KB core + ~40 KB autotable = ~230 KB. Menor, mas custo de migração muito alto.
+- pdf-lib: ~430 KB. Intermediário.
+
+### Decisão
+
+**Roote escolhida: pdfmake** (dynamic import, chunk separado)
+
+Justificativa:
+
+1. Único com layout declarativo e page breaks automáticos — essencial para Markdown de
+   comprimento variável.
+2. Tabelas built-in sem plugin — o Markdown pode ter tabelas arbitrárias.
+3. Custo de migração menor: Markdown → docDefinition é uma transformação de AST direta.
+4. Bundle ~1 MB aceitável via dynamic import (atual html2pdf.js já é 935 KB).
+5. Texto é nativamente vetorial — sem camada de sobreposição.
+
+### Formato suportado por tipo de conteúdo
+
+| Tipo de conteúdo                    | Formato no PDF vetorial                      | Conversão                                              |
+| ----------------------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| Texto (headings, paragraphs, links) | Texto vetorial nativo pdfmake                | AST → docDefinition content[]                          |
+| Listas (ul/ol)                      | `ol`/`ul` content type pdfmake               | AST → list items                                       |
+| Tabelas                             | `table` content type pdfmake                 | AST → table body[]                                     |
+| Código (fenced/inline)              | Texto vetorial com fonte monospace           | AST → text com style                                   |
+| Blockquotes                         | Texto com indentação/border                  | AST → columns ou text com margin                       |
+| Mermaid                             | Imagem (SVG→PNG via canvas)                  | `mermaid.render()` → canvas → dataURL → pdfmake image  |
+| KaTeX inline/bloco                  | SVG embutido (re-render com `output: 'svg'`) | KaTeX `renderToString({output:'svg'})` → pdfmake image |
+| Page break (`<!-- page-break -->`)  | `pageBreak: 'before'` no próximo content     | AST page-break marker → pageBreak property             |
+
+### Feature-flag
+
+A rota vetorial é protegida pela feature-flag `com.markdownstudio.pdf.vector` (default `false`).
+Enquanto desabilitada, o fluxo atual (html2pdf.js) continua sendo usado. A flag é habilitada
+manualmente via localStorage quando o usuário quiser testar.
+
+### Critérios de estabilidade (para flip da flag)
+
+A flag será habilitada por padrão quando:
+
+1. CI verde por pelo menos 2 releases consecutivos.
+2. Fidelidade validada nos navegadores suportados (Chrome, Firefox, Safari).
+3. Testes unitários cobrem sucesso e erro (mock da lib, sem rede).
+
+### Bundle impact estimado
+
+```
+Atual:   html2pdf.js chunk → 935 KB (gzip: 265 KB)
+Novo:    pdfmake chunk      → ~1 MB  (gzip: ~300 KB estimado)
+Delta:   +~65 KB gzip (aceitável — dynamic import preserva boot)
+```
+
+O chunk pdfmake será carregado sob demanda (apenas no clique de "Exportar PDF"), mantendo o
+bundle inicial inalterado.

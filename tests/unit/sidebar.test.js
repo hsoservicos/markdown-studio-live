@@ -31,7 +31,11 @@ describe('sidebar helpers', () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    delete globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe('setupSidebar handlers', () => {
@@ -53,7 +57,11 @@ describe('sidebar helpers', () => {
     }
 
     beforeEach(() => {
-      globalThis.localStorage = fakeStorage();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: fakeStorage(),
+        writable: true,
+        configurable: true,
+      });
       container = buildContainer();
     });
 
@@ -136,14 +144,22 @@ describe('sidebar helpers', () => {
     }
 
     beforeEach(() => {
-      globalThis.localStorage = fakeStorage();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: fakeStorage(),
+        writable: true,
+        configurable: true,
+      });
       globalThis.matchMedia = () => ({ matches: false });
       container = buildContainer();
     });
 
     afterEach(() => {
       vi.restoreAllMocks();
-      delete globalThis.localStorage;
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
       delete globalThis.matchMedia;
     });
 
@@ -204,11 +220,19 @@ describe('sidebar helpers', () => {
 
     beforeEach(() => {
       realDocument = globalThis.document;
-      globalThis.document = { querySelector: () => null };
+      Object.defineProperty(globalThis, 'document', {
+        value: { querySelector: () => null },
+        writable: true,
+        configurable: true,
+      });
     });
 
     afterEach(() => {
-      globalThis.document = realDocument;
+      Object.defineProperty(globalThis, 'document', {
+        value: realDocument,
+        writable: true,
+        configurable: true,
+      });
     });
 
     it('renderiza manual via convert e injeta no alvo', async () => {
@@ -276,35 +300,43 @@ describe('sidebar helpers', () => {
       const onStatus = vi.fn();
       const originalDocument = globalThis.document;
       let changeHandler;
-      globalThis.document = {
-        createElement: (tag) => {
-          if (tag !== 'input') {
-            return {};
-          }
-          const el = {
-            type: '',
-            accept: '',
-            files: [],
-            addEventListener: vi.fn((type, fn) => {
-              if (type === 'change') {
-                changeHandler = fn;
-              }
-            }),
-            click: vi.fn(() => {
-              el.files = [file];
-              changeHandler?.();
-            }),
-            remove: vi.fn(),
-          };
-          return el;
+      Object.defineProperty(globalThis, 'document', {
+        value: {
+          createElement: (tag) => {
+            if (tag !== 'input') {
+              return {};
+            }
+            const el = {
+              type: '',
+              accept: '',
+              files: [],
+              addEventListener: vi.fn((type, fn) => {
+                if (type === 'change') {
+                  changeHandler = fn;
+                }
+              }),
+              click: vi.fn(() => {
+                el.files = [file];
+                changeHandler?.();
+              }),
+              remove: vi.fn(),
+            };
+            return el;
+          },
+          body: { appendChild: vi.fn() },
         },
-        body: { appendChild: vi.fn() },
-      };
+        writable: true,
+        configurable: true,
+      });
       await openFileDialog({ openPicker: () => false }, { onContent, onStatus });
       await new Promise((r) => setTimeout(r, 0));
       expect(onContent).toHaveBeenCalledWith('# texto');
       expect(onStatus).toHaveBeenCalledWith(t('filePickerFallback'));
-      globalThis.document = originalDocument;
+      Object.defineProperty(globalThis, 'document', {
+        value: originalDocument,
+        writable: true,
+        configurable: true,
+      });
     });
 
     it('mantém o input no DOM após click e remove só no cancel (B4)', async () => {
@@ -323,16 +355,24 @@ describe('sidebar helpers', () => {
         click: vi.fn(),
         remove: vi.fn(),
       };
-      globalThis.document = {
-        createElement: () => el,
-        body: { appendChild: vi.fn() },
-      };
+      Object.defineProperty(globalThis, 'document', {
+        value: {
+          createElement: () => el,
+          body: { appendChild: vi.fn() },
+        },
+        writable: true,
+        configurable: true,
+      });
       await openFileDialog({ openPicker: () => false }, {});
       expect(el.click).toHaveBeenCalled();
       expect(el.remove).not.toHaveBeenCalled();
       cancelHandler?.();
       expect(el.remove).toHaveBeenCalledTimes(1);
-      globalThis.document = originalDocument;
+      Object.defineProperty(globalThis, 'document', {
+        value: originalDocument,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 
@@ -368,25 +408,34 @@ describe('sidebar helpers', () => {
     it('cai para fallback de download quando sem suporte', async () => {
       const originalURL = globalThis.URL;
       const originalBlob = globalThis.Blob;
+      const originalDocument = globalThis.document;
       const revoke = vi.fn();
       globalThis.URL = {
         createObjectURL: () => 'blob:fake',
         revokeObjectURL: revoke,
       };
       globalThis.Blob = class {};
-      delete globalThis.document;
-      globalThis.document = {
-        createElement: () => {
-          const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() };
-          return anchor;
+      Object.defineProperty(globalThis, 'document', {
+        value: {
+          createElement: () => {
+            const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() };
+            return anchor;
+          },
+          body: { appendChild: vi.fn() },
         },
-        body: { appendChild: vi.fn() },
-      };
+        writable: true,
+        configurable: true,
+      });
       const onSaved = vi.fn();
       await saveFileDialog('# conteúdo', { openSavePicker: () => false }, { onSaved });
       expect(onSaved).toHaveBeenCalledWith('documento.md');
       globalThis.URL = originalURL;
       globalThis.Blob = originalBlob;
+      Object.defineProperty(globalThis, 'document', {
+        value: originalDocument,
+        writable: true,
+        configurable: true,
+      });
     });
 
     it('erro não-abortável do createWritable cai no fallback de download', async () => {
@@ -400,14 +449,17 @@ describe('sidebar helpers', () => {
       const originalDocument = globalThis.document;
       globalThis.URL = { createObjectURL: () => 'blob:fake', revokeObjectURL: vi.fn() };
       globalThis.Blob = class {};
-      delete globalThis.document;
-      globalThis.document = {
-        createElement: () => {
-          const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() };
-          return anchor;
+      Object.defineProperty(globalThis, 'document', {
+        value: {
+          createElement: () => {
+            const anchor = { href: '', download: '', click: vi.fn(), remove: vi.fn() };
+            return anchor;
+          },
+          body: { appendChild: vi.fn() },
         },
-        body: { appendChild: vi.fn() },
-      };
+        writable: true,
+        configurable: true,
+      });
       const onSaved = vi.fn();
       await saveFileDialog(
         '# conteúdo',
@@ -419,7 +471,11 @@ describe('sidebar helpers', () => {
       expect(onSaved).toHaveBeenCalledWith('documento.md');
       globalThis.URL = originalURL;
       globalThis.Blob = originalBlob;
-      globalThis.document = originalDocument;
+      Object.defineProperty(globalThis, 'document', {
+        value: originalDocument,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 });

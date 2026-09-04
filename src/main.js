@@ -19,6 +19,7 @@ import { exportStandaloneHtml } from './ui/exportHtml.js';
 import { maybeAutoSnapshot } from './ui/snapshots.js';
 import { setupSnapshotsDialog } from './ui/snapshotsDialog.js';
 import { getLocaleCode } from './i18n/index.js';
+import { getActiveDocument, safeGetIndex, createDocument, getContent } from './documents.js';
 // P0-5: estilos do KaTeX (bundled via npm, sem CDN).
 import 'katex/dist/katex.min.css';
 
@@ -116,7 +117,11 @@ const init = () => {
       if (!isUntouchedTemplate(value)) {
         setItem(NAMESPACE, KEYS.lastState, value);
         // P1-8: anel de backup com throttle — protege se last_state corromper.
-        const result = maybeAutoSnapshot(value, { lastAutoTs: lastAutoSnapshotTs });
+        const active = getActiveDocument();
+        const result = maybeAutoSnapshot(value, {
+          lastAutoTs: lastAutoSnapshotTs,
+          docId: active?.id,
+        });
         lastAutoSnapshotTs = result.lastAutoTs;
       }
     }, 300);
@@ -274,10 +279,11 @@ const init = () => {
       },
       exportHtml: async ({ report: statusReport }) => {
         try {
+          const active = getActiveDocument();
           const name = await exportStandaloneHtml({
             getHtml: () => document.querySelector('#output')?.innerHTML ?? '',
-            filename: getCurrentFileName() || 'document.html',
-            title: getCurrentFileName() || t('appTitle'),
+            filename: (active?.title || getCurrentFileName() || 'document') + '.html',
+            title: active?.title || getCurrentFileName() || t('appTitle'),
             lang: getLocaleCode(),
           });
           statusReport(t('htmlExported').replace('{name}', name));
@@ -285,7 +291,11 @@ const init = () => {
           statusReport(t('exportHtmlError'));
         }
       },
-      exportPdf: ({ report }) => exportPreviewToPdf({ onStatus: report }, loadPrintSettings()),
+      exportPdf: ({ report }) =>
+        exportPreviewToPdf(
+          { onStatus: report, getMarkdown: () => editor.getValue() },
+          loadPrintSettings(),
+        ),
       printSettings: () => printDialog.open(),
       toc: () => tocDialog.open(),
       snapshots: () => snapshotsDialog?.open(),
@@ -314,9 +324,31 @@ const init = () => {
     editor = ed;
 
     const lastContent = safeGet(NAMESPACE, KEYS.lastState, 'string');
-    // Se o conteúdo salvo é um template não editado (de qualquer idioma),
-    // usa-se o template do idioma corrente no boot.
-    const bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
+    const index = safeGetIndex();
+
+    let bootInput;
+    if (index.documents.length > 0) {
+      const active = getActiveDocument();
+      if (active) {
+        const content = getContent(active.id);
+        if (content != null) {
+          bootInput = content;
+        } else {
+          bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
+        }
+      } else {
+        bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
+      }
+    } else if (lastContent && !isUntouchedTemplate(lastContent)) {
+      createDocument({
+        title: t('docRestored'),
+        initialContent: lastContent,
+      });
+      bootInput = lastContent;
+    } else {
+      bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
+    }
+
     editor.setValue(bootInput);
     editor.revealPosition({ lineNumber: 1, column: 1 });
 
@@ -341,6 +373,18 @@ const init = () => {
     setupSidebarActions();
 
     setupLanguageSelector();
+
+    if (statusBar) {
+      const quota = statusBar.checkQuota();
+      if (!quota.ok) {
+        const msg = t('storageQuotaWarning').replace('{percent}', String(quota.percentUsed));
+        console.warn(msg);
+        const statusEl = document.querySelector('#sidebar-status');
+        if (statusEl) {
+          statusEl.textContent = msg;
+        }
+      }
+    }
   });
 };
 

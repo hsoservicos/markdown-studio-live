@@ -86,6 +86,16 @@ const ptBR = {
   tocTitle: 'Sumário',
   tocEmpty: 'Sem títulos para listar.',
   tocHeading: 'Sumário',
+  docNew: 'Novo documento',
+  docRename: 'Renomear',
+  docClose: 'Fechar documento',
+  docDefaultName: 'Documento',
+  docNameConflict: 'Já existe um documento com esse nome.',
+  docEmpty: 'O nome do documento não pode ficar em branco.',
+  docUntitled: '(sem título)',
+  docRestored: 'Documento restaurado',
+  storageQuotaWarning:
+    'Atenção: armazenamento local quase cheio ({percent}%). Considere exportar seus documentos.',
 };
 
 const enUS = {
@@ -165,6 +175,16 @@ const enUS = {
   tocTitle: 'Table of contents',
   tocEmpty: 'No headings to list.',
   tocHeading: 'Table of contents',
+  docNew: 'New document',
+  docRename: 'Rename',
+  docClose: 'Close document',
+  docDefaultName: 'Document',
+  docNameConflict: 'A document with that name already exists.',
+  docEmpty: 'Document name cannot be empty.',
+  docUntitled: '(untitled)',
+  docRestored: 'Restored document',
+  storageQuotaWarning:
+    'Warning: local storage almost full ({percent}%). Consider exporting your documents.',
 };
 
 const locales = { 'pt-BR': ptBR, en: enUS };

@@ -1,0 +1,37 @@
+# customize.toml — PHP 8.4 Agent
+
+[skill]
+name = "bmad-agent-php84"
+version = "1.0.0"
+description = "PHP Architect Agent — Multi-role persona (Arch-PHP, CodeRefactor-PHP, WebSec-PHP)"
+author = "BMAD Method"
+
+[skill.license]
+type = "MIT"
+year = 2026
+
+[skill.entry]
+command = "bmad-agent-php84"
+render_script = "_bmad/scripts/render_skill.py"
+
+[skill.dependencies]
+python = ">=3.10"
+uv = ">=0.12"
+node = ">=20.12"
+
+[skill.menu]
+0 = "Sair"
+1 = "Arquitetura — Arch-PHP: Design patterns, DDD, hexagonal, CQRS"
+2 = "PHP 8.4 Features — CodeRefactor-PHP: Hooks, visibility, DOM, arrays"
+3 = "Refatoração — CodeRefactor-PHP: Modernizar código PHP legado"
+4 = "Segurança — WebSec-PHP: Validação, sanitização, OWASP"
+5 = "Performance — Arch-PHP: Otimização, caching, profiling"
+6 = "Testing — Arch-PHP: PHPUnit, Pest, mocks, fixtures"
+7 = "Docker/Deploy — Arch-PHP: Containerização, CI/CD"
+8 = "Review — WebSec-PHP: Code review adversarial"
+
+[skill.constraints]
+php_version = "8.4"
+min_php_version = "8.4"
+max_php_version = "8.4"
+strict_types = true

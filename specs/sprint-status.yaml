@@ -70,25 +70,35 @@ done:
     notes:
       - 211 testes verdes + probe e2e p1_features_probe.mjs
       - repositório sincronizado em https://github.com/hsoservicos/markdown-studio-live (master, tag v1.1.0)
-items:
   - key: p2-pdf-vetorial
     title: 'PDF com texto vetorial pesquisável (Ctrl+F e seleção no PDF)'
-    status: ready-for-dev
     spec: specs/spec-v2.md
     stories: _bmad-output/planning-artifacts/epics-p2.md
-    estimates:
-      tokens: 40000
     notes:
-      - spec v2 aprovada; re-revisão de precisão aplicada (19 achados)
-      - story 1.1 (spike ADR) pra próxima
+      - story 1.1 (spike ADR) DONE — pdfmake escolhido, ADR documentado
+      - story 1.2 (camada de layout vetorial) DONE — markdown-to-pdfmake, pdfmake-adapter, exportPdfVector
+      - story 1.3 (diagramas e matemática) DONE — KaTeX html→png, mermaid SVG capture
+      - story 1.4 (paridade de contrato e fallback) DONE — exportRasterFallback, fallback transparente
+      - Epic P2-A completo!
   - key: p2-multi-documentos
     title: 'Múltiplos documentos (abas/lista)'
-    status: ready-for-dev
     spec: specs/spec-v2.md
     stories: _bmad-output/planning-artifacts/epics-p2.md
-    estimates:
-      tokens: 50000
     notes:
-      - spec v2 aprovada; re-revisão de precisão aplicada (19 achados)
-      - story 2.1 (índice no storage) DONE — src/documents.js + safeGet type object; 234 testes verdes
-      - próximas: story 2.2 (gerenciador UI), 2.3 (ações no ativo), 2.4 (boot/persistência)
+      - story 2.1 (índice no storage) DONE — src/documents.js, safeGet type object
+      - story 2.2 (gerenciador UI) DONE — src/ui/documents-ui.js, uniqueName, aria-current
+      - story 2.3 (ações no ativo) DONE — snapshots com docId, handlers com doc ativo
+      - story 2.4 (boot/persistência) DONE — boot restaura docs, migra last_state legado
+      - Epic P2-B completo!
+  - key: toolchain-modernization
+    title: 'Modernização da toolchain (audit v2)'
+    spec: _bmad-output/implementation-artifacts/audit-v2.md
+    notes:
+      - Dependabot configurado (.github/dependabot.yml)
+      - Release workflow (.github/workflows/release.yml)
+      - Docker scripts (docker.sh, docker-audit.sh, docker-clean.sh)
+      - Coverage thresholds (65/60/60/65) no vitest.config.js
+      - marked 15→18, katex 0.16→0.18, monaco-editor 0.52→0.53
+      - CSP documentado, quota warning, bundle optimization
+      - 287 testes verdes, 0 vulnerabilidades, quality gate verde
+items: []

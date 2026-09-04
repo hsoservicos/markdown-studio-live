@@ -1,0 +1,27 @@
+# customize.toml — PHP 8.4 Skill
+
+[skill]
+name = "bmad-php84"
+version = "1.0.0"
+description = "PHP 8.4 Architect — Property Hooks, Asymmetric Visibility, DOM API, Array Functions"
+author = "BMAD Method"
+
+[skill.license]
+type = "MIT"
+year = 2026
+
+[skill.entry]
+command = "bmad-php84"
+agent = "bmad-agent-php84"
+render_script = "_bmad/scripts/render_skill.py"
+
+[skill.dependencies]
+python = ">=3.10"
+uv = ">=0.12"
+node = ">=20.12"
+
+[skill.constraints]
+php_version = "8.4"
+min_php_version = "8.4"
+max_php_version = "8.4"
+strict_types = true

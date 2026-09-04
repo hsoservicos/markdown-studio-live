@@ -3,13 +3,27 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_BUILD_DATE: ${VITE_BUILD_DATE:-unknown}
     image: markdown-studio:local
     container_name: markdown-studio
     ports:
-      - '5001:80'
+      - '${PORT:-5001}:80'
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
       interval: 30s
       timeout: 3s
+      start_period: 5s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run

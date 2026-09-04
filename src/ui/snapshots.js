@@ -11,7 +11,7 @@ export const MAX_SNAPSHOTS = 5;
 export const AUTO_SNAPSHOT_MIN_INTERVAL = 60_000;
 
 /**
- * @typedef {{ id: string, ts: number, label: string, content: string }} Snapshot
+ * @typedef {{ id: string, ts: number, label: string, content: string, docId?: string }} Snapshot
  */
 
 function makeId(ts = Date.now()) {
@@ -34,7 +34,8 @@ export function normalizeSnapshot(raw) {
   const ts = typeof obj.ts === 'number' && Number.isFinite(obj.ts) ? obj.ts : Date.now();
   const id = typeof obj.id === 'string' && obj.id ? obj.id : makeId(ts);
   const label = typeof obj.label === 'string' ? obj.label : '';
-  return { id, ts, label, content: obj.content };
+  const docId = typeof obj.docId === 'string' && obj.docId ? obj.docId : undefined;
+  return { id, ts, label, content: obj.content, ...(docId ? { docId } : {}) };
 }
 
 /**
@@ -66,10 +67,10 @@ export function saveSnapshots(list) {
  * Empurra um snapshot no anel (mais recente primeiro). Dedup se conteúdo
  * idêntico ao topo. Mantém no máximo MAX_SNAPSHOTS.
  * @param {string} content
- * @param {{ label?: string, ts?: number, id?: string }} [opts]
+ * @param {{ label?: string, ts?: number, id?: string, docId?: string }} [opts]
  * @returns {Snapshot|null} o snapshot criado, ou null se deduplicado/vazio
  */
-export function pushSnapshot(content, { label = '', ts = Date.now(), id } = {}) {
+export function pushSnapshot(content, { label = '', ts = Date.now(), id, docId } = {}) {
   const text = String(content ?? '');
   if (!text) {
     return null;
@@ -78,7 +79,7 @@ export function pushSnapshot(content, { label = '', ts = Date.now(), id } = {}) 
   if (current[0] && current[0].content === text) {
     return null;
   }
-  const snap = normalizeSnapshot({ id: id || makeId(ts), ts, label, content: text });
+  const snap = normalizeSnapshot({ id: id || makeId(ts), ts, label, content: text, docId });
   const next = [snap, ...current.filter((s) => s.id !== snap.id)].slice(0, MAX_SNAPSHOTS);
   saveSnapshots(next);
   return snap;
@@ -114,16 +115,22 @@ export function clearSnapshots() {
  * Snapshot automático com throttle: só grava se passou o intervalo desde o
  * último e o conteúdo mudou.
  * @param {string} content
- * @param {{ lastAutoTs?: number, now?: number, minInterval?: number, label?: string }} [state]
+ * @param {{ lastAutoTs?: number, now?: number, minInterval?: number, label?: string, docId?: string }} [state]
  * @returns {{ snap: Snapshot|null, lastAutoTs: number }}
  */
 export function maybeAutoSnapshot(
   content,
-  { lastAutoTs = 0, now = Date.now(), minInterval = AUTO_SNAPSHOT_MIN_INTERVAL, label = '' } = {},
+  {
+    lastAutoTs = 0,
+    now = Date.now(),
+    minInterval = AUTO_SNAPSHOT_MIN_INTERVAL,
+    label = '',
+    docId,
+  } = {},
 ) {
   if (now - lastAutoTs < minInterval) {
     return { snap: null, lastAutoTs };
   }
-  const snap = pushSnapshot(content, { label, ts: now });
+  const snap = pushSnapshot(content, { label, ts: now, docId });
   return { snap, lastAutoTs: snap ? now : lastAutoTs };
 }

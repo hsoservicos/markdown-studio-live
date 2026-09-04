@@ -1,136 +1,251 @@
-# How-to: Publicar o Markdown-Studio em Docker (acesso local)
+# How-to: Docker no Markdown-Studio
 
-Guia de como construir, subir e manter o Markdown-Studio como container Docker para
-**primeira visão e acesso local** do projeto — sem backend, sem publicação externa.
+Guia completo de como construir, rodar, auditar e manter o Markdown-Studio como container Docker.
 
-## Por que Docker aqui
+## Visão geral
 
 O Markdown-Studio é um app 100% client-side (estático): editor Monaco + render no
-browser, persistência em `localStorage`. Não há servidor de aplicação — o container
-serve apenas os artefatos do build (`dist/`). Isso permite:
+browser, persistência em `localStorage`. O container serve apenas os artefatos do build (`dist/`).
 
-- **Reprodução idêntica**: mesma imagem em qualquer máquina com Docker.
-- **Primeira visão imediata**: `docker compose up` levanta o app em segundos.
-- **Isolamento**: Node/nginx dentro do container, nada instalado no host além do Docker.
-- **Ambiente completamente local**: nenhuma publicação, nenhuma distribuição web.
+## Artefatos
 
-## Artefatos do container
+| Artefato                  | Papel                                                            |
+| ------------------------- | ---------------------------------------------------------------- |
+| `Dockerfile`              | Build multi-stage (deps→builder→runtime nginx) com USER non-root |
+| `Dockerfile.dev`          | Container de desenvolvimento com hot-reload (Vite)               |
+| `compose.yaml`            | Produção: porta 5001, healthcheck, security, resource limits     |
+| `compose.dev.yaml`        | Desenvolvimento: volumes mountados, hot-reload                   |
+| `nginx.conf`              | Config produção (SPA fallback, gzip, security headers)           |
+| `.dockerignore`           | Exclui node_modules, docs, testes, CI do contexto                |
+| `scripts/docker.sh`       | Script principal de gerenciamento                                |
+| `scripts/docker-audit.sh` | Auditoria completa de segurança e funcionalidade                 |
+| `scripts/docker-clean.sh` | Limpeza de containers, imagens e volumes órfãos                  |
 
-| Artefato        | Papel                                                                  |
-| --------------- | ---------------------------------------------------------------------- |
-| `Dockerfile`    | Build multi-stage (node → nginx) e HEALTHCHECK                         |
-| `nginx.conf`    | Config de produção do nginx (SPA fallback, cache, headers)             |
-| `compose.yaml`  | Orquestração local: porta 5001, healthcheck, `restart: unless-stopped` |
-| `.dockerignore` | Exclui node_modules/, dist/, .opencode/, .impeccable/ etc. do contexto |
-
-### Arquitetura do `Dockerfile` (multi-stage)
-
-```
-FROM node:22-alpine AS builder
-    WORKDIR /app
-    COPY package.json package-lock.json .
-    RUN npm ci --no-audit --no-fund
-    COPY . .
-    RUN npm run build            # → ./dist
-
-FROM nginx:alpine AS runtime
-    COPY nginx.conf /etc/nginx/conf.d/default.conf
-    COPY --from=builder /app/dist /usr/share/nginx/html
-    EXPOSE 80
-    HEALTHCHECK ... wget -q --spider http://127.0.0.1/ ...
-    CMD ["nginx", "-g", "daemon off;"]
-```
-
-Imagem final carrega **apenas** nginx + `dist/` (116 MB total confirmado em 04/09/2026); o build inteiro fica no
-stage `builder` e é descartado.
-
-### `nginx.conf` — decisões
-
-- `try_files $uri $uri/ /index.html` — SPA fallback (equivalente ao rewrite do `firebase.json`).
-- `/assets/` — `Cache-Control: public, immutable` + `expires 1y` (assets hasheados pelo Vite).
-- `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` — headers defensivos.
-- `location ~ /\.(?!well-known)` — nega arquivos sensíveis (`.env`, `.git`, etc.) caso cheguem ao dist.
-- HEALTHCHECK via `wget` do busybox (nginx alpine).
-
-## Comandos do dia a dia
+## Comandos rápidos (npm)
 
 ```bash
-docker compose build              # build da imagem markdown-studio:local
-docker compose up -d              # sobe container "markdown-studio" em background
-docker compose ps                 # status + health (aguardar "healthy")
-docker compose down               # para/remove container (mantém imagem)
-docker compose logs -f            # logs em tempo real
+npm run docker:build       # build da imagem production
+npm run docker:up          # sobe container na porta 5001
+npm run docker:down        # para e remove container
+npm run docker:logs        # logs em tempo real
+npm run docker:ps          # status dos containers
+npm run docker:status      # status detalhado (health, portas, HTTP)
+npm run docker:shell       # abre shell no container
+npm run docker:audit       # auditoria completa (11 testes)
+npm run docker:clean       # limpeza completa de tudo
+npm run docker:dev         # dev com hot-reload (porta 5173)
+npm run docker:dev:down    # para dev
 ```
 
-Acesso: <http://localhost:5001> (porta 5001 do host → 80 do container).
+## Script docker.sh
 
-### Rebuild após mudanças de código/UI
+Script principal para gerenciamento completo:
 
 ```bash
-docker compose down
-docker compose build --no-cache   # --no-cache só se o npm ci agir estranho
-docker compose up -d
+./scripts/docker.sh <comando> [opções]
+
+# Produção
+./scripts/docker.sh build          # build imagem
+./scripts/docker.sh up             # sobe container
+./scripts/docker.sh down           # para container
+./scripts/docker.sh restart        # reinicia
+./scripts/docker.sh logs           # logs
+./scripts/docker.sh ps             # status
+./scripts/docker.sh status         # status detalhado
+./scripts/docker.sh shell          # shell no container
+
+# Auditoria e manutenção
+./scripts/docker.sh audit          # auditoria completa
+./scripts/docker.sh clean          # limpeza completa
+
+# Desenvolvimento
+./scripts/docker.sh dev            # dev server
+./scripts/docker.sh dev-down       # para dev
 ```
 
-> **Conflito de nome de container órfão**: se um container antigo chamado `markdown-studio`
-> ficou órfão (não pertence ao projeto compose — ex.: criado com `docker run` ou projeto
-> renomeado), `docker compose up` falha com `Conflict: container name already in use` mesmo
-> com `docker compose ps` vazio. Resolver listando e removendo o órfão antes de subir:
->
-> ```bash
-> docker ps -a --filter "name=markdown-studio"
-> docker rm <CONTAINER_ID>     # se confirmado órfão/stale (nada valioso nele)
-> docker compose up -d
-> ```
+### Variável PORT
 
-## Auditoria da 1ª execução (18/08/2026)
+```bash
+PORT=8080 ./scripts/docker.sh up    # usa porta 8080
+```
 
-Registro da primeira validação local, via Docker 29.7.2 / Compose v5.4.0:
+## Auditoria (docker-audit.sh)
 
-| Etapa                       | Resultado                                                      |
-| --------------------------- | -------------------------------------------------------------- |
-| `docker compose build`      | ✅ imagem `markdown-studio:local` gerada (103 MB)              |
-| `docker compose up -d`      | ✅ container `markdown-studio` Up; porta `0.0.0.0:5001→80/tcp` |
-| `GET http://localhost:5001` | ✅ HTTP 200                                                    |
-| HEALTHCHECK                 | ✅ `healthy` após ~40s (intervalo de 30s do nginx)             |
-| Navegador                   | ✅ abriu `http://localhost:5001` com template pt-BR            |
+Script de validação completa com 11 testes:
 
-Observações:
+```bash
+./scripts/docker-audit.sh
+```
 
-- Primeira execução do build levou ~34s (npm ci + vite build no stage builder).
-- MySQL/redes de exemplo não envolvidas; nenhuma porta além da 5001 exposta.
-- Se a porta 5001 estiver em uso (ex.: `npm run serve-dist`), parar o servidor local antes:
-  `Get-NetTCPConnection -LocalPort 5001 | % { Stop-Process $_.OwningProcess -Force }`.
+### O que é testado
 
-## Auditoria da 2ª execução (04/09/2026)
+1. **Build** — imagem compila sem erros
+2. **Container** — inicia corretamente
+3. **Healthcheck** — fica healthy em ≤30s
+4. **HTTP** — retorna 200 em /
+5. **SPA Fallback** — rotas profundas funcionam
+6. **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP
+7. **Server Tokens** — versão nginx não exposta
+8. **Arquivos Sensíveis** — .env, .git/config bloqueados
+9. **Asset Cache** — Cache-Control presente
+10. **Tamanho da Imagem** — reportado
+11. **Non-Root** — container não roda como root
 
-Revalidação após a Story 2.1 (camada de documentos), Docker 29.7.2:
+### Exemplo de saída
 
-| Etapa                        | Resultado                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------------ |
-| `docker compose build`       | ✅ imagem `markdown-studio:local` reconstruída (116 MB; `npm ci` + `vite build` 39s) |
-| `docker compose up -d`       | ✅ container `markdown-studio` Up; porta `0.0.0.0:5001→80/tcp`                       |
-| `GET http://localhost:5001`  | ✅ HTTP 200 (index.html do build atual — `index-DAW28NGy.js`)                        |
-| SPA fallback (rota profunda) | ✅ `/some/deep/route` → 200 (queda para `index.html`)                                |
-| Asset `/assets/*.css`        | ✅ HTTP 200 + `Cache-Control: max-age=31536000, public, immutable`                   |
-| `/.env`                      | ✅ HTTP 403 (negado no nginx)                                                        |
-| HEALTHCHECK                  | ✅ `healthy` (wget busybox; ~40s)                                                    |
-| Navegador/Editor             | ✅ bundle atual presente (`editor-BSnEfEh9.js` lazy chunk)                           |
+```
+═══════════════════════════════════════════════════
+  Markdown-Studio Docker Audit
+═══════════════════════════════════════════════════
 
-Observações:
+▸ Build
+  ✓ Build da imagem markdown-studio:local
 
-- Imagem cresceu de 103 MB (18/08) para 116 MB pelo acúmulo de deps/features; ainda é
-  só nginx + `dist/`, sem runtime de build.
-- Encontrado e removido um container `markdown-studio` **órfão** (Exited 255, imagem
-  antiga `ced25ee51`) que bloqueava o nome — ver nota de rebuild acima.
+▸ Container
+  ✓ Container iniciado
 
-## Limites e convenções
+▸ Healthcheck
+  ✓ Healthcheck: healthy
 
-- **Publicação externa está fora do escopo**: a imagem é para acesso local.
-- `repository` em `package.json` aponta para upstream de referência (BMAD); não há
-  registry de push configurado.
-- `.dockerignore` replica o zelo de privacidade do projeto: não leva `.opencode/`,
-  `.impeccable/`, logs, `.env` ou git para dentro da imagem.
-- Em CI (`.github/workflows/quality.yml`) o build Docker pode ser adicionado depois;
-  hoje o gate é `npm run quality` + `npm run build` no node do runner.
-- Mudar a porta do host: editar `ports: - "5001:80"` no `compose.yaml`.
+▸ HTTP
+  ✓ HTTP 200 em /
+
+▸ SPA Fallback
+  ✓ SPA fallback (/some/deep/route → 200)
+
+▸ Security Headers
+  ✓ X-Content-Type-Options: nosniff
+  ✓ X-Frame-Options: SAMEORIGIN
+  ✓ X-XSS-Protection: 1; mode=block
+  ✓ Referrer-Policy: strict-origin-when-cross-origin
+  ✓ Content-Security-Policy: default-src 'self'...
+
+▸ Server Tokens
+  ✓ Server header não expõe versão
+
+▸ Arquivos Sensíveis
+  ✓ /env bloqueado (404)
+  ✓ /git/config bloqueado (404)
+  ✓ /.htaccess bloqueado (404)
+  ✓ /package.json bloqueado (404)
+
+▸ Imagem
+  ℹ Tamanho: 45.2MB
+
+▸ Segurança do Container
+  ✓ Rodando como non-root (UID: 1001)
+  ✓ Root filesystem read-only
+
+═══════════════════════════════════════════════════
+  Resultado
+═══════════════════════════════════════════════════
+  ✓ Passou: 17
+  ⚠ Avisos: 0
+  ✗ Falhou: 0
+
+✓ Auditoria aprovada!
+```
+
+## Limpeza (docker-clean.sh)
+
+```bash
+./scripts/docker-clean.sh
+```
+
+Remove:
+
+1. Containers do projeto (compose down)
+2. Containers parados/exited/dead
+3. Imagens dangling
+4. Volumes órfãos
+5. Cache de build
+
+## Segurança
+
+| Recurso                         | Status |
+| ------------------------------- | ------ |
+| USER non-root (app:1001)        | ✅     |
+| read_only: true                 | ✅     |
+| no-new-privileges               | ✅     |
+| tmpfs para /var/cache/nginx     | ✅     |
+| CSP header                      | ✅     |
+| X-Content-Type-Options          | ✅     |
+| X-Frame-Options                 | ✅     |
+| X-XSS-Protection                | ✅     |
+| server_tokens off               | ✅     |
+| Resource limits (128MB/0.5 CPU) | ✅     |
+| Arquivos sensíveis bloqueados   | ✅     |
+
+## CI/CD
+
+### Docker Build (`.github/workflows/docker.yml`)
+
+- **Trigger**: push/PR quando Dockerfile ou src mudam
+- **Build**: Docker Buildx + cache GHA
+- **Teste**: health check após build
+- **Push**: GHCR no main branch (latest + SHA)
+
+### Dependabot (`.github/dependabot.yml`)
+
+- Atualizações semanais (npm + GitHub Actions)
+- Agrupadas por tipo (dev/production)
+- Labels automáticas
+
+## Desenvolvimento
+
+### Modo dev (hot-reload)
+
+```bash
+npm run docker:dev       # ou: docker compose -f compose.dev.yaml up
+```
+
+Volumes mountados para hot-reload:
+
+- `./src` → `/app/src` (somente leitura)
+- `./public` → `/app/public` (somente leitura)
+- `./index.html` → `/app/index.html` (somente leitura)
+
+Acessa em `<http://localhost:5173>`
+
+### Rebuild após mudanças
+
+```bash
+# Produção
+npm run docker:down
+npm run docker:build
+npm run docker:up
+
+# Ou com o script
+./scripts/docker.sh restart
+```
+
+## Troubleshooting
+
+### Container não inicia
+
+```bash
+docker compose logs markdown-studio
+```
+
+### Porta em uso
+
+```bash
+# Verificar o que usa a porta
+lsof -i :5001
+# Ou usar outra porta
+PORT=8080 npm run docker:up
+```
+
+### Container órfão
+
+```bash
+docker ps -a --filter "name=markdown-studio"
+docker rm <CONTAINER_ID>
+npm run docker:up
+```
+
+### Limpeza completa
+
+```bash
+./scripts/docker-clean.sh
+```

@@ -33,6 +33,26 @@ export function renderStats(container, stats, tFn = (k) => k, fileName) {
   return container;
 }
 
+export function checkStorageQuota() {
+  try {
+    const testKey = '__quota_test__';
+    const bigString = 'x'.repeat(1024 * 1024);
+    localStorage.setItem(testKey, bigString);
+    localStorage.removeItem(testKey);
+    return { ok: true, percentUsed: 0 };
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+      let total = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        total += (localStorage.getItem(key) || '').length;
+      }
+      return { ok: false, percentUsed: Math.round((total / (5 * 1024 * 1024)) * 100) };
+    }
+    return { ok: true, percentUsed: 0 };
+  }
+}
+
 export function setupStatusBar({
   container = document,
   getContent = () => '',
@@ -47,5 +67,6 @@ export function setupStatusBar({
   return {
     update,
     render: () => update(),
+    checkQuota: checkStorageQuota,
   };
 }

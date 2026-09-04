@@ -13,6 +13,7 @@
 [core]
 project_name = "Markdown-Studio"
 document_output_language = "English"
+communication_language = "Portuguese"
 output_folder = "_bmad-output"
 
 [modules.bmm]

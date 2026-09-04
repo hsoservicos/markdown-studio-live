@@ -7,6 +7,7 @@ ignores:
   - .opencode/**
   - .impeccable/**
   - .agents/**
+  - .claude/**
   - _bmad/**
   - _bmad-output/**
 

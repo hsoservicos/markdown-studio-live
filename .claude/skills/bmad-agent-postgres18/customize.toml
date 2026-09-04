@@ -1,0 +1,37 @@
+# customize.toml — PostgreSQL 18 Agent
+
+[skill]
+name = "bmad-agent-postgres18"
+version = "1.0.0"
+description = "PostgreSQL 18 Architect Agent — 5 SKILLs: DDL, OPT, VEC, CONC, SEC"
+author = "BMAD Method"
+
+[skill.license]
+type = "MIT"
+year = 2026
+
+[skill.entry]
+command = "bmad-agent-postgres18"
+render_script = "_bmad/scripts/render_skill.py"
+
+[skill.dependencies]
+python = ">=3.10"
+uv = ">=0.12"
+node = ">=20.12"
+
+[skill.menu]
+0 = "Sair"
+1 = "DDL & Schema — SKILL-01: UUIDv7, generated columns, temporal, NOT VALID"
+2 = "Query Optimization — SKILL-02: EXPLAIN ANALYZE, Skip Scan, RETURNING OLD/NEW"
+3 = "Vector Search — SKILL-03: pgvector, HNSW, hybrid search, RRF"
+4 = "Concurrency — SKILL-04: Outbox, locking, AIO, async patterns"
+5 = "Security — SKILL-05: SCRAM-SHA-256, TLS 1.3, auditing, vacuum"
+6 = "Tuning — ALL: postgresql.conf, AIO, io_uring, io_workers"
+7 = "Migration — SKILL-01/05: pg_upgrade, non-blocking DDL, validation"
+8 = "Review — ALL: Adversarial schema & query review"
+
+[skill.constraints]
+postgres_version = "18"
+min_postgres_version = "18"
+max_postgres_version = "18"
+extensions = ["uuid-ossp", "vector", "pgcrypto"]

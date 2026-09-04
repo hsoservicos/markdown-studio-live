@@ -176,4 +176,21 @@ describe('exportPreviewToPdf', () => {
     expect(state.resumeMermaidScheduling).toHaveBeenCalled();
     console.error.mockRestore();
   });
+
+  it('usa rota raster quando feature-flag está desabilitada', async () => {
+    const onStatus = vi.fn();
+    const getMarkdown = vi.fn(() => '# test');
+    await exportPreviewToPdf({ onStatus, getMarkdown });
+    expect(chain.save).toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith('PDF exportado!');
+  });
+
+  it('usa rota raster quando getMarkdown não é fornecido mesmo com flag', async () => {
+    const onStatus = vi.fn();
+    const storage = { getItem: () => 'true', setItem: vi.fn() };
+    Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true });
+    await exportPreviewToPdf({ onStatus });
+    expect(chain.save).toHaveBeenCalled();
+    Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true });
+  });
 });
