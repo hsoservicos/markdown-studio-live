@@ -1,0 +1,4 @@
+# Normalização de fim de linha: o repositório e os checkouts usam LF.
+# Evita que o Prettier (que segue o .editorconfig) reprove arquivos LF no CI
+# enquanto o index esteja normalizado em LF.
+* text=auto eol=lf
