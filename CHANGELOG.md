@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file.
 The format is "Keep a Changelog" (modified per BMAD) and this project adheres to SemVer.
 
-## [Unreleased]
+## [1.2.0] — 2026-09-04
 
 ### Added
 
@@ -32,6 +32,9 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Changed
 
+- Docs de referência realinhados ao código: `docs/reference/storage-contract.md` (chaves reais + API tipada `getItem({type})`/`StorageError`/`getRaw`/`setRaw`/`safeGet`), `docs/explanation/architecture.md` (pipeline debounced, módulos KaTeX/TOC/impressão, contrato de storage) e `docs/reference/api-convert.md` (exports reais de convert/mermaid/katexExt/toc + arquivos de teste).
+- Fim de linha normalizado para **LF**: `.gitattributes` (`* text=auto eol=lf`), `.editorconfig` (`end_of_line = lf`) e `prettier.config.mjs` (`endOfLine: 'lf'`) — o `format:check` reprovava todos os arquivos no runner Linux do GitHub Actions enquanto o editorconfig pedia CRLF.
+- Husky ativado com hooks reais: `pre-commit` (`lint-staged`) e `pre-push` (`npm run quality`) em `.husky/` — antes os hooks existiam apenas na config, nenhum rodava em commit/push.
 - Repositório publicado e sincronizado em `https://github.com/hsoservicos/markdown-studio-live` (branch `master`, tag `v1.1.0`); `package.json` (`repository`), link do ícone GitHub no `index.html` e referências de publicação atualizadas.
 - Workflow de qualidade (`.github/workflows/quality.yml`) passa a disparar em pushes/PRs da branch `master` (era `main`) — CI volta a valer no repositório publicado.
 - `README.md` ganha link para o upstream de estudo [`tanabe/markdown-live-preview`](https://github.com/tanabe/markdown-live-preview) (intro e licença).

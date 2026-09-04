@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "markdown-studio",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Editor Markdown com preview em tempo real — projeto pessoal e profissional. Reconstrução do tanabe/markdown-live-preview sob metodologia BMAD.",
   "keywords": [
     "markdown",
