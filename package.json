@@ -15,7 +15,7 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bmad-code-org/Markdown-Studio.git"
+    "url": "git+https://github.com/hsoservicos/markdown-studio-live.git"
   },
   "engines": {
     "node": ">=20.12.0"
