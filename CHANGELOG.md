@@ -3,6 +3,8 @@
 All notable changes to this project are documented in this file.
 The format is "Keep a Changelog" (modified per BMAD) and this project adheres to SemVer.
 
+## [Unreleased]
+
 ## [1.2.0] — 2026-09-04
 
 ### Added
