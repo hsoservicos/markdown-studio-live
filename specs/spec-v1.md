@@ -1,9 +1,9 @@
 ---
 title: Markdown-Studio v1 Spec
 created: 2026-08-18
-updated: 2026-08-18
+updated: 2026-09-04
 module: Markdown-Studio
-status: draft
+status: implemented
 ---
 
 # Spec v1 — Markdown-Studio
@@ -16,7 +16,7 @@ Objetivo: **uma única remodelagem coesa** — portar o `markdown-live-preview` 
 
 - **Actionable** ✅ — tarefas com caminho de arquivo abaixo.
 - **Testable** ✅ — ACs Given/When/Then.
-- **Complete** — placeholders apenas onde ainda não implementado (marcados `[TODO]`).
+- **Complete** ✅ — todas as tarefas T1–T10 implementadas (sem `[TODO]` remanescentes).
 - **Sufficient** ✅ — dependências de PRD mapeadas.
 - **Coherent** ✅ — sem contradições internas.
 
@@ -27,13 +27,13 @@ Objetivo: **uma única remodelagem coesa** — portar o `markdown-live-preview` 
 | T1  | Scaffold repo + estrutura | raiz, `docs/`, `specs/`                                                                | ✅     |
 | T2  | Docs diataxis             | `docs/**`                                                                              | ✅     |
 | T3  | PRD + Spec                | `specs/prd.md`, `specs/spec-v1.md`                                                     | ✅     |
-| T4  | Config build/test/lint    | `package.json`, `.nvmrc`, vite/vitest/eslint/prettier/markdownlint/husky, `.gitignore` | [TODO] |
-| T5  | Storage wrapper           | `src/storage.js` + testes                                                              | [TODO] |
-| T6  | Pipeline render           | `src/render/{convert,mermaid}.js` + testes                                             | [TODO] |
-| T7  | i18n pt-BR                | `src/i18n/index.js`                                                                    | [TODO] |
-| T8  | UI glue                   | `index.html`, `src/main.js`, `src/ui/*`                                                | [TODO] |
-| T9  | Assets estáticos          | `public/css/style.css`, `public/image/*`                                               | [TODO] |
-| T10 | quality + CI              | `.github/workflows/quality.yml`, firebase.json                                         | [TODO] |
+| T4  | Config build/test/lint    | `package.json`, `.nvmrc`, vite/vitest/eslint/prettier/markdownlint/husky, `.gitignore` | ✅     |
+| T5  | Storage wrapper           | `src/storage.js` + testes                                                              | ✅     |
+| T6  | Pipeline render           | `src/render/{convert,mermaid,katexExt,toc}.js` + testes                                | ✅     |
+| T7  | i18n pt-BR                | `src/i18n/index.js`                                                                    | ✅     |
+| T8  | UI glue                   | `index.html`, `src/main.js`, `src/ui/*`                                                | ✅     |
+| T9  | Assets estáticos          | `public/css/style.css`, `public/image/*`                                               | ✅     |
+| T10 | quality + CI              | `.github/workflows/quality.yml`, firebase.json                                         | ✅     |
 
 ## ACs (Given/When/Then)
 

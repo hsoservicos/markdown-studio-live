@@ -1,12 +1,38 @@
 sprint: 2
 created: 2026-08-18
-reviewed: 2026-08-18
+reviewed: 2026-09-04
 design: DESIGN.md
 design_story:
   title: 'The Quiet Studio'
   source: Impeccable (pbakaus) — design language for AI tooling
   states: [default, hover, focus-visible, active, disabled]
 done:
+  - key: MS-01
+    title: 'Scaffold: estrutura e documentação BMAD do Markdown-Studio'
+    spec: specs/spec-v1.md
+    notes:
+      - estrutura docs/specs/src/tests/tools/scripts/website pronta
+      - AGENTS.md, docs Diataxis, PRD e spec-v1 publicados
+  - key: MS-02
+    title: 'Configuração de projeto: package.json, Vite, Vitest, lint, format, husky'
+    spec: specs/spec-v1.md
+    notes:
+      - quality gate verde (format + lint + lint:md + test)
+  - key: MS-03
+    title: 'Implementar pipeline render puro (src/render) + storage wrapper + testes'
+    spec: specs/spec-v1.md
+    notes:
+      - convert() (marked → DOMPurify), mermaid single-flight, storage com StorageError
+  - key: MS-04
+    title: 'Migrar UI (main.js, index.html, i18n pt-BR) e assets estáticos'
+    spec: specs/spec-v1.md
+    notes:
+      - sidebar com ações, tema anti-FOUC, drawer mobile, i18n pt/en
+  - key: MS-05
+    title: 'Qualidade: quality gate verde + CI workflow'
+    spec: specs/spec-v1.md
+    notes:
+      - .github/workflows/quality.yml dispara em master (após sincronização com GitHub)
   - key: MS-06
     title: 'Adicionar Impeccable e Design System "The Quiet Studio" (tokens, sem sombras, empilhamento 720px)'
     spec: DESIGN.md
@@ -26,31 +52,34 @@ done:
       - imagem markdown-studio:local construída e validada (build 1ª vez ~34s)
       - container healthy; GET localhost:5001 → HTTP 200
       - acesso local apenas; nenhuma publicação/config de registry
+  - key: v1.1.0
+    title: 'Release v1.1.0 + robustez pós-release (A1/A2/M1–M4, B1–B5)'
+    spec: _bmad-output/verifications/review-v1.1.0.md
+    notes:
+      - single-flight mermaid, reset durável, export PDF estável, debounce de digitação
+      - boot key de tema re-sincronizada, leitura tipada na fronteira do storage
+      - divisor acessível, aria-labels, perfil DOMPurify, picker estável, erro sem prompt duplo
+  - key: p0-features
+    title: 'Features P0: configuração de impressão, quebras de página, estatísticas, TOC, KaTeX'
+    spec: _bmad-output/verifications/features-proposals.md
+    notes:
+      - 177 testes verdes + probe e2e p0_features_probe.js
+  - key: p1-features
+    title: 'Features P1: copiar HTML rico, exportar HTML standalone, snapshots locais'
+    spec: _bmad-output/verifications/features-proposals.md
+    notes:
+      - 211 testes verdes + probe e2e p1_features_probe.mjs
+      - repositório sincronizado em https://github.com/hsoservicos/markdown-studio-live (master, tag v1.1.0)
 items:
-  - key: MS-01
-    title: 'Scaffold: estrutura e documentação BMAD do Markdown-Studio'
-    status: in_progress
-    spec: specs/spec-v1.md
-    owner: agente-bmad
-    estimates:
-      tokens: 20000
-  - key: MS-02
-    title: 'Configuração de projeto: package.json, Vite, Vitest, lint, format, husky'
-    status: planned
-    estimates:
-      tokens: 30000
-  - key: MS-03
-    title: 'Implementar pipeline render puro (src/render) + storage wrapper + testes'
-    status: planned
+  - key: p2-pdf-vetorial
+    title: 'PDF com texto vetorial pesquisável (Ctrl+F e seleção no PDF)'
+    status: backlog
+    spec: _bmad-output/verifications/features-proposals.md
     estimates:
       tokens: 40000
-  - key: MS-04
-    title: 'Migrar UI (main.js, index.html, i18n pt-BR) e assets estáticos'
-    status: planned
+  - key: p2-multi-documentos
+    title: 'Múltiplos documentos (abas/lista)'
+    status: backlog
+    spec: _bmad-output/verifications/features-proposals.md
     estimates:
-      tokens: 60000
-  - key: MS-05
-    title: 'Qualidade: quality gate verde + CI workflow'
-    status: planned
-    estimates:
-      tokens: 20000
+      tokens: 50000

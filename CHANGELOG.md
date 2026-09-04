@@ -32,6 +32,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Changed
 
+- Repositório publicado e sincronizado em `https://github.com/hsoservicos/markdown-studio-live` (branch `master`, tag `v1.1.0`); `package.json` (`repository`), link do ícone GitHub no `index.html` e referências de publicação atualizadas.
+- Workflow de qualidade (`.github/workflows/quality.yml`) passa a disparar em pushes/PRs da branch `master` (era `main`) — CI volta a valer no repositório publicado.
+- `README.md` ganha link para o upstream de estudo [`tanabe/markdown-live-preview`](https://github.com/tanabe/markdown-live-preview) (intro e licença).
+- Artefatos de progresso atualizados: `specs/spec-v1.md` (status `implemented`, T1–T10 ✅), `specs/sprint-status.yaml` (reflete release v1.1.0 + features P0/P1 + backlog P2) e `PRODUCT.md` (open decision de impressão resolvida, capabilities e evidence atualizados).
 - Novo módulo `src/ui/editorActions.js` com `resetMarkdownEditor`/`newMarkdownEditor` (lógica testável, persistência e scroll separados do boot) + `resolveBootInput` (decide entre rascunho restaurado e template do idioma corrente).
 - `applyI18n` extraído para novo módulo `src/ui/i18nElements.js`, testável isoladamente.
 - `buildExportOptions(filename, settings)` agora recebe configuração de impressão; `exportPreviewToPdf({ onStatus }, printSettings)` usa a cadeia `toPdf().get('pdf')` do html2pdf.

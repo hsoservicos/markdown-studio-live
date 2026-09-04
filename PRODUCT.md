@@ -30,8 +30,9 @@ Ferramenta local, segura e duradoura: escrever, ver o resultado instantaneamente
 ## Capabilities and Constraints
 
 - Capacidades confirmadas (v1): editor+preview em tempo real; persistência local; reset com confirmação; tema claro/escuro com anti-FOUC; sync de scroll editor→preview; copiar via clipboard; exportação para impressão em padrão de página (A4/margens/quebras preservando o conteúdo); interface pt-BR por padrão.
-- Restrições técnicas: 100% client-side (Monaco/marked/mermaid/DOMPurify via npm, sem CDN em runtime); HTML sempre passa por `DOMPurify.sanitize`; sem backend; sem rastreadores; dados apenas no navegador da máquina do usuário.
-- Open decision: detalhes finais de paginação/impressão (margens exatas, cabeçalho/rodapé de página) — registrados a partir da entrevista inicial como "documento paginado A4".
+- Capacidades adicionais implementadas (pós-v1.1.0): configuração de impressão (margem, papel A4/Letter, orientação, cabeçalho/rodapé com `{page}`); quebras de página conscientes (`<!-- page-break -->` + `break-inside: avoid`); barra de status com estatísticas (palavras/linhas/tempo de leitura); sumário (TOC) bidirecional; suporte a matemática KaTeX (`$...$`/`$$...$$`, sem CDN); copiar como HTML rico; exportar HTML standalone; snapshots locais com recuperação.
+- Restrições técnicas: 100% client-side (Monaco/marked/mermaid/DOMPurify/KaTeX via npm, sem CDN em runtime); HTML sempre passa por `DOMPurify.sanitize`; sem backend; sem rastreadores; dados apenas no navegador da máquina do usuário.
+- Open decision resolvida: detalhes finais de paginação/impressão (margens exatas, cabeçalho/rodapé de página) — fechada pela configuração de impressão (P0-1). Decisão aberta para v2: PDF com texto vetorial pesquisável.
 
 ## Brand Commitments
 
@@ -42,9 +43,9 @@ Ferramenta local, segura e duradoura: escrever, ver o resultado instantaneamente
 
 ## Evidence on Hand
 
-- Repo de referência (upstream): `tanabe/markdown-live-preview` — auditoria registrada em `D:\curso ia\estudo\Auditoria-Analise-Markdown-Live-Preview.md`.
-- Artefatos de estudo: `D:\curso ia\estudo\` (necessidades/aplicações/ferramentas, plano de re-edição BMAD).
-- Implementação atual do Markdown-Studio em `D:\projetos\Markdown-Studio` (scaffold BMAD completo, testes Vitest passando).
+- Repo de referência (upstream): `tanabe/markdown-live-preview` — auditoria registrada como estudo base (ver `docs/explanation/primeira-intencao.md`).
+- Implementação atual do Markdown-Studio publicada em `https://github.com/hsoservicos/markdown-studio-live` (branch `master`, tag `v1.1.0`).
+- Progresso do projeto registrado em `CHANGELOG.md`, `specs/sprint-status.yaml` e `_bmad-output/verifications/` (análises BMAD pós-release).
 
 ## Product Principles
 
