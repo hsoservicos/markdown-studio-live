@@ -5,6 +5,18 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Plano P2 endurecido por revisão adversarial: `specs/spec-v2.md` e
+  `_bmad-output/planning-artifacts/epics-p2.md` corrigidos (21 achados) — ACs canônicas na
+  spec com referência por id nas stories (sem duplicação), AC-P2-9-1 cobre código/citações/
+  links como texto vetorial, AC-P2-9-2 define KaTeX html→SVG na rota vetorial, AC-P2-9-3
+  ganha feature-flag `com.markdownstudio.pdf.vector` com critérios de estabilidade,
+  AC-P2-10-1 define schema versionado do índice + ids `crypto.randomUUID()` + tratamento de
+  quota, AC-P2-10-2 valida nomes (trim/único/sufixo numérico) e promove o próximo documento
+  ao fechar o ativo, AC-P2-10-3 sanitiza nomes de arquivo e preserva snapshots legados,
+  AC-P2-10-4 cobre id órfão e conteúdo individual corrompido; stories unificadas em pt-BR.
+
 ## [1.2.0] — 2026-09-04
 
 ### Added

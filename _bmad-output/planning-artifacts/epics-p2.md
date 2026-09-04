@@ -13,6 +13,10 @@ propostas em `_bmad-output/verifications/features-proposals.md` e dos princípio
 (PRODUCT.md): offline, sem backend, sem rastreamento, localStorage, deps via npm (sem CDN),
 pt-BR primeiro, design "The Quiet Studio".
 
+> **Relação com a spec:** os Acceptance Criteria canônicos (Given/When/Then) vivem em
+> `specs/spec-v2.md` e são referenciados aqui por id (ex.: `AC-P2-9-1`). As stories só
+> acrescentam critérios de implementação — sem duplicar os ACs da spec.
+
 ## Requirements Inventory
 
 ### Functional Requirements
@@ -61,64 +65,67 @@ impressão P0-1/P0-2 e sem introduzir CDN.
 
 ## Story 1.1: Spike — avaliar a rota de PDF vetorial
 
-As a developer,
-I want to avaliar tecnicamente a melhor rota (pdfmake/jsPDF-text vs camada de texto sobre
+Como desenvolvedor,
+quero avaliar tecnicamente a melhor rota (pdfmake/jsPDF-text vs camada de texto sobre o
 layout atual vs renderer dedicado),
-So that a decisão de arquitetura seja baseada em evidência e caiba nas restrições offline.
+para que a decisão de arquitetura seja baseada em evidência e caiba nas restrições offline.
 
-**Acceptance Criteria:**
+**Acceptance Criteria** (spike — sem AC canônico na spec):
 
 - **Given** as features P0-1/P0-2 (config de impressão + quebras) e o layout HTML atual
 - **When** eu pesquiso e prototipo as rotas candidatas (pdfmake, jsPDF.text, overlay de
   texto sobre o PDF atual)
 - **Then** o resultado documenta, para cada rota: fidelidade do layout, suporte a
-  tabelas/mermaid/KaTeX, custo de migração e tamanho de bundle
+  tabelas/mermaid/KaTeX (formato: texto/SVG/imagem), custo de migração e tamanho de bundle
+  (com dynamic import)
 - **And** a rota escolhida é registrada em `docs/explanation/architecture.md` (decisão ADR)
   sem exigir CDN ou backend
+- **And** o ADR registra o formato suportado por tipo de conteúdo (texto/SVG/imagem) e a
+  estratégia de conversão KaTeX html→SVG para a rota vetorial
 
 ## Story 1.2: Camada de layout vetorial (markdown → definição do documento)
 
-As a user,
-I want a saída PDF cujos títulos, parágrafos, listas e tabelas sejam texto real,
-So that eu possa selecionar e buscar conteúdo no PDF exportado.
+Como usuário,
+quero que a saída PDF tenha títulos, parágrafos, listas, tabelas, citações, código e links
+como texto real,
+para que eu possa selecionar e buscar conteúdo no PDF exportado.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-9-1` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** um documento Markdown renderizado no preview
-- **When** o export produz o PDF
-- **Then** títulos, parágrafos, listas e tabelas aparecem como texto vetorial pesquisável
-- **And** `Ctrl+F` e seleção de texto funcionam no leitor de PDF
-- **And** a configuração de impressão (margem, papel, orientação, cabeçalho/rodapé com
-  `{page}`) continua valendo
+- mapear cada bloco Markdown para a definição do documento vetorial (ex.: pdfmake `content`
+  ou jsPDF texto) preservando a hierarquia de títulos
+- `blockquote`, código inline/fenced e texto de links entram como texto vetorial, não como
+  imagem
+- manter margem, papel (A4/Letter), orientação e cabeçalho/rodapé com `{page}` (P0-1)
 
 ## Story 1.3: Diagramas e matemática no PDF vetorial
 
-As a user,
-I want os diagramas Mermaid e as fórmulas KaTeX preservados no PDF,
-So that o artefato exportado não perca conteúdo não-textual.
+Como usuário,
+quero que os diagramas Mermaid e as fórmulas KaTeX sejam preservados no PDF,
+para que o artefato exportado não perca conteúdo não textual.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-9-2` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** documento com blocos `mermaid` e fórmulas `$…$`/`$$…$$`
-- **When** o PDF vetorial é gerado
-- **Then** diagramas e fórmulas aparecem no PDF (como SVG/imagem embutida de alta
-  resolução, se a rota não os suportar como texto)
-- **And** quebras de página conscientes (P0-2) continuam respeitadas
+- embutir o SVG do mermaid já renderizado no preview (sem re-renderizar)
+- converter o HTML do KaTeX (hoje `output: 'html'`) para SVG na rota vetorial, com fallback
+  de alta resolução quando a conversão não for suportada
+- integrar com as quebras de página conscientes (P0-2)
 
 ## Story 1.4: Paridade de contrato e fallback
 
-As a user,
-I want que o fluxo degrade com clareza quando o navegador/lib não suportar a rota nova,
-So that nenhuma regressão silencie o erro.
+Como usuário,
+quero que o fluxo degrade com clareza quando o navegador/lib não suportar a rota nova,
+para que nenhuma regressão silencie o erro.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-9-3` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** a lib de PDF vetorial indisponível ou falha na geração
-- **When** o usuário clica em Exportar PDF
-- **Then** o status reporta `pdfUnavailable`/`exportError` no canal `aria-live` (sem prompt
-  duplo — B5)
-- **And** o fallback rasterizado atual permanece disponível até a rota nova ser estável
-- **And** testes unitários cobrem sucesso e erro (mock da lib, sem rede)
+- implementar a feature-flag `com.markdownstudio.pdf.vector` (default off) e a detecção de
+  suporte em runtime
+- manter o fallback rasterizado atual como default enquanto a flag estiver desabilitada
+- testes unitários com mock da lib (sucesso e erro, sem rede)
 
 ---
 
@@ -129,68 +136,70 @@ todos persistidos localmente com a mesma privacidade, sem colidir com os contrat
 
 ## Story 2.1: Índice de documentos no storage
 
-As a user,
-I want que cada documento tenha identidade e conteúdo próprios no localStorage,
-So that abrir outro documento não destrua o rascunho atual.
+Como usuário,
+quero que cada documento tenha identidade e conteúdo próprios no localStorage,
+para que abrir outro documento não destrua o rascunho atual.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-10-1` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** um documento ativo com conteúdo editado
-- **When** um segundo documento é criado/aberto
-- **Then** cada um persiste sob `com.markdownstudio.documents.*` (índice + conteúdos), com o
-  contrato de storage tipado (validação/`StorageError`/`safeGet`)
-- **And** `last_state`/`backup` existentes continuam funcionando (compatibilidade)
+- schema versionado do índice
+  (`{ version, activeId, documents: [{ id, title, updatedAt }] }`) e conteúdo por `id`
+- ids via `crypto.randomUUID()` (com fallback), nunca derivados do título
+- `documents.*` como fonte de verdade no boot; `last_state` espelha o documento ativo
+- `QuotaExceededError` → aviso i18n e última versão salva mantida intacta
 
 ## Story 2.2: Gerenciador de documentos (`src/ui/documents.js`)
 
-As a user,
-I want uma lista/abas de documentos para criar, renomear, alternar e fechar,
-So that eu organize vários artefatos sem sair do editor.
+Como usuário,
+quero uma lista/abas de documentos para criar, renomear, alternar e fechar,
+para que eu organize vários artefatos sem sair do editor.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-10-2` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** o editor aberto com a sidebar
-- **When** eu uso a ação de documentos (novo/abrir/alternar/fechar)
-- **Then** a UI reflete o documento ativo e persiste o estado (documento corrente) no storage
-- **And** confirmação protege conteúdo não salvo ao fechar/descartar (padrão
-  `newFileConfirm`)
-- **And** o nome do arquivo aparece na barra de status (P0-3) e no fluxo de salvar/abrir
-  atual
+- validação de nomes: trim, não vazio, limite de tamanho, unicidade com sufixo numérico
+  automático e feedback i18n
+- fechar o documento ativo promove o próximo da lista (ou abre o template se a lista
+  esvaziar)
+- confirmação antes de descartar conteúdo não salvo (padrão `newFileConfirm`)
+- lista operável por teclado com `aria-current` no ativo; nome aparece na barra de status
+  (P0-3) e nos fluxos de salvar/abrir atuais
 
 ## Story 2.3: Ações do editor operando no documento ativo
 
-As a user,
-I want que copiar, exportar PDF/HTML e snapshots operem no documento ativo,
-So that cada artefato seja tratado individualmente.
+Como usuário,
+quero que copiar, exportar PDF/HTML e snapshots operem no documento ativo,
+para que cada artefato seja tratado individualmente.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-10-3` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** múltiplos documentos abertos
-- **When** eu disparo Copy/Export PDF/Export HTML/Snapshots
-- **Then** a ação usa o conteúdo e o nome do documento ativo (ex.: título do HTML standalone,
-  nome do arquivo no PDF)
-- **And** snapshots locais preservam o documento de origem (id/etiqueta)
+- Copy/Export PDF/Export HTML usam o conteúdo e o nome do documento ativo (ex.: título do
+  HTML standalone, nome do arquivo no PDF), com nome de arquivo sanitizado para download
+- snapshots locais preservam a origem (id/etiqueta)
+- migração de snapshots legados sem origem: atribuir ao documento ativo ou manter em raiz
+  "legado" — sem perda silenciosa
 
 ## Story 2.4: Persistência do documento corrente no boot
 
-As a user,
-I want reabrir o app e voltar ao conjunto de documentos da sessão anterior,
-So that meu fluxo de trabalho não se perde entre sessões.
+Como usuário,
+quero reabrir o app e voltar ao conjunto de documentos da sessão anterior,
+para que meu fluxo de trabalho não se perca entre sessões.
 
-**Acceptance Criteria:**
+**Acceptance Criteria:** canônico em `AC-P2-10-4` (specs/spec-v2.md). Critérios de
+implementação:
 
-- **Given** documentos abertos e um documento ativo
-- **When** a página recarrega
-- **Then** o app restaura a lista e reabre o documento ativo (com fallback ao template do
-  idioma corrente se o índice estiver vazio/corrompido)
-- **And** o comportamento em storage corrompido degrada para o padrão sem crash
-  (`safeGet`/`StorageError`)
+- boot com `documents.*` como fonte de verdade; `last_state`/`backup` legados continuam
+  restaurando sessões de documento único (pré-P2)
+- índice vazio/corrompido, id ativo órfão e conteúdo individual corrompido degradam com
+  aviso i18n, sem crash (`safeGet`/`StorageError`)
 
 ---
 
 ## Notas de implementação (próximos passos, fora deste documento)
 
-- Atualizar `specs/prd.md` (glossário/capabilities) e `specs/spec-v2.md` (ACs
-  Given/When/Then) quando o escopo for aprovado.
 - Rodar o fluxo BMAD (`bmad-build`) por story, com qualidade gate verde e CHANGELOG sob
   `[Unreleased]`.
+- Registrar o ADR da rota de PDF na Story 1.1 em `docs/explanation/architecture.md`.
+- Atualizar `specs/sprint-status.yaml` conforme as stories avançam para `in-progress`/`done`.
