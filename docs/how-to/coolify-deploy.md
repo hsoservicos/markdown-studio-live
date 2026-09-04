@@ -2,6 +2,8 @@
 
 Guia completo de como deployar o Markdown-Studio no Coolify usando um túnel da Cloudflare.
 
+> **Guia passo a passo detalhado**: `docs/how-to/coolify-deploy-step-by-step.md`
+
 ## Visão Geral
 
 O Markdown-Studio será publicado em `https://mkdeditor.appservice.tec.br/` usando:
