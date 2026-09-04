@@ -1,6 +1,6 @@
 # Markdown-Studio
 
-Editor Markdown com preview em tempo real — projeto pessoal e profissional, reconstruído a partir do `tanabe/markdown-live-preview` sob a metodologia **BMAD**.
+Editor Markdown com preview em tempo real — projeto pessoal e profissional, reconstruído a partir do [`tanabe/markdown-live-preview`](https://github.com/tanabe/markdown-live-preview) — repositório de estudo base para o desenvolvimento deste projeto — sob a metodologia **BMAD**.
 
 ## Objetivo
 
@@ -62,4 +62,4 @@ Markdown-Studio/
 
 ISC (herdada do projeto original) — para uso pessoal e profissional.
 
-_Este projeto é uma reconstrução independente; o código original é de `tanabe/markdown-live-preview` (ISC)._
+_Este projeto é uma reconstrução independente; o código original é de [`tanabe/markdown-live-preview`](https://github.com/tanabe/markdown-live-preview) (ISC), usado como base de estudos._
