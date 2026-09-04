@@ -17,16 +17,16 @@ pt-BR primeiro, design "The Quiet Studio".
 > `specs/spec-v2.md` e são referenciados aqui por id (ex.: `AC-P2-9-1`). As stories só
 > acrescentam critérios de implementação — sem duplicar os ACs da spec.
 
-## Requirements Inventory
+## Inventário de Requisitos
 
-### Functional Requirements
+### Requisitos Funcionais
 
 - FR-P2-9: o usuário exporta um PDF com **texto vetorial pesquisável** (Ctrl+F e seleção
   funcionam), em vez da imagem rasterizada atual (html2canvas).
 - FR-P2-10: o usuário gerencia **múltiplos documentos** Markdown locais (abas e/ou lista),
   com a mesma privacidade local do documento único atual.
 
-### NonFunctional Requirements
+### Requisitos Não Funcionais
 
 - NFR-1: 100% client-side; nenhuma chamada externa em runtime (offline após build).
 - NFR-2: persistência apenas em `localStorage` (chaves `com.markdownstudio.*`).
@@ -35,20 +35,20 @@ pt-BR primeiro, design "The Quiet Studio".
   regressão.
 - NFR-5: acessibilidade (teclado, `aria-live`, foco visível) e i18n pt-BR/en.
 
-### Additional Requirements
+### Requisitos Adicionais
 
 - Preservar todos os contratos atuais (`last_state`, `backup`, `print_settings`, `locale`,
   `theme_settings` etc.) — compatibilidade com dados existentes.
 - Layout/impressão atuais (P0-1/P0-2) continuam funcionando durante e após a migração.
 
-### FR Coverage Map
+### Mapa de Cobertura de FRs
 
 | Epic   | FRs cobertas |
 | ------ | ------------ |
 | P2-A   | FR-P2-9      |
 | P2-B   | FR-P2-10     |
 
-## Epic List
+## Lista de Epics
 
 | #   | Key              | Título                                        | Estimativa (stories) |
 | --- | ---------------- | --------------------------------------------- | -------------------- |
@@ -98,6 +98,8 @@ implementação:
 - `blockquote`, código inline/fenced e texto de links entram como texto vetorial, não como
   imagem
 - manter margem, papel (A4/Letter), orientação e cabeçalho/rodapé com `{page}` (P0-1)
+- respeitar o marcador `<!-- page-break -->` (P0-2) também na rota vetorial, inserindo a
+  quebra de página correspondente na definição do documento
 
 ## Story 1.3: Diagramas e matemática no PDF vetorial
 
@@ -109,8 +111,8 @@ para que o artefato exportado não perca conteúdo não textual.
 implementação:
 
 - embutir o SVG do mermaid já renderizado no preview (sem re-renderizar)
-- converter o HTML do KaTeX (hoje `output: 'html'`) para SVG na rota vetorial, com fallback
-  de alta resolução quando a conversão não for suportada
+- re-renderizar o KaTeX com `output: 'svg'` na rota vetorial (em vez de reaproveitar o HTML
+  `output: 'html'` do preview), com fallback de alta resolução quando SVG não for suportado
 - integrar com as quebras de página conscientes (P0-2)
 
 ## Story 1.4: Paridade de contrato e fallback
@@ -144,10 +146,16 @@ para que abrir outro documento não destrua o rascunho atual.
 implementação:
 
 - schema versionado do índice
-  (`{ version, activeId, documents: [{ id, title, updatedAt }] }`) e conteúdo por `id`
-- ids via `crypto.randomUUID()` (com fallback), nunca derivados do título
+  (`{ version: 1, activeId, documents: [{ id, title, updatedAt }] }`) e conteúdo por `id`
+- ids via `crypto.randomUUID()` (com fallback para `Date.now()` + `Math.random()`), nunca
+  derivados do título
 - `documents.*` como fonte de verdade no boot; `last_state` espelha o documento ativo
+- `safeGet` estendido com `type: 'object'` para validar leitura do índice (objeto)
 - `QuotaExceededError` → aviso i18n e última versão salva mantida intacta
+- gravação do índice + conteúdo é atômica (transação de duas chaves): se uma falhar,
+  nenhuma é aplicada
+- `SecurityError` (storage desabilitado em modo privado) capturado e reportado via
+  `aria-live` com aviso i18n
 
 ## Story 2.2: Gerenciador de documentos (`src/ui/documents.js`)
 
@@ -158,8 +166,10 @@ para que eu organize vários artefatos sem sair do editor.
 **Acceptance Criteria:** canônico em `AC-P2-10-2` (specs/spec-v2.md). Critérios de
 implementação:
 
-- validação de nomes: trim, não vazio, limite de tamanho, unicidade com sufixo numérico
-  automático e feedback i18n
+- validação de nomes: trim, não vazio, limite de 128 caracteres, unicidade com sufixo
+  numérico automático (ex.: `Documento`, `Documento (2)`) e feedback i18n
+- sufixo numérico também aplicado ao **renomear** para um nome já existente (evita colisão
+  por overwrite silencioso)
 - fechar o documento ativo promove o próximo da lista (ou abre o template se a lista
   esvaziar)
 - confirmação antes de descartar conteúdo não salvo (padrão `newFileConfirm`)
@@ -177,9 +187,13 @@ implementação:
 
 - Copy/Export PDF/Export HTML usam o conteúdo e o nome do documento ativo (ex.: título do
   HTML standalone, nome do arquivo no PDF), com nome de arquivo sanitizado para download
-- snapshots locais preservam a origem (id/etiqueta)
+- snapshots locais preservam a origem (id do documento + etiqueta)
 - migração de snapshots legados sem origem: atribuir ao documento ativo ou manter em raiz
   "legado" — sem perda silenciosa
+- ao deletar um documento, seus snapshots são migrados para o documento ativo ou removidos
+  com confirmação — sem origem pendurada
+- backup legado (`com.markdownstudio.backup`) é atribuído ao documento ativo na primeira
+  carga P2 ou mantido em raiz "legado" — sem backup órfão
 
 ## Story 2.4: Persistência do documento corrente no boot
 
@@ -192,6 +206,11 @@ implementação:
 
 - boot com `documents.*` como fonte de verdade; `last_state`/`backup` legados continuam
   restaurando sessões de documento único (pré-P2)
+- `last_state` legado não-template é convertido em documento na primeira carga P2 (título
+  "Documento restaurado", conteúdo de `last_state`), sem remover `last_state` até migração
+  confirmada
+- índice com ids duplicados é deduplicado mantendo a versão mais recente (`updatedAt`),
+  com aviso i18n
 - índice vazio/corrompido, id ativo órfão e conteúdo individual corrompido degradam com
   aviso i18n, sem crash (`safeGet`/`StorageError`)
 

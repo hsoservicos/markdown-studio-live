@@ -78,6 +78,9 @@ items:
     stories: _bmad-output/planning-artifacts/epics-p2.md
     estimates:
       tokens: 40000
+    notes:
+      - spec v2 aprovada; re-revisão de precisão aplicada (19 achados)
+      - story 1.1 (spike ADR) pra próxima
   - key: p2-multi-documentos
     title: 'Múltiplos documentos (abas/lista)'
     status: ready-for-dev
@@ -85,3 +88,6 @@ items:
     stories: _bmad-output/planning-artifacts/epics-p2.md
     estimates:
       tokens: 50000
+    notes:
+      - spec v2 aprovada; re-revisão de precisão aplicada (19 achados)
+      - story 2.1 (índice no storage) pra próxima

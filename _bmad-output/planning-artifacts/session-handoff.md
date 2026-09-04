@@ -13,52 +13,36 @@
   api-convert), snapshot v1.2.0 e re-edit-overview atualizados.
 - Plano P2 (`specs/spec-v2.md` + `_bmad-output/planning-artifacts/epics-p2.md`): revisão
   adversarial de 21 achados aplicada (commit `397fb46`) e **re-revisão confirma os 21
-  fechados**; re-revisão apontou ~19 achados novos de precisão (abaixo).
+  fechados**; re-revisão apontou ~19 achados novos de precisão.
+- **~19 achados de precisão da re-revisão APLICADOS** (spec v2 + epics-p2): chaves
+  `documents`/`content.<id>`, `safeGet type:'object'`, migração `last_state` legado→documento,
+  flag `pdf.vector` com flip detalhado, sufixo numérico no rename, snapshots/backup órfãos,
+  re-render KaTeX `output:'svg'`, `page-break` na rota vetorial, limite 128 chars, dedupe de
+  ids duplicados, atomicidade índice+conteúdo, `SecurityError`, spec v2 → `status: approved`.
 
 ## Ações pendentes (próxima sessão)
 
-### 1. Aplicar os ~19 achados novos da re-revisão (antes de codar)
-
-Maioria em `specs/spec-v2.md` e `_bmad-output/planning-artifacts/epics-p2.md` — precisão de
-spec para implementação. Críticos para a story 2.1:
-
-1. **Esquema de chaves de conteúdo** — fixar
-   `com.markdownstudio.documents` (índice) + `com.markdownstudio.documents.content.<id>`
-   (conteúdo); hoje a AC diz apenas "chave própria por id".
-2. **Leitura de objeto** — `getItem` só valida boolean/string/number; o índice é objeto →
-   estender storage com `type: 'object'` (ou caminho de parse documentado) na story 2.1.
-3. **Migração de `last_state` legado** — contradição entre AC-P2-10-4 (índice vazio →
-   template) e Story 2.4 (last_state legado restaura sessão pré-P2): definir que um
-   `last_state` não-template vira documento na primeira carga P2.
-
-Demais: critério "CI/e2e" inverificável (repo não tem e2e) no AC-P2-9-3; mecanismo de flip
-da flag `com.markdownstudio.pdf.vector`; colisão de sufixo numérico em rename (Story 2.2);
-anel `backup` sem atribuição por documento (Story 2.3); origem pendurada ao deletar doc;
-KaTeX "html→SVG" → re-render `output:'svg'`; marcador `<!-- page-break -->` na rota
-vetorial (Story 1.2); limite de tamanho de título sem valor; `status: draft` → `approved`;
-dedupe de `id` duplicado em índice corrompido; atomicidade de gravação em duas chaves;
-SecurityError de storage desabilitado; cabeçalhos EN → pt-BR; prosa (citar `safeGet` como
-contrato de storage; frase "reaproveitando a renderização já feita no preview").
-
-### 2. Implementar story 2.1 — índice de documentos (P2-10)
+### 1. Implementar story 2.1 — índice de documentos (P2-10)
 
 Camada de storage **sem UI**: schema versionado do índice, ids `crypto.randomUUID()`
 (fallback), conteúdo por id, `documents.*` como fonte de verdade, `QuotaExceededError` →
-aviso i18n com última versão intacta. AC canônico: `AC-P2-10-1`; testes na menor camada.
+aviso i18n com última versão intacta, gravação atômica índice+conteúdo, `securityError`
+capturado, `safeGet` estendido com `type: 'object'`. AC canônico: `AC-P2-10-1`; testes na
+menor camada.
 
-### 3. Implementar story 1.1 — spike técnico do PDF vetorial (P2-9)
+### 2. Implementar story 1.1 — spike técnico do PDF vetorial (P2-9)
 
 Avaliar pdfmake/jsPDF-text/overlay; registrar **ADR** em `docs/explanation/architecture.md`
 (formato por conteúdo: texto/SVG/imagem; estratégia KaTeX html→SVG). Sem AC canônico na
 spec (spike).
 
-### 4. Stories subsequentes
+### 3. Stories subsequentes
 
 - 2.2 gerenciador (`src/ui/documents.js`), 2.3 ações no ativo, 2.4 boot (ACs
   AC-P2-10-2/3/4).
 - 1.2 camada vetorial, 1.3 diagramas/matemática, 1.4 fallback+flag (ACs AC-P2-9-1/2/3).
 
-### 5. Disciplina por story
+### 4. Disciplina por story
 
 - Quality gate verde + CHANGELOG sob `[Unreleased]` + commit convencional + push
   (hooks husky rodam lint-staged/quality).

@@ -16,6 +16,18 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   quota, AC-P2-10-2 valida nomes (trim/único/sufixo numérico) e promove o próximo documento
   ao fechar o ativo, AC-P2-10-3 sanitiza nomes de arquivo e preserva snapshots legados,
   AC-P2-10-4 cobre id órfão e conteúdo individual corrompido; stories unificadas em pt-BR.
+- Plano P2 endurecido por **re-revisão de precisão** (~19 achados): `specs/spec-v2.md` e
+  `_bmad-output/planning-artifacts/epics-p2.md` — AC-P2-10-1 fixa chaves
+  `com.markdownstudio.documents` (índice) + `com.markdownstudio.documents.content.<id>`
+  (conteúdo), exige `safeGet` com `type: 'object'` para o índice, id com fallback explícito,
+  gravação atômica índice+conteúdo e captura de `SecurityError` (storage desabilitado);
+  AC-P2-10-2 fixa limite de 128 caracteres para título e aplica sufixo numérico também ao
+  renomear; AC-P2-10-3 atribui snapshots/backup legados ao documento ativo e cobre
+  snapshots órfãos ao deletar; AC-P2-10-4 define migração de `last_state` legado não-template
+  para documento e dedupe de ids duplicados no índice corrompido; AC-P2-9-2 troca
+  "reaproveitar HTML" por re-render KaTeX `output:'svg'`; AC-P2-9-3 detalha o flip da flag
+  `pdf.vector` (default off) e remove critério e2e inverificável; Story 1.2 registra o
+  marcador `<!-- page-break -->` na rota vetorial; spec v2 promovida para status `approved`.
 
 ## [1.2.0] — 2026-09-04
 
