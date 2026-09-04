@@ -5,6 +5,16 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- **Camada de storage de múltiplos documentos (Story 2.1)**: `src/documents.js` é um índice
+  versionado puro (`{ version: 1, activeId, documents[] }` em `com.markdownstudio.documents`)
+  - conteúdo por `com.markdownstudio.documents.content.<id>`, com ids
+    `crypto.randomUUID()`/fallback, gravação atômica (índice+conteúdo), dedupe de ids no índice
+    corrompido, reparo de `activeId` órfão e erros tipados (`quota`/`security`) via
+    `err.code`. `src/storage.js` exporta `safeGet` (leitura que degrada a `null`) e valida
+    `type: 'object'`; i18n ganha `quotaExceeded`/`storageDisabled` (pt-BR + en). Sem UI (Story 2.2).
+
 ### Changed
 
 - Plano P2 endurecido por revisão adversarial: `specs/spec-v2.md` e

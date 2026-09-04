@@ -10,36 +10,40 @@ específicos (valor simples, sem envelope).
 
 ## Chaves
 
-| Chave                                    | Tipo                 | Acesso        | Uso                                     |
-| ---------------------------------------- | -------------------- | ------------- | --------------------------------------- |
-| `com.markdownstudio.last_state`          | string               | wrapper       | conteúdo salvo do editor                |
-| `com.markdownstudio.scroll_bar_settings` | boolean              | wrapper       | sync de scroll (editor → preview)       |
-| `com.markdownstudio.theme_settings`      | boolean              | wrapper       | tema dark/light (fonte de verdade)      |
-| `com.markdownstudio.backup`              | `Snapshot[]` (máx 5) | wrapper       | anel de snapshots locais (P1-8)         |
-| `com.markdownstudio.locale`              | `'pt-BR'` / `'en'`   | crua (módulo) | idioma da interface                     |
-| `com.markdownstudio.print_settings`      | JSON string          | crua (módulo) | configuração de impressão/PDF (P0-1)    |
-| `com.markdownstudio.sidebar_collapsed`   | `'1'` / `'0'`        | crua (módulo) | estado recolhido do drawer/sidebar      |
-| `com.markdownstudio_theme` (raw, boot)   | `'dark'` / `'light'` | crua (boot)   | anti-FOUC no `<head>` (espelho de tema) |
+| Chave                                       | Tipo                                 | Acesso        | Uso                                     |
+| ------------------------------------------- | ------------------------------------ | ------------- | --------------------------------------- |
+| `com.markdownstudio.last_state`             | string                               | wrapper       | conteúdo salvo do editor                |
+| `com.markdownstudio.scroll_bar_settings`    | boolean                              | wrapper       | sync de scroll (editor → preview)       |
+| `com.markdownstudio.theme_settings`         | boolean                              | wrapper       | tema dark/light (fonte de verdade)      |
+| `com.markdownstudio.backup`                 | `Snapshot[]` (máx 5)                 | wrapper       | anel de snapshots locais (P1-8)         |
+| `com.markdownstudio.locale`                 | `'pt-BR'` / `'en'`                   | crua (módulo) | idioma da interface                     |
+| `com.markdownstudio.print_settings`         | JSON string                          | crua (módulo) | configuração de impressão/PDF (P0-1)    |
+| `com.markdownstudio.sidebar_collapsed`      | `'1'` / `'0'`                        | crua (módulo) | estado recolhido do drawer/sidebar      |
+| `com.markdownstudio_theme` (raw, boot)      | `'dark'` / `'light'`                 | crua (boot)   | anti-FOUC no `<head>` (espelho de tema) |
+| `com.markdownstudio.documents`              | `{ version, activeId, documents[] }` | wrapper       | índice de documentos (P2-10)            |
+| `com.markdownstudio.documents.content.<id>` | string                               | wrapper       | conteúdo Markdown por documento (P2-10) |
 
 Expiração padrão (wrapper): **2099-02-01** (padrão herdado do upstream).
 
 ## API do wrapper
 
-| Método                                       | Comportamento                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------ |
-| `getItem(namespace, key, { type })`          | lê com validação de tipo; `null` se ausente/expirado; `StorageError` em schema |
-| `setItem(namespace, key, value, expiresAt?)` | grava envelope `{ value, expiresAt }` (default 2099)                           |
-| `removeItem(namespace, key)`                 | remove a chave                                                                 |
-| `getRaw(key)` / `setRaw(key, value)`         | acesso cru (sem envelope) — usado pelo script de boot do tema                  |
+| Método                                             | Comportamento                                                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `getItem(namespace, key, { type })`                | lê com validação de tipo; `null` se ausente/expirado; `StorageError` em schema                                                        |
+| `setItem(namespace, key, value, expiresAt?)`       | grava envelope `{ value, expiresAt }` (default 2099)                                                                                  |
+| `removeItem(namespace, key)`                       | remove a chave                                                                                                                        |
+| `getRaw(key)` / `setRaw(key, value)`               | acesso cru (sem envelope) — usado pelo script de boot do tema                                                                         |
+| `safeGet(namespace, key, { type, defaultValue? })` | leitura tipada que degrada a `defaultValue` (padrão `null`) em vez de propagar `StorageError` — usado no boot e em camadas tolerantes |
 
 ### Regras de leitura
 
 - O wrapper serializa como `{ value, expiresAt }`; leituras de **valores legados não-JSON**
   são devolvidas cruas (compatibilidade com o upstream).
-- `getItem(..., { type: 'boolean' })` normaliza legado `true/false/1/0`; fragmentos com
-  schema inesperado lançam `StorageError` em vez de restaurar silenciosamente.
-- No boot, `safeGet` (em `src/main.js`) envolve a leitura e degrada para `null` (fallback
-  ao padrão) se o storage lançar.
+- `getItem(..., { type: 'boolean' })` normaliza legado `true/false/1/0`; `{ type: 'object' }`
+  valida objeto não-nulo/não-array; fragmentos com schema inesperado lançam `StorageError`
+  em vez de restaurar silenciosamente.
+- No boot e em camadas tolerantes, `safeGet` envolve a leitura e degrada para `null`
+  (ou `defaultValue`) se o storage lançar, sem propagar `StorageError`.
 
 ## Uso recomendado
 

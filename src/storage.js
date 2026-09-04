@@ -37,6 +37,9 @@ function validateValue(fullKey, value, type) {
   if (type === 'number' && typeof value !== 'number') {
     throw new StorageError(`Valor inválido para '${fullKey}': esperado número`);
   }
+  if (type === 'object' && (typeof value !== 'object' || value === null || Array.isArray(value))) {
+    throw new StorageError(`Valor inválido para '${fullKey}': esperado objeto`);
+  }
   return value;
 }
 
@@ -110,5 +113,19 @@ export function setRaw(key, value) {
     localStorage.setItem(key, value);
   } catch (e) {
     throw new StorageError(`Falha ao gravar '${key}' no localStorage`, e);
+  }
+}
+
+/**
+ * Leitura tipada na fronteira que degrada para `defaultValue` (padrão `null`) quando o
+ * storage lança (schema corrompido, storage indisponível) em vez de propagar `StorageError`.
+ * Uso no boot e em camadas de leitura tolerantes a falha.
+ */
+export function safeGet(namespace, key, { type, defaultValue = null } = {}) {
+  try {
+    const value = getItem(namespace, key, { type });
+    return value == null ? defaultValue : value;
+  } catch {
+    return defaultValue;
   }
 }

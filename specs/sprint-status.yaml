@@ -90,4 +90,5 @@ items:
       tokens: 50000
     notes:
       - spec v2 aprovada; re-revisão de precisão aplicada (19 achados)
-      - story 2.1 (índice no storage) pra próxima
+      - story 2.1 (índice no storage) DONE — src/documents.js + safeGet type object; 234 testes verdes
+      - próximas: story 2.2 (gerenciador UI), 2.3 (ações no ativo), 2.4 (boot/persistência)

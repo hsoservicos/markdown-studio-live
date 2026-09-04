@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getItem, setItem, removeItem, getRaw, setRaw, StorageError } from '../../src/storage.js';
+import {
+  getItem,
+  setItem,
+  removeItem,
+  getRaw,
+  setRaw,
+  safeGet,
+  StorageError,
+} from '../../src/storage.js';
 import { NAMESPACE, KEYS } from '../../src/i18n/index.js';
 
 function store() {
@@ -108,5 +116,68 @@ describe('getItem com validação de tipo (M4)', () => {
 
   it('chave ausente volta null mesmo com tipo exigido', () => {
     expect(getItem(NAMESPACE, 'nao-existe', { type: 'string' })).toBeNull();
+  });
+});
+
+describe('getItem com type: object', () => {
+  beforeEach(() => {
+    store().clear();
+  });
+  afterEach(() => {
+    store().clear();
+  });
+
+  it('valida objeto index na fronteira', () => {
+    const index = { version: 1, activeId: 'a', documents: [] };
+    setItem(NAMESPACE, 'documents', index);
+    expect(getItem(NAMESPACE, 'documents', { type: 'object' })).toEqual(index);
+  });
+
+  it('lança StorageError quando valor não-objeto sob type object', () => {
+    setItem(NAMESPACE, 'documents', 'texto');
+    expect(() => getItem(NAMESPACE, 'documents', { type: 'object' })).toThrow(StorageError);
+  });
+
+  it('lança StorageError quando valor array sob type object', () => {
+    setItem(NAMESPACE, 'documents', [1, 2, 3]);
+    expect(() => getItem(NAMESPACE, 'documents', { type: 'object' })).toThrow(StorageError);
+  });
+});
+
+describe('safeGet', () => {
+  beforeEach(() => {
+    store().clear();
+  });
+  afterEach(() => {
+    store().clear();
+  });
+
+  it('devolve valor quando storage saudável', () => {
+    setItem(NAMESPACE, 'documents', { version: 1 });
+    expect(safeGet(NAMESPACE, 'documents', { type: 'object' })).toEqual({ version: 1 });
+  });
+
+  it('devolve defaultValue quando storage lança (não propaga StorageError)', () => {
+    const original = globalThis.localStorage;
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('blocked');
+      },
+    });
+    const result = safeGet(NAMESPACE, 'documents', { type: 'object', defaultValue: 'padrao' });
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        return original;
+      },
+    });
+    expect(result).toBe('padrao');
+  });
+
+  it('devolve defaultValue quando valor ausente', () => {
+    expect(safeGet(NAMESPACE, 'nao-existe', { type: 'object', defaultValue: { v: 1 } })).toEqual({
+      v: 1,
+    });
   });
 });

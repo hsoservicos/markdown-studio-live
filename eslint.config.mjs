@@ -19,6 +19,7 @@ export default [
         clearTimeout: 'readonly',
         self: 'readonly',
         fetch: 'readonly',
+        crypto: 'readonly',
         File: 'readonly',
         FileReader: 'readonly',
         Blob: 'readonly',

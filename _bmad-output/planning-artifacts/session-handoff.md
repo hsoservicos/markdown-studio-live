@@ -19,16 +19,21 @@
   flag `pdf.vector` com flip detalhado, sufixo numérico no rename, snapshots/backup órfãos,
   re-render KaTeX `output:'svg'`, `page-break` na rota vetorial, limite 128 chars, dedupe de
   ids duplicados, atomicidade índice+conteúdo, `SecurityError`, spec v2 → `status: approved`.
+- **Story 2.1 — índice de documentos (P2-10) IMPLEMENTADA e revisada**: `src/documents.js`
+  (camada pura, sem UI) + `safeGet`/`type:'object'` em `src/storage.js`, i18n
+  `quotaExceeded`/`storageDisabled`, `tests/unit/documents.test.js` (17 casos) + casos
+  `type:'object'`/`safeGet` em `storage.test.js`; quality gate verde (234 testes). Review
+  (blind/edge/verification-gap) aplicou 2 patches: erro tipado `.code` consistente em
+  `saveIndex`/`atomicWrite` (incl. falha na 1ª chave e rollback best-effort). Spec 2.1 →
+  `status: done`; CHANGELOG e sprint-status atualizados.
 
 ## Ações pendentes (próxima sessão)
 
-### 1. Implementar story 2.1 — índice de documentos (P2-10)
+### 1. Implementar story 2.2 — gerenciador de documentos (UI)
 
-Camada de storage **sem UI**: schema versionado do índice, ids `crypto.randomUUID()`
-(fallback), conteúdo por id, `documents.*` como fonte de verdade, `QuotaExceededError` →
-aviso i18n com última versão intacta, gravação atômica índice+conteúdo, `securityError`
-capturado, `safeGet` estendido com `type: 'object'`. AC canônico: `AC-P2-10-1`; testes na
-menor camada.
+- [x] Story 2.1 — índice no storage — CONCLUÍDA.
+- [ ] UI do gerenciador (`src/ui/documents.js`) consumindo a camada de 2.1 (AC-P2-10-2/3).
+- [ ] 2.3 ações do editor operando no documento ativo; 2.4 persistência no boot (AC-P2-10-4).
 
 ### 2. Implementar story 1.1 — spike técnico do PDF vetorial (P2-9)
 
