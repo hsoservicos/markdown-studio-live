@@ -73,13 +73,15 @@ done:
 items:
   - key: p2-pdf-vetorial
     title: 'PDF com texto vetorial pesquisável (Ctrl+F e seleção no PDF)'
-    status: backlog
-    spec: _bmad-output/verifications/features-proposals.md
+    status: ready-for-dev
+    spec: specs/spec-v2.md
+    stories: _bmad-output/planning-artifacts/epics-p2.md
     estimates:
       tokens: 40000
   - key: p2-multi-documentos
     title: 'Múltiplos documentos (abas/lista)'
-    status: backlog
-    spec: _bmad-output/verifications/features-proposals.md
+    status: ready-for-dev
+    spec: specs/spec-v2.md
+    stories: _bmad-output/planning-artifacts/epics-p2.md
     estimates:
       tokens: 50000
