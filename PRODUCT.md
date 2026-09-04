@@ -45,7 +45,7 @@ Ferramenta local, segura e duradoura: escrever, ver o resultado instantaneamente
 ## Evidence on Hand
 
 - Repo de referência (upstream): `tanabe/markdown-live-preview` — auditoria registrada como estudo base (ver `docs/explanation/primeira-intencao.md`).
-- Implementação atual do Markdown-Studio publicada em `https://github.com/hsoservicos/markdown-studio-live` (branch `master`, tag `v1.2.0`).
+- Implementação atual do Markdown-Studio publicada em `https://github.com/hsoservicos/markdown-studio-live` (branch `main`, tag `v1.2.0`).
 - Progresso do projeto registrado em `CHANGELOG.md`, `specs/sprint-status.yaml` e `_bmad-output/verifications/` (análises BMAD pós-release).
 - Features P2 (PDF vetorial + multi-documentos) completas e validadas (287 testes, 0 vulnerabilidades).
 - Docker configurado com multi-stage build, scripts de gerenciamento e CI/CD automatizado.

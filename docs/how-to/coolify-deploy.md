@@ -24,7 +24,7 @@ O Markdown-Studio será publicado em `https://mkdeditor.appservice.tec.br/` usan
 
 **Vantagens:**
 
-- Deploy automático a cada push no `master`
+- Deploy automático a cada push no `main`
 - Rollback fácil via histórico de commits
 - Integração com CI/CD (quality gate antes do deploy)
 - Sem necessidade de acesso SSH ao servidor

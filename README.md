@@ -152,7 +152,7 @@ Markdown-Studio/
 
 | Workflow      | Trigger                  | Ações                                        |
 | ------------- | ------------------------ | -------------------------------------------- |
-| `quality.yml` | push/PR master           | lint, lint:md, format, test:coverage, build  |
+| `quality.yml` | push/PR main             | lint, lint:md, format, test:coverage, build  |
 | `docker.yml`  | push/PR (Dockerfile/src) | build, health test, push GHCR                |
 | `release.yml` | manual dispatch          | bump, quality, build, Docker, GitHub Release |
 

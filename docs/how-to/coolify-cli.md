@@ -81,7 +81,7 @@ coolify --context localhost app create public \
   --project-uuid <project-uuid> \
   --environment-name production \
   --git-repository https://github.com/hsoservicos/markdown-studio-live \
-  --git-branch master \
+  --git-branch main \
   --build-pack dockerfile \
   --ports-exposes 80
 
