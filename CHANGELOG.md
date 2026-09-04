@@ -7,6 +7,11 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+- **Deploy no Coolify**: documentação completa (`docs/how-to/coolify-deploy.md`) para deploy
+  via GitHub, Docker Image ou local, com Cloudflare Tunnel em `mkdeditor.appservice.tec.br`.
+- **Coolify CLI**: documentação de configuração e uso (`docs/how-to/coolify-cli.md`) para
+  deploy direto do terminal via API.
+- **Dockerfile.coolify**: Dockerfile otimizado para Coolify com labels OCI e health check.
 - **Camada de storage de múltiplos documentos (Story 2.1)**: `src/documents.js` é um índice
   versionado puro (`{ version: 1, activeId, documents[] }` em `com.markdownstudio.documents`)
   com conteúdo por `com.markdownstudio.documents.content.<id>`, ids `crypto.randomUUID()`/
