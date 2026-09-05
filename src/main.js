@@ -25,6 +25,32 @@ import 'katex/dist/katex.min.css';
 
 applyStoredLocale();
 
+export function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    const isCtrl = e.ctrlKey || e.metaKey;
+    if (!isCtrl) return;
+
+    switch (e.key.toLowerCase()) {
+      case 's':
+        e.preventDefault();
+        document.querySelector('[data-sidebar-action="save"]')?.click();
+        break;
+      case 'p':
+        e.preventDefault();
+        document.querySelector('[data-sidebar-action="exportPdf"]')?.click();
+        break;
+      case 'b':
+        e.preventDefault();
+        document.querySelector('[data-sidebar-action="copyHtml"]')?.click();
+        break;
+      case 'e':
+        e.preventDefault();
+        document.querySelector('[data-sidebar-action="exportHtml"]')?.click();
+        break;
+    }
+  });
+}
+
 const init = () => {
   let hasEdited = false;
   let scrollBarSync = false;
@@ -373,6 +399,8 @@ const init = () => {
     setupSidebarActions();
 
     setupLanguageSelector();
+
+    setupKeyboardShortcuts();
 
     if (statusBar) {
       const quota = statusBar.checkQuota();

@@ -43,6 +43,8 @@ export async function exportPdfVector(
     return;
   }
 
+  onStatus?.(t('pdfGenerating'));
+
   let adapter;
   try {
     adapter = await import('../pdf/pdfmake-adapter.js');

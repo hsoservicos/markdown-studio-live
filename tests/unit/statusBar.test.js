@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { computeStats, formatStats, renderStats, setupStatusBar } from '../../src/ui/statusBar.js';
+import {
+  computeStats,
+  formatStats,
+  renderStats,
+  setupStatusBar,
+  checkStorageQuota,
+} from '../../src/ui/statusBar.js';
 
 const tFn = {
   words: '{n} palavras',
@@ -31,6 +37,10 @@ describe('computeStats', () => {
     expect(computeStats(null).words).toBe(0);
     expect(computeStats(undefined).lines).toBe(0);
   });
+
+  it('uma palavra retorna 1 min de leitura', () => {
+    expect(computeStats('hello').readingMinutes).toBe(1);
+  });
 });
 
 describe('formatStats', () => {
@@ -45,21 +55,59 @@ describe('formatStats', () => {
     const stats = { words: 1, characters: 5, lines: 1, readingMinutes: 1 };
     expect(formatStats(stats, (k) => tFn[k], 'nota.md')).toContain('nota.md · ');
   });
+
+  it('sem arquivo não prefixa', () => {
+    const stats = { words: 1, characters: 5, lines: 1, readingMinutes: 1 };
+    const result = formatStats(stats, (k) => tFn[k]);
+    expect(result).not.toContain('nota.md');
+  });
 });
 
-describe('renderStats / setupStatusBar', () => {
+describe('renderStats', () => {
   it('renderStats escreve no container', () => {
-    const container = document.createElement('footer');
     const el = document.createElement('span');
-    el.id = 'status-stats';
-    container.appendChild(el);
     renderStats(el, { words: 2, characters: 8, lines: 1, readingMinutes: 1 }, (k) => tFn[k]);
     expect(el.textContent).toContain('2 palavras');
   });
 
+  it('renderStats retorna null sem container', () => {
+    expect(renderStats(null, { words: 0, characters: 0, lines: 0, readingMinutes: 0 })).toBeNull();
+  });
+
+  it('renderStats com fileName', () => {
+    const el = document.createElement('span');
+    renderStats(
+      el,
+      { words: 1, characters: 5, lines: 1, readingMinutes: 1 },
+      (k) => tFn[k],
+      'test.md',
+    );
+    expect(el.textContent).toContain('test.md');
+  });
+});
+
+describe('checkStorageQuota', () => {
+  it('retorna ok: true quando storage funciona', () => {
+    const result = checkStorageQuota();
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('setupStatusBar', () => {
   it('setupStatusBar retorna null sem o elemento #status-stats', () => {
     const container = document.createElement('footer');
     expect(setupStatusBar({ container, getContent: () => '' })).toBeNull();
+  });
+
+  it('setupStatusBar retorna objeto com update e render', () => {
+    const container = document.createElement('footer');
+    const el = document.createElement('span');
+    el.id = 'status-stats';
+    container.appendChild(el);
+    const bar = setupStatusBar({ container, getContent: () => 'test' });
+    expect(bar).toHaveProperty('update');
+    expect(bar).toHaveProperty('render');
+    expect(bar).toHaveProperty('checkQuota');
   });
 
   it('setupStatusBar atualiza pelo conteúdo atual', () => {
@@ -74,5 +122,20 @@ describe('renderStats / setupStatusBar', () => {
     content = 'a b c d e f g h i j k l m n o p q r s t u v w x y z';
     bar.render();
     expect(el.textContent).toContain('26 palavras');
+  });
+
+  it('setupStatusBar com getFileName', () => {
+    const container = document.createElement('footer');
+    const el = document.createElement('span');
+    el.id = 'status-stats';
+    container.appendChild(el);
+    const bar = setupStatusBar({
+      container,
+      getContent: () => 'test',
+      tFn: (k) => tFn[k],
+      getFileName: () => 'doc.md',
+    });
+    bar.render();
+    expect(el.textContent).toContain('doc.md');
   });
 });

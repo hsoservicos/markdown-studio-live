@@ -81,6 +81,8 @@ export async function exportRasterFallback(
     return;
   }
 
+  onStatus?.(t('pdfGenerating'));
+
   let html2pdf;
   try {
     html2pdf = await loadHtml2Pdf();
