@@ -1,129 +1,182 @@
-# Manual do Markdown
+# Manual do Markdown-Studio
 
-Guia moderno, prático e completo para aprender, consultar e editar documentos Markdown dentro do **Markdown-Studio**. Baseado na especificação **CommonMark** e nas extensões **GitHub Flavored Markdown (GFM)**, com exemplos prontos para testar no painel de edição.
+Guia completo para aprender, consultar e criar artefatos Markdown do básico ao avançado. Baseado na especificação **CommonMark** e **GitHub Flavored Markdown (GFM)**, com suporte nativo a **KaTeX** (matemática) e **Mermaid** (diagramas).
 
-> O Markdown-Studio renderiza Markdown pelo pipeline `marked → DOMPurify → mermaid`. O que está neste manual funciona aqui — e, no nível da "camada comum" (CommonMark + GFM), funciona também no GitHub, GitLab, Obsidian e quase todos os editores modernos.
+> O Markdown-Studio renderiza pelo pipeline `marked → DOMPurify → mermaid`. O que funciona aqui funciona no GitHub, GitLab, Obsidian e quase todos os editores modernos.
 
 ---
 
 ## Índice
 
-1. [O que é Markdown](#o-que-e-markdown)
-2. [Como escrever e editar](#como-escrever-e-editar)
-3. [Cabeçalhos](#cabecalhos)
-4. [Ênfase e formatação de texto](#enfase-e-formatacao-de-texto)
-5. [Parágrafos e quebras de linha](#paragrafos-e-quebras-de-linha)
-6. [Listas](#listas)
-7. [Citações](#citacoes)
-8. [Código](#codigo)
-9. [Links](#links)
-10. [Imagens](#imagens)
-11. [Regras horizontais](#regras-horizontais)
-12. [Tabelas](#tabelas)
-13. [Listas de tarefas](#listas-de-tarefas)
-14. [Escapando caracteres](#escapando-caracteres)
-15. [HTML dentro do Markdown](#html-dentro-do-markdown)
-16. [Diagramas Mermaid](#diagramas-mermaid)
-17. [Boas práticas](#boas-praticas)
-18. [Pegadinhas e como evitá-las](#pegadinhas-e-como-evita-las)
-19. [Referência rápida](#referencia-rapida)
-20. [Referências oficiais](#referencias-oficiais)
+### Básico
+
+- [O que é Markdown](#o-que-e-markdown)
+- [Primeiros passos](#primeiros-passos)
+- [Cabeçalhos](#cabecalhos)
+- [Ênfase e formatação](#enfase-e-formatacao)
+- [Parágrafos e quebras](#paragrafos-e-quebras)
+- [Listas](#listas)
+- [Citações](#citacoes)
+- [Código](#codigo)
+- [Links e imagens](#links-e-imagens)
+
+### Intermediário
+
+- [Tabelas](#tabelas)
+- [Listas de tarefas](#listas-de-tarefas)
+- [Riscado e autolinks](#riscado-e-autolinks)
+- [Escapando caracteres](#escapando-caracteres)
+- [HTML dentro do Markdown](#html-dentro-do-markdown)
+- [Quebras de página](#quebras-de-pagina)
+
+### Avançado
+
+- [Matemática com KaTeX](#matematica-com-katex)
+- [Diagramas com Mermaid](#diagramas-com-mermaid)
+- [Referências e âncoras](#referencias-e-ancoras)
+
+### Referência
+
+- [Boas práticas](#boas-praticas)
+- [Pegadinhas e soluções](#pegadinhas-e-solucoes)
+- [Cheatsheet rápido](#cheatsheet-rapido)
+- [Referências oficiais](#referencias-oficiais)
+
+---
+
+# PARTE 1: BÁSICO
 
 ---
 
 ## O que é Markdown
 
-Markdown é uma **linguagem de marcação leve**: você escreve texto simples com símbolos discretos (`#`, `*`, `-`) e ele vira estrutura formatada (títulos, listas, tabelas, código). Foi criado em **2004** por **John Gruber** com ajuda de **Aaron Swartz**, pensado para pessoas que querem publicar na web sem digitar HTML.
+Markdown é uma **linguagem de marcação leve**: você escreve texto simples com símbolos discretos (`#`, `*`, `-`) e ele vira estrutura formatada (títulos, listas, tabelas, código).
 
-Três camadas importantes:
+### Camadas do Markdown
 
-- **CommonMark** — o padrão rigoroso (2014, liderado por John MacFarlane), com mais de 600 casos de teste. É ele que define sem ambiguidade como cada construção é interpretada.
-- **GFM (GitHub Flavored Markdown)** — um superconjunto do CommonMark que adiciona **tabelas, listas de tarefas, riscado (`~~`) e autolinks**. É o dialeto usado no GitHub, GitLab e na maioria dos editores modernos.
-- **Extensões específicas** — math, diagramas Mermaid, notas de rodapé, destaques. Funcionam em ferramentas específicas e podem quebrar em outras. Use com cuidado quando o destino for desconhecido.
+| Camada         | O que é                                  | Onde funciona                     |
+| -------------- | ---------------------------------------- | --------------------------------- |
+| **CommonMark** | Padrão rigoroso (600+ casos de teste)    | Todo lugar                        |
+| **GFM**        | Superconjunto: tabelas, tarefas, riscado | GitHub, GitLab, editores modernos |
+| **Extensões**  | Math, Mermaid, footnotes                 | Ferramentas específicas           |
 
-Regra prática: **escreva CommonMark + GFM** (o que este manual ensina) — funciona em todos os lugares.
+**Regra prática**: escreva CommonMark + GFM — funciona em todos os lugares.
 
-## Como escrever e editar
+### Vantagens do Markdown
 
-- **Editor à esquerda, preview à direita** — cada tecla atualiza o preview em tempo real.
-- **Escolha o exemplo, copie e adapte.** Tudo no manual é texto editável.
-- **Salve seu trabalho em `localStorage` automaticamente** (a cada 300 ms). Use **Reset** para voltar ao modelo, e **Abrir/Salvar arquivo** na barra lateral para trabalhar com arquivos reais do seu computador.
-- **Imprimir** usa as impressoras instaladas no seu sistema (via diálogo de impressão do navegador).
-- O preview é **sanitizado** (DOMPurify): conteúdo inseguro é removido, incluindo HTML potencialmente perigoso.
+- **Simples**: aprende em minutos
+- **Portátil**: um arquivo `.md` vira HTML, PDF, DOCX
+- **Legível**: o texto fonte é claro mesmo sem renderizar
+- **Versionável**: diffs no Git são significativos
+- **Universal**: suportado por GitHub, Obsidian, VS Code, Notion, etc.
+
+---
+
+## Primeiros passos
+
+### O editor Markdown-Studio
+
+- **Painel esquerdo**: editor Monaco com syntax highlighting
+- **Painel direito**: preview renderizado em tempo real
+- **Salvamento automático**: a cada 300ms no `localStorage`
+- **Exportação**: PDF (raster ou vetorial), HTML standalone
+
+### Como testar
+
+1. Copie qualquer exemplo deste manual
+2. Cole no editor à esquerda
+3. Veja o resultado à direita instantaneamente
+
+---
 
 ## Cabeçalhos
 
-Use `#` de **1 a 6 níveis** (nível 1 = mais importante, nível 6 = menor). O `#` **precisa de um espaço** depois para virar cabeçalho — `#SemEspaço` não funciona.
+Use `#` de **1 a 6 níveis**. O `#` **precisa de um espaço** depois.
 
 ```markdown
-# Título H1 (use um só por documento)
+# Título H1 (um por documento)
 
 ## Título H2
 
 ### Título H3
 
-#### Título H4
-
-##### Título H5
-
-###### Título H6
+#### H4 · ##### H5 · ###### H6
 ```
 
-Boas práticas:
+**Renderiza como:**
 
-- **Um único `#` (H1)** por documento — funciona como título principal.
-- Use `##` e `###` para seções e subseções; pule níveis com moderação (H2 → H4 confunde navegação e acessibilidade).
-- Deixe **linha em branco antes e depois** do cabeçalho.
-- A forma alternativa "Setext" (`Texto` + linha `===` ou `---` abaixo) existe, mas só cobre 2 níveis. Prefira `#`.
+# Título H1 (um por documento)
 
-```
-# Eu posso ser
-```
+## Título H2
 
-## Ênfase e formatação de texto
+### Título H3
 
-| Efeito        | Sintaxe                   | Resultado               |
-| ------------- | ------------------------- | ----------------------- |
-| Itálico       | `*texto*`                 | _texto_                 |
-| Itálico       | `_texto_`                 | _texto_                 |
-| Negrito       | `**texto**`               | **texto**               |
-| Negrito       | `__texto__`               | **texto**               |
-| Riscado (GFM) | `~~texto~~`               | ~~texto~~               |
-| Combinar      | `**negrito _e itálico_**` | **negrito _e itálico_** |
+#### H4 · ##### H5 · ###### H6
 
-**Prefira asteriscos (`*`) a underscores (`_`)** para ênfase: underscore dentro de identificadores (`variavel_nome`) pode ser interpretado como marcação. Asteriscos nunca geram essa confusão. Para errar de propósito, **escape o caractere** (`\*aspas\*`).
+### Boas práticas
 
-## Parágrafos e quebras de linha
+- **Um único `#` (H1)** por documento
+- Use `##` e `###` para seções e subseções
+- Deixe **linha em branco antes e depois** do cabeçalho
+- Prefira `#` à forma alternativa Setext (`===`/`---`)
 
-- **Parágrafo** = texto seguido de **linha em branco**.
-- **Quebra de linha** dentro do mesmo parágrafo: termine a linha com **dois espaços** ou barra invertida `\`.
+---
+
+## Ênfase e formatação
+
+| Efeito            | Sintaxe                    | Resultado   |
+| ----------------- | -------------------------- | ----------- |
+| Itálico           | `*texto*` ou `_texto_`     | _texto_     |
+| Negrito           | `**texto**` ou `__texto__` | **texto_    |
+| Itálico + Negrito | `***texto***`              | **_texto_** |
+| Riscado (GFM)     | `~~texto~~`                | ~~texto~~   |
+| Código inline     | `` `código` ``             | `código`    |
+
+**Prefira asteriscos (`*`)** a underscores (`_`): underscore dentro de identificadores (`variavel_nome`) pode ser interpretado como marcação.
+
+---
+
+## Parágrafos e quebras
+
+- **Parágrafo** = texto seguido de **linha em branco**
+- **Quebra de linha**: termine com **dois espaços** ou `\`
 
 ```markdown
 Primeiro parágrafo.
 
-Segundo parágrafo (a linha em branco separa).
+Segundo parágrafo (linha em branco separa).
 
-Esta é a primeira linha (dois espaços no fim)  
-e esta já é outra linha, mesmo sem parágrafo novo.
+Primeira linha (dois espaços no fim)  
+Segunda linha (mesmo parágrafo).
 ```
 
-Um Enter simples **não** quebra a linha no render: as letras se juntam num mesmo bloco. Se o texto foi "colado" e ficou tudo contínuo, insira linhas em branco entre parágrafos.
+**Dica**: um Enter simples **não** quebra a linha no render.
+
+---
 
 ## Listas
 
 ### Não ordenadas
 
-Use `-`, `*` ou `+` seguido de espaço. **Escolha um e use-o em todo o documento** (o `-` é o mais comum). Misturar os três no mesmo documento pode dividir a lista.
+Use `-`, `*` ou `+` seguido de espaço. **Escolha um e use sempre** (`-` é o mais comum).
 
 ```markdown
 - Item 1
 - Item 2
+  - Subitem
 - Item 3
 ```
 
+**Renderiza como:**
+
+- Item 1
+- Item 2
+  - Subitem
+- Item 3
+
 ### Ordenadas
 
-Use número + ponto + espaço. **Atalho**: numerar todos como `1.` — o renderizador incrementa sozinho (`1. 1. 1.` vira `1. 2. 3.`).
+Use número + ponto + espaço. **Atalho**: numerar todos como `1.`
 
 ```markdown
 1. Primeiro
@@ -131,9 +184,15 @@ Use número + ponto + espaço. **Atalho**: numerar todos como `1.` — o renderi
 1. Terceiro
 ```
 
-### Listas aninhadas (sublistas)
+**Renderiza como:**
 
-A regra que mais causa bugs: **o conteúdo aninhado precisa de indentação suficiente para sair da posição do marcador**. Quatro espaços sempre funcionam como padrão seguro.
+1. Primeiro
+2. Segundo
+3. Terceiro
+
+### Sublistas
+
+A regra que mais causa bugs: **indentação suficiente** (4 espaços é seguro).
 
 ```markdown
 - Item principal
@@ -144,16 +203,11 @@ A regra que mais causa bugs: **o conteúdo aninhado precisa de indentação sufi
 - Próximo item principal
 ```
 
-### Listas mistas dentro de citação
-
-```markdown
-> - Tarefa em citação
-> - Outra tarefa
-```
+---
 
 ## Citações
 
-Use `>` no início da linha. Citações podem conter **qualquer outro elemento Markdown** (títulos, listas, código) — são contêineres.
+Use `>` no início da linha. Podem conter **qualquer elemento Markdown**.
 
 ```markdown
 > Markdown é uma linguagem de marcação leve.
@@ -161,11 +215,19 @@ Use `>` no início da linha. Citações podem conter **qualquer outro elemento M
 > > Citações aninhadas usam `>>`.
 ```
 
+**Renderiza como:**
+
+> Markdown é uma linguagem de marcação leve.
+>
+> > Citações aninhadas usam `>>`.
+
+---
+
 ## Código
 
-### Código em linha (inline)
+### Código inline
 
-Uma crase (\`) envolve texto como código de exibição. Use para nomes de comando, variáveis, caminhos e trechos curtos.
+Uma crase (\`) envolve texto como código:
 
 ```markdown
 Rode `npm run quality` antes de commitar.
@@ -173,13 +235,13 @@ Rode `npm run quality` antes de commitar.
 
 Se o trecho **contiver uma crase**, use **duas** como delimitador:
 
-```
+```markdown
 Use ``código com `crase` no meio`` aqui.
 ```
 
 ### Blocos de código (fenced)
 
-Três crases no início (com **linguagem** para realce) e três no fim. Todas as linhas do bloco são **texto literal** — nenhuma marcação é interpretada dentro delas.
+Três crases no início (com **linguagem**) e três no fim:
 
 ````markdown
 ```js
@@ -190,89 +252,50 @@ console.log(mensagem);
 ```bash
 npm run quality
 ```
+
+```python
+print("Olá mundo")
+```
 ````
 
-Sem linguagem, o bloco ainda fica em fonte monoespaçada, só sem realce:
+**Linguagens suportadas**: js, ts, bash, python, sql, yaml, json, html, css, java, go, rust, etc.
 
-```
-texto literal, sem formatação
-```
+---
 
-### Bloco indentado (legado)
+## Links e imagens
 
-Quatro espaços no início também criam bloco de código, mas **sem realce de sintaxe**. Prefira as crases.
+### Links
 
 ```markdown
-    const legado = true;
-```
-
-## Links
-
-### Link embutido (inline)
-
-Texto entre `[ ]`, endereço entre `( )`, título opcional entre aspas:
-
-```markdown
-[Markdown-Studio](https://exemplo.com/ 'Título opcional no hover')
-[Site comum](https://exemplo.com)
-```
-
-### Link por referência
-
-Define o destino uma vez e reusa várias. O rótulo é **insensível a maiúsculas** e não aparece no resultado:
-
-```markdown
-Veja a [documentação][docs] e a [especificação][DOCS].
-
-[docs]: https://example.com/docs 'Docs oficiais'
+[Texto do link](https://exemplo.com)
+[Link com título](https://exemplo.com 'Título no hover')
 ```
 
 ### Autolinks
-
-Endereços entre `< >` viram link usando o próprio texto:
 
 ```markdown
 <https://commonmark.org>
 <contato@example.com>
 ```
 
-GFM ainda converte **URLs nua** (sem `< >`) em link. Para enviar uma URL "ao pé da letra", envolva em crases: `https://exemplo.com` vira texto.
-
-### Âncoras internas
-
-Cabeçalhos ganham `id` automático (GitHub e muitos renderizadores). Link direto para a seção:
+### Imagens
 
 ```markdown
-[Voltar ao índice](#indice)
+![Texto alternativo](caminho/da/imagem.png)
+![Logo](/image/Markdown-mark.svg 'Markdown')
 ```
 
-## Imagens
+**Dica**: torne o texto alternativo **descritivo** para acessibilidade.
 
-Sintaxe igual ao link, com `!` antes. O **texto alternativo** (dentro dos `[]`) é obrigatório para acessibilidade e aparece quando a imagem falha.
-
-```markdown
-![Logotipo do Markdown](/image/Markdown-mark.svg 'Markdown')
-```
-
-```markdown
-![Texto alternativo obrigatório](caminho/da/imagem.png)
-```
-
-- Torne o texto alternativo **descritivo**: `![Diagrama de arquitetura do pipeline]`. Evite `![img1]`.
-- Imagens dentro de tabelas ou listas funcionam normalmente.
-
-## Regras horizontais
-
-Três ou mais caracteres iguais em linha própria: `-`, `*` ou `_`. O `---` é o mais comum. Use com moderação — **títulos organizam melhor** que linhas decorativas.
-
-```markdown
 ---
+
+# PARTE 2: INTERMEDIÁRIO
+
 ---
-```
 
 ## Tabelas
 
-Extensão **GFM** (não existe no CommonMark puro). A tabela tem **cabeçalho**, **linha separadora** e células separadas por `|`. Sem a linha separadora, não vira tabela!
+Extensão **GFM**. Precisa de **cabeçalho** + **linha separadora** + **células**.
 
 ```markdown
 | Coluna A | Coluna B | Coluna C |
@@ -281,7 +304,14 @@ Extensão **GFM** (não existe no CommonMark puro). A tabela tem **cabeçalho**,
 | foo      |   bar    |      baz |
 ```
 
-O alinhamento é definido pelos **dois-pontos na linha separadora**:
+**Renderiza como:**
+
+| Coluna A | Coluna B | Coluna C |
+| -------- | :------: | -------: |
+| esquerda |  centro  |  direita |
+| foo      |   bar    |      baz |
+
+### Alinhamento
 
 | Sintaxe   | Alinhamento       |
 | --------- | ----------------- |
@@ -290,15 +320,17 @@ O alinhamento é definido pelos **dois-pontos na linha separadora**:
 | `---:`    | direita           |
 | (sem `:`) | esquerda (padrão) |
 
-Dicas:
+### Dicas
 
-- **`|` literal** dentro de célula: escape com `\|`.
-- Células são **uma linha**; sem mesclar células (GFM não tem colspan) — para isso, use HTML de tabela.
-- Adicione **linhas em branco** antes e depois da tabela.
+- `|` literal dentro de célula: escape com `\|`
+- Células são **uma linha** (sem colspan no GFM)
+- Adicione **linhas em branco** antes e depois
+
+---
 
 ## Listas de tarefas
 
-Extensão **GFM**: `- [ ]` para desmarcado e `- [x]` para marcado. O `x` ignora maiúsculas.
+Extensão **GFM**: `- [ ]` para pendente, `- [x]` para concluído.
 
 ```markdown
 - [x] Documentar o pipeline
@@ -306,89 +338,370 @@ Extensão **GFM**: `- [ ]` para desmarcado e `- [x]` para marcado. O `x` ignora 
 - [ ] Revisar o manual
 ```
 
-## Escapando caracteres
+**Renderiza como:**
 
-Para mostrar um caractere de marcação como texto, preceda de **barra invertida**:
+- [x] Documentar o pipeline
+- [ ] Adicionar testes
+- [ ] Revisar o manual
+
+---
+
+## Riscado e autolinks
+
+### Riscado (GFM)
 
 ```markdown
-\*não é itálico\* \#não é cabeçalho ​| não é tabela
+~~Texto riscado~~
 ```
 
-Só precisa escapar o necessitado: em `2*3 = 6` o `*` não abre ênfase se não houver par.
+**Renderiza como:** ~~Texto riscado~~
+
+### Autolinks
+
+Endereços entre `< >` viram link automaticamente:
+
+```markdown
+<https://commonmark.org>
+```
+
+GFM converte **URLs nuas** em link. Para texto literal, envolva em crases.
+
+---
+
+## Escapando caracteres
+
+Para mostrar um caractere de marcação como texto, preceda de `\`:
+
+```markdown
+\*não é itálico\* \#não é cabeçalho \| não é tabela
+```
+
+**Renderiza como:** \*não é itálico\* \#não é cabeçalho \| não é tabela
+
+---
 
 ## HTML dentro do Markdown
 
-CommonMark permite **HTML bruto**, e o GFM bloqueia apenas um conjunto específico de tags perigosas. No Markdown-Studio, **tudo passa por DOMPurify** — tags como `<script>`, atributos `on*` e URLs `javascript:` são removidos por segurança. HTML estrutural leve costuma ser aceito:
-
-````markdown
-<details>
-  <summary>Seção recolhível (suportada por vários renderizadores)</summary>
+O Markdown-Studio permite **HTML leve** (sanitizeado por DOMPurify):
 
 ```markdown
-Conteúdo literal dentro de HTML.
-```
+<details>
+  <summary>Seção recolhível</summary>
+
+Conteúdo dentro do HTML.
 
 </details>
-````
-
-> **Segurança > comodidade.** Nunca confie em Markdown de origem desconhecida sem sanitização. Aqui a sanitização é automática e frontal.
-
-## Diagramas Mermaid
-
-Extensão própria do Markdown-Studio: bloco com linguagem `mermaid` vira **diagrama renderizado** (flowchart, sequência, Gantt, classes, etc.). O render é agendado com _debounce_ de 150 ms e protegido contra corridas (race conditions) de versão.
-
-```mermaid
-graph TD
-    A[Editar Markdown] --> B{Preview renderizado?}
-    B -->|Sim| C[Diagrama correto]
-    B -->|Não| D[Corrigir sintaxe mermaid]
 ```
 
-Para escrever o **código-fonte** de um diagrama sem renderizá-lo, use outro delimitador de bloco longo:
+**Segurança**: `<script>`, atributos `on*` e URLs `javascript:` são removidos.
+
+---
+
+## Quebras de página
+
+O Markdown-Studio suporta marcador `<!-- page-break -->` para impressão/PDF:
+
+```markdown
+Conteúdo da primeira página.
+
+<!-- page-break -->
+
+Conteúdo da segunda página.
+```
+
+**Uso**: ao exportar PDF ou imprimir, o conteúdo após o marcador começa em nova página.
+
+---
+
+# PARTE 3: AVANÇADO
+
+---
+
+## Matemática com KaTeX
+
+O Markdown-Studio suporta nativamente **KaTeX** para fórmulas matemáticas.
+
+### Sintaxe básica
+
+| Modo       | Sintaxe   | Exemplo                                  |
+| ---------- | --------- | ---------------------------------------- |
+| **Inline** | `$...$`   | `$x^2$` renderiza $x^2$                  |
+| **Bloco**  | `$$...$$` | `$$\frac{a}{b}$$` renderiza centralizado |
+
+### Exemplos inline
+
+```markdown
+A fórmula é $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$.
+
+Onde $a \neq 0$ e $b^2 - 4ac \geq 0$.
+```
+
+### Exemplos em bloco
+
+```markdown
+$$
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+$$
+```
+
+```markdown
+$$
+\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
+$$
+```
+
+### Símbolos comuns
+
+| Categoria      | Símbolos                                                            |
+| -------------- | ------------------------------------------------------------------- |
+| **Gregas**     | `\alpha` `\beta` `\gamma` `\delta` `\theta` `\pi` `\sigma` `\omega` |
+| **Operadores** | `\sum` `\prod` `\int` `\partial` `\nabla`                           |
+| **Relações**   | `\leq` `\geq` `\neq` `\approx` `\in` `\subset`                      |
+| **Setas**      | `\rightarrow` `\leftarrow` `\leftrightarrow` `\Rightarrow`          |
+| **Frações**    | `\frac{a}{b}` `\dfrac{a}{b}` `\cfrac{1}{1+\cfrac{1}{2}}`            |
+| **Raízes**     | `\sqrt{x}` `\sqrt[3]{8}`                                            |
+| **Matrizes**   | `\begin{pmatrix} a & b \\ c & d \end{pmatrix}`                      |
+
+### Exemplos reais
+
+**Física — Equivalência massa-energia:**
+
+```markdown
+$$E^2 = (pc)^2 + (m_0 c^2)^2$$
+```
+
+**Estatística — Distribuição normal:**
+
+```markdown
+$$f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+```
+
+**Álgebra linear — Autovalores:**
+
+```markdown
+$$A\mathbf{v} = \lambda\mathbf{v}$$
+```
+
+### Dicas para KaTeX
+
+1. **Linhas em branco** antes e depois de blocos `$$`
+2. **Escape** sinais especiais: `\$50` para dólar literal
+3. Use `\text{}` para palavras dentro de equações
+4. Use `\left` e `\right` para colchetes auto-dimensionados
+5. Teste no editor antes de publicar
+
+---
+
+## Diagramas com Mermaid
+
+O Markdown-Studio suporta nativamente **Mermaid** para diagramas.
+
+### Flowchart (fluxograma)
 
 ````markdown
 ```mermaid
-graph LR
-    A --> B
+graph TD
+    A[Início] --> B{Decisão?}
+    B -->|Sim| C[Resultado A]
+    B -->|Não| D[Resultado B]
+    C --> F[Fim]
+    D --> F
 ```
 ````
+
+**Tipos de nó:**
+
+| Sintaxe     | Forma          | Exemplo          |
+| ----------- | -------------- | ---------------- |
+| `[texto]`   | Retângulo      | `[Processo]`     |
+| `(texto)`   | Arredondado    | `(Alternativa)`  |
+| `{texto}`   | Losango        | `{Decisão}`      |
+| `([texto])` | Estádio        | `([Início/Fim])` |
+| `[(texto)]` | Banco de dados | `[(MySQL)]`      |
+| `((texto))` | Círculo        | `((Conector))`   |
+| `[[texto]]` | Sub-rotina     | `[[Função]]`     |
+| `{{texto}}` | Hexágono       | `{{Preparação}}` |
+
+### Sequence Diagram (diagrama de sequência)
+
+````markdown
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant S as Servidor
+    participant DB as Banco
+
+    U->>S: POST /api/login
+    activate S
+    S->>DB: SELECT user
+    activate DB
+    DB-->>S: user found
+    deactivate DB
+    S-->>U: 200 OK
+    deactivate S
+```
+````
+
+**Tipos de mensagem:**
+
+| Sintaxe | Significado                   |
+| ------- | ----------------------------- |
+| `->>`   | Seta sólida (síncrono)        |
+| `-->>`  | Seta tracejada (resposta)     |
+| `-x`    | Seta com x (mensagem perdida) |
+| `--)`   | Seta aberta (assíncrono)      |
+
+### Gantt (cronograma)
+
+````markdown
+```mermaid
+gantt
+    title Cronograma do Projeto
+    dateFormat YYYY-MM-DD
+
+    section Design
+    Wireframes    :done, d1, 2026-01-01, 5d
+    Mockups       :active, d2, after d1, 7d
+
+    section Desenvolvimento
+    Frontend      :dev1, after d2, 10d
+    Backend       :dev2, after d1, 12d
+
+    section Testes
+    QA            :t1, after dev1, 5d
+```
+````
+
+### Class Diagram (diagrama de classes)
+
+````markdown
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound()
+    }
+    class Dog {
+        +fetch()
+    }
+    class Cat {
+        +purr()
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+````
+
+### ER Diagram (diagrama entidade-relacionamento)
+
+````markdown
+```mermaid
+erDiagram
+    USUARIO ||--o{ PEDIDO : faz
+    PEDIDO ||--|{ ITEM : contem
+    USUARIO {
+        int id PK
+        string nome
+        string email
+    }
+    PEDIDO {
+        int id PK
+        date data
+        float total
+    }
+```
+````
+
+### State Diagram (diagrama de estados)
+
+````markdown
+```mermaid
+stateDiagram-v2
+    [*] --> Pendente
+    Pendente --> Processando : pagar
+    Processando --> Enviado : enviar
+    Enviado --> Entregue : entregar
+    Entregue --> [*]
+```
+````
+
+### Dicas para Mermaid
+
+1. **Sempre defina a direção** do flowchart: `TD`, `TB`, `LR`, `RL`, `BT`
+2. **Escape caracteres especiais** em nós: `A["Processo (v2)"]`
+3. **Use `%` para comentários**: `% isto é um comentário`
+4. **Cuidado com palavras reservadas**: "end" pode quebrar diagramas
+5. **Teste no editor** antes de publicar
+
+---
+
+## Referências e âncoras
+
+### Links por referência
+
+Define o destino uma vez e reusa:
+
+```markdown
+Veja a [documentação][docs] e a [especificação][spec].
+
+[docs]: https://example.com/docs 'Docs oficiais'
+[spec]: https://example.com/spec 'Especificação'
+```
+
+### Âncoras internas
+
+Cabeçalhos ganham `id` automático. Link direto para seção:
+
+```markdown
+[Voltar ao índice](#indice)
+```
+
+---
+
+# PARTE 4: REFERÊNCIA
+
+---
 
 ## Boas práticas
 
-1. **Um H1 por documento**; `##`/`###` para seções.
-2. **Linhas em branco** entre blocos (cabeçalho, lista, código, tabela, citação).
-3. **Um marcador de lista só**: `-` em todo o documento.
-4. **Asteriscos** para ênfase (`*itálico*`, `**negrito**`).
-5. **Linguagem sempre** nos blocos de código: `js`, `bash`, `python`, `sql`, `yaml`, `json`, `html`, `css`.
-6. **Alt text descritivo** em toda imagem.
-7. **Indentação de 4 espaços** para sublistas e código aninhado.
-8. **Escapa o que é literal**: `\*`, `\|`, `\#`, `\~`.
-9. **Links por referência** quando o mesmo URL aparece várias vezes.
-10. **Pense em quem lê**: Markdown bom é Markdown legível até em texto puro.
+1. **Um H1 por documento**; `##`/`###` para seções
+2. **Linhas em branco** entre blocos
+3. **Um marcador de lista só** (`-` em todo o documento)
+4. **Asteriscos** para ênfase (`*itálico*`, `**negrito**`)
+5. **Linguagem sempre** nos blocos de código
+6. **Alt text descritivo** em toda imagem
+7. **Indentação de 4 espaços** para sublistas
+8. **Links por referência** quando o mesmo URL aparece várias vezes
+9. **Pense em quem lê**: Markdown bom é legível em texto puro
 
-## Pegadinhas e como evitá-las
+---
 
-| Pegadinha                       | Causa                                              | Correção                                                     |
-| ------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
-| Título não renderiza            | `#` sem espaço ou sem linha em branco antes        | `# Título` + linha em branco ao redor                        |
-| Lista quebra/mistura            | Marcadores diferentes (`-`, `*`, `+`) no mesmo doc | Fixar `-`                                                    |
-| Sublista vira parágrafo         | Indentação insuficiente                            | 4 espaços para o aninhamento                                 |
-| Enter não cria linha            | Só um Enter junta as linhas                        | Linha em branco (parágrafo) ou 2 espaços (quebra)            |
-| Ênfase em identificador com `_` | `variavel_um` interpretado                         | Usar `*` para ênfase                                         |
-| Tabela não vira tabela          | Faltou a linha separadora `\|--\|--\|`             | Incluir separador com ao menos 3 hífenes                     |
-| Crase dentro de código inline   | Uma crase interrompe o bloco                       | Usar duas crases: ` `código com ` ` `                        |
-| Código traduz marcação          | Bloco de código normal interpreta `*` etc.         | Usar **fence** (` ` ```) para literal completo               |
-| Strikethrough não funciona      | Usou `~texto~` (uma til)                           | Usar `~~texto~~` (GFM)                                       |
-| Link quebrado por parênteses    | Parens no destino sem escape                       | `https://en.wikipedia.org/wiki/Markdown_(markup)` ou `<url>` |
+## Pegadinhas e soluções
 
-## Referência rápida
+| Pegadinha               | Causa                   | Solução                      |
+| ----------------------- | ----------------------- | ---------------------------- |
+| Título não renderiza    | `#` sem espaço          | `# Título`                   |
+| Lista quebra            | Marcadores diferentes   | Fixar `-`                    |
+| Sublista vira parágrafo | Indentação insuficiente | 4 espaços                    |
+| Enter não cria linha    | Só um Enter junta       | Linha em branco ou 2 espaços |
+| Ênfase em `variavel_um` | `_` interpretado        | Usar `*`                     |
+| Tabela falha            | Sem linha separadora    | Incluir `\|--\|--\|`         |
+| Crase dentro de código  | Uma crase interrompe    | Usar duas: `` `código` ``    |
+| Strikethrough falha     | `~texto~` (uma til)     | `~~texto~~` (GFM)            |
+| KaTeX não renderiza     | `$ x+1 $` (espaço)      | `$x+1$` (sem espaço)         |
+| Mermaid quebra          | Palavra "end"           | Usar aspas: `["end"]`        |
+
+---
+
+## Cheatsheet rápido
 
 ````markdown
 # Título
 
 ## Subtítulo
 
-**negrito** ~~riscado~~ `código`
+**negrito** _itálico_ ~~riscado~~ `código`
 
 - lista
 
@@ -407,14 +720,30 @@ console.log('código');
 | --- | --- |
 | 1   | 2   |
 
-- [ ] tarefa pendente
+- [ ] tarefa
+
+$x^2$ (KaTeX inline)
+
+$$\sum_{i=1}^{n} i$$ (KaTeX bloco)
+
+```mermaid
+graph LR
+  A --> B
+```
+
+<!-- page-break -->
 ````
+
+---
 
 ## Referências oficiais
 
 - **CommonMark Spec** — <https://spec.commonmark.org>
 - **GFM Spec** — <https://github.github.io/gfm>
-- **CommonMark help** — <https://commonmark.org/help>
+- **KaTeX** — <https://katex.org/docs/supported.html>
 - **Mermaid** — <https://mermaid.js.org>
+- **CommonMark Help** — <https://commonmark.org/help>
 
 ---
+
+_Manual do Markdown-Studio v1.2 — Atualizado em setembro de 2026_

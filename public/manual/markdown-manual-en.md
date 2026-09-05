@@ -1,129 +1,182 @@
-# Markdown Manual
+# Markdown-Studio Manual
 
-A modern, practical and complete guide to learn, consult and edit Markdown documents inside **Markdown-Studio**. Based on the **CommonMark** specification and the **GitHub Flavored Markdown (GFM)** extensions, with ready-to-run examples you can try in the editing panel.
+Complete guide to learn, reference, and create Markdown artifacts from beginner to advanced. Based on the **CommonMark** and **GitHub Flavored Markdown (GFM)** specifications, with native support for **KaTeX** (mathematics) and **Mermaid** (diagrams).
 
-> Markdown-Studio renders Markdown through the `marked → DOMPurify → mermaid` pipeline. Everything in this manual works here — and, at the "common layer" (CommonMark + GFM), it also works on GitHub, GitLab, Obsidian and almost every modern editor.
+> Markdown-Studio renders through the `marked → DOMPurify → mermaid` pipeline. What works here works on GitHub, GitLab, Obsidian, and almost every modern editor.
 
 ---
 
-## Table of contents
+## Index
 
-1. [What is Markdown](#what-is-markdown)
-2. [How to write and edit](#how-to-write-and-edit)
-3. [Headings](#headings)
-4. [Emphasis and text formatting](#emphasis-and-text-formatting)
-5. [Paragraphs and line breaks](#paragraphs-and-line-breaks)
-6. [Lists](#lists)
-7. [Blockquotes](#blockquotes)
-8. [Code](#code)
-9. [Links](#links)
-10. [Images](#images)
-11. [Horizontal rules](#horizontal-rules)
-12. [Tables](#tables)
-13. [Task lists](#task-lists)
-14. [Escaping characters](#escaping-characters)
-15. [HTML inside Markdown](#html-inside-markdown)
-16. [Mermaid diagrams](#mermaid-diagrams)
-17. [Best practices](#best-practices)
-18. [Gotchas and how to avoid them](#gotchas-and-how-to-avoid-them)
-19. [Quick reference](#quick-reference)
-20. [Official references](#official-references)
+### Beginner
+
+- [What is Markdown](#what-is-markdown)
+- [Getting started](#getting-started)
+- [Headings](#headings)
+- [Emphasis and formatting](#emphasis-and-formatting)
+- [Paragraphs and breaks](#paragraphs-and-breaks)
+- [Lists](#lists)
+- [Blockquotes](#blockquotes)
+- [Code](#code)
+- [Links and images](#links-and-images)
+
+### Intermediate
+
+- [Tables](#tables)
+- [Task lists](#task-lists)
+- [Strikethrough and autolinks](#strikethrough-and-autolinks)
+- [Escaping characters](#escaping-characters)
+- [HTML inside Markdown](#html-inside-markdown)
+- [Page breaks](#page-breaks)
+
+### Advanced
+
+- [Math with KaTeX](#math-with-katex)
+- [Diagrams with Mermaid](#diagrams-with-mermaid)
+- [References and anchors](#references-and-anchors)
+
+### Reference
+
+- [Best practices](#best-practices)
+- [Gotchas and solutions](#gotchas-and-solutions)
+- [Quick cheat sheet](#quick-cheat-sheet)
+- [Official references](#official-references)
+
+---
+
+# PART 1: BEGINNER
 
 ---
 
 ## What is Markdown
 
-Markdown is a **lightweight markup language**: you write plain text with discreet symbols (`#`, `*`, `-`) and it turns into formatted structure (headings, lists, tables, code). It was created in **2004** by **John Gruber** with help from **Aaron Swartz**, designed for people who want to publish on the web without typing HTML.
+Markdown is a **lightweight markup language**: you write plain text with discreet symbols (`#`, `*`, `-`) and it becomes formatted structure (headings, lists, tables, code).
 
-Three important layers:
+### Markdown Layers
 
-- **CommonMark** — the strict standard (2014, led by John MacFarlane), with more than 600 test cases. It defines unambiguously how each construction is interpreted.
-- **GFM (GitHub Flavored Markdown)** — a superset of CommonMark that adds **tables, task lists, strikethrough (`~~`) and autolinks**. This is the dialect used on GitHub, GitLab and most modern editors.
-- **Specific extensions** — math, Mermaid diagrams, footnotes, highlights. They work in specific tools and may break elsewhere. Use them carefully when the destination is unknown.
+| Layer          | What it is                             | Where it works                 |
+| -------------- | -------------------------------------- | ------------------------------ |
+| **CommonMark** | Strict standard (600+ test cases)      | Everywhere                     |
+| **GFM**        | Superset: tables, tasks, strikethrough | GitHub, GitLab, modern editors |
+| **Extensions** | Math, Mermaid, footnotes               | Specific tools                 |
 
-Rule of thumb: **write CommonMark + GFM** (what this manual teaches) — it works everywhere.
+**Rule of thumb**: write CommonMark + GFM — it works everywhere.
 
-## How to write and edit
+### Markdown Advantages
 
-- **Editor on the left, preview on the right** — every keystroke updates the preview in real time.
-- **Pick an example, copy and adapt.** Everything in the manual is editable text.
-- **Your work is saved to `localStorage` automatically** (every 300 ms). Use **Reset** to go back to the template, and **Open/Save file** in the sidebar to work with real files on your computer.
-- **Print** uses the printers installed on your system (via the browser print dialog).
-- The preview is **sanitized** (DOMPurify): unsafe content is removed, including potentially dangerous HTML.
+- **Simple**: learn in minutes
+- **Portable**: one `.md` file becomes HTML, PDF, DOCX
+- **Readable**: source text is clear even unrendered
+- **Versionable**: Git diffs are meaningful
+- **Universal**: supported by GitHub, Obsidian, VS Code, Notion, etc.
+
+---
+
+## Getting started
+
+### Markdown-Studio Editor
+
+- **Left panel**: Monaco editor with syntax highlighting
+- **Right panel**: live rendered preview
+- **Auto-save**: every 300ms to `localStorage`
+- **Export**: PDF (raster or vector), standalone HTML
+
+### How to test
+
+1. Copy any example from this manual
+2. Paste in the left editor
+3. See the result on the right instantly
+
+---
 
 ## Headings
 
-Use `#` for **1 to 6 levels** (level 1 = most important, level 6 = smallest). The `#` **needs a space** after it to become a heading — `#NoSpace` does not work.
+Use `#` from **1 to 6 levels**. The `#` **needs a space** after it.
 
 ```markdown
-# H1 heading (use only one per document)
+# Heading H1 (one per document)
 
-## H2 heading
+## Heading H2
 
-### H3 heading
+### Heading H3
 
-#### H4 heading
-
-##### H5 heading
-
-###### H6 heading
+#### H4 · ##### H5 · ###### H6
 ```
 
-Best practices:
+**Renders as:**
 
-- **A single `#` (H1)** per document — it works as your main title.
-- Use `##` and `###` for sections and subsections; skip levels sparingly (H2 → H4 confuses navigation and accessibility).
-- Leave a **blank line before and after** the heading.
-- The alternative "Setext" form (`Text` + a line of `===` or `---` below) exists, but only covers 2 levels. Prefer `#`.
+# Heading H1 (one per document)
 
-```
-# I can be
-```
+## Heading H2
 
-## Emphasis and text formatting
+### Heading H3
 
-| Effect              | Syntax                  | Result                |
-| ------------------- | ----------------------- | --------------------- |
-| Italic              | `*text*`                | _text_                |
-| Italic              | `_text_`                | _text_                |
-| Bold                | `**text**`              | **text**              |
-| Bold                | `__text__`              | **text**              |
-| Strikethrough (GFM) | `~~text~~`              | ~~text~~              |
-| Combined            | `**bold _and italic_**` | **bold _and italic_** |
+#### H4 · ##### H5 · ###### H6
 
-**Prefer asterisks (`*`) over underscores (`_`)** for emphasis: an underscore inside identifiers (`my_var`) can be parsed as markup. Asterisks never cause that confusion. To show a literal character on purpose, **escape it** (`\*asterisks\*`).
+### Best practices
 
-## Paragraphs and line breaks
+- **One `#` (H1)** per document
+- Use `##` and `###` for sections and subsections
+- Leave **blank lines before and after** headings
+- Prefer `#` over Setext style (`===`/`---`)
 
-- **Paragraph** = text followed by a **blank line**.
-- **Line break** within the same paragraph: end the line with **two spaces** or a backslash `\`.
+---
+
+## Emphasis and formatting
+
+| Effect              | Syntax                   | Result     |
+| ------------------- | ------------------------ | ---------- |
+| Italic              | `*text*` or `_text_`     | _text_     |
+| Bold                | `**text**` or `__text__` | **text**   |
+| Bold + Italic       | `***text***`             | **_text_** |
+| Strikethrough (GFM) | `~~text~~`               | ~~text~~   |
+| Inline code         | `` `code` ``             | `code`     |
+
+**Prefer asterisks (`*`)** over underscores (`_`): underscores in identifiers (`variable_name`) may be interpreted as formatting.
+
+---
+
+## Paragraphs and breaks
+
+- **Paragraph** = text followed by a **blank line**
+- **Line break**: end with **two spaces** or `\`
 
 ```markdown
 First paragraph.
 
-Second paragraph (the blank line separates them).
+Second paragraph (blank line separates).
 
-This is the first line (two trailing spaces)  
-and this is already another line, even without a new paragraph.
+First line (two spaces at end)  
+Second line (same paragraph).
 ```
 
-A single Enter does **not** break the line in the render: letters join into the same block. If pasted text became all continuous, insert blank lines between paragraphs.
+**Tip**: a single Enter does **not** break the line in the render.
+
+---
 
 ## Lists
 
 ### Unordered
 
-Use `-`, `*` or `+` followed by a space. **Pick one and use it throughout the document** (`-` is the most common). Mixing the three in the same document can split the list.
+Use `-`, `*` or `+` followed by space. **Choose one and use always** (`-` is most common).
 
 ```markdown
 - Item 1
 - Item 2
+  - Subitem
 - Item 3
 ```
 
+**Renders as:**
+
+- Item 1
+- Item 2
+  - Subitem
+- Item 3
+
 ### Ordered
 
-Use number + period + space. **Shortcut**: number all items as `1.` — the renderer increments them automatically (`1. 1. 1.` becomes `1. 2. 3.`).
+Use number + period + space. **Shortcut**: number all as `1.`
 
 ```markdown
 1. First
@@ -131,55 +184,64 @@ Use number + period + space. **Shortcut**: number all items as `1.` — the rend
 1. Third
 ```
 
-### Nested lists (sublists)
+**Renders as:**
 
-The rule that causes most bugs: **nested content needs enough indentation to get past the marker position**. Four spaces always work as a safe default.
+1. First
+2. Second
+3. Third
+
+### Nested lists
+
+The rule that causes most bugs: **sufficient indentation** (4 spaces is safe).
 
 ```markdown
 - Main item
   - Subitem 1
   - Subitem 2
-    1. Sub-numbered
+    1. Numeric sub
     2. Another
 - Next main item
 ```
 
-### Mixed lists inside a blockquote
-
-```markdown
-> - Task in a blockquote
-> - Another task
-```
+---
 
 ## Blockquotes
 
-Use `>` at the start of the line. Blockquotes can contain **any other Markdown element** (headings, lists, code) — they are containers.
+Use `>` at line start. Can contain **any Markdown element**.
 
 ```markdown
 > Markdown is a lightweight markup language.
 >
-> > Nested blockquotes use `>>`.
+> > Nested quotes use `>>`.
 ```
+
+**Renders as:**
+
+> Markdown is a lightweight markup language.
+>
+> > Nested quotes use `>>`.
+
+---
 
 ## Code
 
 ### Inline code
 
-A backtick (`) wraps text as display code. Use it for command names, variables, paths and short snippets.
+One backtick (\`) wraps text as code:
 
 ```markdown
 Run `npm run quality` before committing.
 ```
 
-If the snippet **contains a backtick**, use **two** as the delimiter:
+If the snippet **contains a backtick**, use **two** as delimiters:
 
-```
-Use ``code with a `backtick` inside`` here.
+```markdown
+Use ``code with `backtick` inside`` here.
 ```
 
 ### Fenced code blocks
 
-Three backticks at the start (with a **language** for highlighting) and three at the end. Every line in the block is **literal text** — no markup is interpreted inside.
+Three backticks at start (with **language**) and three at end:
 
 ````markdown
 ```js
@@ -190,89 +252,50 @@ console.log(message);
 ```bash
 npm run quality
 ```
+
+```python
+print("Hello world")
+```
 ````
 
-Without a language, the block still gets monospace font, just without highlighting:
+**Supported languages**: js, ts, bash, python, sql, yaml, json, html, css, java, go, rust, etc.
 
-```
-literal text, no formatting
-```
+---
 
-### Indented block (legacy)
+## Links and images
 
-Four spaces at the start also create a code block, but **without syntax highlighting**. Prefer the fenced form.
+### Links
 
 ```markdown
-    const legacy = true;
-```
-
-## Links
-
-### Inline link
-
-Text between `[ ]`, address between `( )`, optional title between quotes:
-
-```markdown
-[Markdown-Studio](https://example.com/ 'Optional hover title')
-[Common site](https://example.com)
-```
-
-### Reference link
-
-Define the destination once and reuse it several times. The label is **case-insensitive** and does not appear in the result:
-
-```markdown
-See the [documentation][docs] and the [specification][DOCS].
-
-[docs]: https://example.com/docs 'Official docs'
+[Link text](https://example.com)
+[Link with title](https://example.com 'Title on hover')
 ```
 
 ### Autolinks
-
-Addresses between `< >` become links using the text itself:
 
 ```markdown
 <https://commonmark.org>
 <contact@example.com>
 ```
 
-GFM also converts **bare URLs** (without `< >`) into links. To send a URL "literally", wrap it in backticks: `` `https://example.com` `` becomes text.
-
-### Internal anchors
-
-Headings get an automatic `id` (GitHub and many renderers). Direct link to a section:
+### Images
 
 ```markdown
-[Back to the index](#table-of-contents)
+![Alt text](path/to/image.png)
+![Logo](/image/Markdown-mark.svg 'Markdown')
 ```
 
-## Images
+**Tip**: make alt text **descriptive** for accessibility.
 
-Same syntax as a link, with `!` before it. The **alternative text** (inside the `[]`) is required for accessibility and appears when the image fails.
-
-```markdown
-![Markdown logo](/image/Markdown-mark.svg 'Markdown')
-```
-
-```markdown
-![Required alt text](path/to/image.png)
-```
-
-- Make the alt text **descriptive**: `![Pipeline architecture diagram]`. Avoid `![img1]`.
-- Images inside tables or lists work normally.
-
-## Horizontal rules
-
-Three or more identical characters on their own line: `-`, `*` or `_`. The `---` form is the most common. Use them sparingly — **titles organize better** than decorative lines.
-
-```markdown
 ---
+
+# PART 2: INTERMEDIATE
+
 ---
-```
 
 ## Tables
 
-A **GFM** extension (it does not exist in plain CommonMark). A table has a **header**, a **separator row** and cells separated by `|`. Without the separator row it does not become a table!
+**GFM extension**. Requires **header** + **separator row** + **cells**.
 
 ```markdown
 | Column A | Column B | Column C |
@@ -281,7 +304,14 @@ A **GFM** extension (it does not exist in plain CommonMark). A table has a **hea
 | foo      |   bar    |      baz |
 ```
 
-Alignment is defined by the **colons in the separator row**:
+**Renders as:**
+
+| Column A | Column B | Column C |
+| -------- | :------: | -------: |
+| left     |  center  |    right |
+| foo      |   bar    |      baz |
+
+### Alignment
 
 | Syntax   | Alignment      |
 | -------- | -------------- |
@@ -290,15 +320,17 @@ Alignment is defined by the **colons in the separator row**:
 | `---:`   | right          |
 | (no `:`) | left (default) |
 
-Tips:
+### Tips
 
-- **Literal `|`** inside a cell: escape with `\|`.
-- Cells are **one line**; no cell merging (GFM has no colspan) — use an HTML table for that.
-- Add **blank lines** before and after the table.
+- `|` literal inside cell: escape with `\|`
+- Cells are **one line** (no colspan in GFM)
+- Add **blank lines** before and after
+
+---
 
 ## Task lists
 
-**GFM** extension: `- [ ]` for unchecked and `- [x]` for checked. The `x` is case-insensitive.
+**GFM extension**: `- [ ]` for pending, `- [x]` for completed.
 
 ```markdown
 - [x] Document the pipeline
@@ -306,95 +338,376 @@ Tips:
 - [ ] Review the manual
 ```
 
-## Escaping characters
+**Renders as:**
 
-To show a markup character as text, precede it with a **backslash**:
+- [x] Document the pipeline
+- [ ] Add tests
+- [ ] Review the manual
+
+---
+
+## Strikethrough and autolinks
+
+### Strikethrough (GFM)
 
 ```markdown
-\*not italic\* \#not a heading | not a table
+~~Strikethrough text~~
 ```
 
-Only escape what needs it: in `2*3 = 6` the `*` does not open emphasis if there is no pair.
+**Renders as:** ~~Strikethrough text~~
+
+### Autolinks
+
+Addresses between `< >` become links automatically:
+
+```markdown
+<https://commonmark.org>
+```
+
+GFM converts **bare URLs** to links. For literal text, wrap in backticks.
+
+---
+
+## Escaping characters
+
+To show a markup character as text, precede with `\`:
+
+```markdown
+\*not italic\* \#not heading \| not table
+```
+
+**Renders as:** \*not italic\* \#not heading \| not table
+
+---
 
 ## HTML inside Markdown
 
-CommonMark allows **raw HTML**, and GFM only blocks a specific set of dangerous tags. In Markdown-Studio **everything goes through DOMPurify** — tags like `<script>`, `on*` attributes and `javascript:` URLs are removed for safety. Light structural HTML is usually accepted:
-
-````markdown
-<details>
-  <summary>Collapsible section (supported by several renderers)</summary>
+Markdown-Studio allows **light HTML** (sanitizeed by DOMPurify):
 
 ```markdown
-Literal content inside HTML.
-```
+<details>
+  <summary>Collapsible section</summary>
+
+Content inside HTML.
 
 </details>
-````
-
-> **Security over convenience.** Never trust Markdown from an unknown source without sanitization. Here sanitization is automatic and upfront.
-
-## Mermaid diagrams
-
-A Markdown-Studio feature: a block with the `mermaid` language becomes a **rendered diagram** (flowchart, sequence, Gantt, class, etc.). Rendering is scheduled with a 150 ms _debounce_ and protected against version race conditions.
-
-```mermaid
-graph TD
-    A[Edit Markdown] --> B{Preview rendered?}
-    B -->|Yes| C[Correct diagram]
-    B -->|No| D[Fix mermaid syntax]
 ```
 
-To write the **source code** of a diagram without rendering it, use a longer block delimiter:
+**Security**: `<script>`, `on*` attributes, and `javascript:` URLs are removed.
+
+---
+
+## Page breaks
+
+Markdown-Studio supports `<!-- page-break -->` marker for print/PDF:
+
+```markdown
+Content on first page.
+
+<!-- page-break -->
+
+Content on second page.
+```
+
+**Usage**: when exporting PDF or printing, content after the marker starts on a new page.
+
+---
+
+# PART 3: ADVANCED
+
+---
+
+## Math with KaTeX
+
+Markdown-Studio natively supports **KaTeX** for mathematical formulas.
+
+### Basic syntax
+
+| Mode       | Syntax    | Example                            |
+| ---------- | --------- | ---------------------------------- |
+| **Inline** | `$...$`   | `$x^2$` renders $x^2$              |
+| **Block**  | `$$...$$` | `$$\frac{a}{b}$$` renders centered |
+
+### Inline examples
+
+```markdown
+The formula is $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$.
+
+Where $a \neq 0$ and $b^2 - 4ac \geq 0$.
+```
+
+### Block examples
+
+```markdown
+$$
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+$$
+```
+
+```markdown
+$$
+\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
+$$
+```
+
+### Common symbols
+
+| Category      | Symbols                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| **Greek**     | `\alpha` `\beta` `\gamma` `\delta` `\theta` `\pi` `\sigma` `\omega` |
+| **Operators** | `\sum` `\prod` `\int` `\partial` `\nabla`                           |
+| **Relations** | `\leq` `\geq` `\neq` `\approx` `\in` `\subset`                      |
+| **Arrows**    | `\rightarrow` `\leftarrow` `\leftrightarrow` `\Rightarrow`          |
+| **Fractions** | `\frac{a}{b}` `\dfrac{a}{b}` `\cfrac{1}{1+\cfrac{1}{2}}`            |
+| **Roots**     | `\sqrt{x}` `\sqrt[3]{8}`                                            |
+| **Matrices**  | `\begin{pmatrix} a & b \\ c & d \end{pmatrix}`                      |
+
+### Real-world examples
+
+**Physics — Mass-energy equivalence:**
+
+```markdown
+$$E^2 = (pc)^2 + (m_0 c^2)^2$$
+```
+
+**Statistics — Normal distribution:**
+
+```markdown
+$$f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+```
+
+**Linear algebra — Eigenvalues:**
+
+```markdown
+$$A\mathbf{v} = \lambda\mathbf{v}$$
+```
+
+### KaTeX tips
+
+1. **Blank lines** before and after `$$` blocks
+2. **Escape** special signs: `\$50` for literal dollar
+3. Use `\text{}` for words inside equations
+4. Use `\left` and `\right` for auto-sizing brackets
+5. Test in the editor before publishing
+
+---
+
+## Diagrams with Mermaid
+
+Markdown-Studio natively supports **Mermaid** for diagrams.
+
+### Flowchart
 
 ````markdown
 ```mermaid
-graph LR
-    A --> B
+graph TD
+    A[Start] --> B{Decision?}
+    B -->|Yes| C[Result A]
+    B -->|No| D[Result B]
+    C --> F[End]
+    D --> F
 ```
 ````
+
+**Node types:**
+
+| Syntax     | Shape      | Example           |
+| ---------- | ---------- | ----------------- |
+| `[text]`   | Rectangle  | `[Process]`       |
+| `(text)`   | Rounded    | `(Alternative)`   |
+| `{text}`   | Diamond    | `{Decision}`      |
+| `([text])` | Stadium    | `([Start/End])`   |
+| `[(text)]` | Database   | `[(MySQL)]`       |
+| `((text))` | Circle     | `((Connector))`   |
+| `[[text]]` | Subroutine | `[[Function]]`    |
+| `{{text}}` | Hexagon    | `{{Preparation}}` |
+
+### Sequence Diagram
+
+````markdown
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant S as Server
+    participant DB as Database
+
+    U->>S: POST /api/login
+    activate S
+    S->>DB: SELECT user
+    activate DB
+    DB-->>S: user found
+    deactivate DB
+    S-->>U: 200 OK
+    deactivate S
+```
+````
+
+**Message types:**
+
+| Syntax | Meaning                    |
+| ------ | -------------------------- |
+| `->>`  | Solid arrow (synchronous)  |
+| `-->>` | Dashed arrow (response)    |
+| `-x`   | Solid cross (lost message) |
+| `--)`  | Open arrow (async)         |
+
+### Gantt Chart
+
+````markdown
+```mermaid
+gantt
+    title Project Timeline
+    dateFormat YYYY-MM-DD
+
+    section Design
+    Wireframes    :done, d1, 2026-01-01, 5d
+    Mockups       :active, d2, after d1, 7d
+
+    section Development
+    Frontend      :dev1, after d2, 10d
+    Backend       :dev2, after d1, 12d
+
+    section Testing
+    QA            :t1, after dev1, 5d
+```
+````
+
+### Class Diagram
+
+````markdown
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound()
+    }
+    class Dog {
+        +fetch()
+    }
+    class Cat {
+        +purr()
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+````
+
+### ER Diagram
+
+````markdown
+```mermaid
+erDiagram
+    USER ||--o{ ORDER : places
+    ORDER ||--|{ ITEM : contains
+    USER {
+        int id PK
+        string name
+        string email
+    }
+    ORDER {
+        int id PK
+        date created
+        float total
+    }
+```
+````
+
+### State Diagram
+
+````markdown
+```mermaid
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Processing : pay
+    Processing --> Shipped : ship
+    Shipped --> Delivered : deliver
+    Delivered --> [*]
+```
+````
+
+### Mermaid Tips
+
+1. **Always define direction** for flowcharts: `TD`, `TB`, `LR`, `RL`, `BT`
+2. **Escape special characters** in nodes: `A["Process (v2)"]`
+3. **Use `%` for comments**: `% this is a comment`
+4. **Beware reserved words**: "end" can break diagrams
+5. **Test in the editor** before publishing
+
+---
+
+## References and anchors
+
+### Reference links
+
+Define destination once and reuse:
+
+```markdown
+See the [documentation][docs] and the [specification][spec].
+
+[docs]: https://example.com/docs 'Official docs'
+[spec]: https://example.com/spec 'Specification'
+```
+
+### Internal anchors
+
+Headings get automatic `id`. Direct link to section:
+
+```markdown
+[Back to index](#index)
+```
+
+---
+
+# PART 4: REFERENCE
+
+---
 
 ## Best practices
 
-1. **One H1 per document**; `##`/`###` for sections.
-2. **Blank lines** between blocks (heading, list, code, table, blockquote).
-3. **A single list marker**: `-` throughout the document.
-4. **Asterisks** for emphasis (`*italic*`, `**bold**`).
-5. **Always a language** on code blocks: `js`, `bash`, `python`, `sql`, `yaml`, `json`, `html`, `css`.
-6. **Descriptive alt text** on every image.
-7. **4-space indentation** for sublists and nested code.
-8. **Escape what is literal**: `\*`, `\|`, `\#`, `\~`.
-9. **Reference links** when the same URL appears several times.
-10. **Think about the reader**: good Markdown is readable even as plain text.
+1. **One H1 per document**; `##`/`###` for sections
+2. **Blank lines** between blocks
+3. **One list marker only** (`-` throughout)
+4. **Asterisks** for emphasis (`*italic*`, `**bold**`)
+5. **Language always** in code blocks
+6. **Descriptive alt text** for every image
+7. **4-space indentation** for nested lists
+8. **Reference links** when same URL appears multiple times
+9. **Think about readers**: good Markdown is readable in plain text
 
-## Gotchas and how to avoid them
+---
 
-| Gotcha                          | Cause                                             | Fix                                                          |
-| ------------------------------- | ------------------------------------------------- | ------------------------------------------------------------ |
-| Heading does not render         | `#` without space or without blank line before    | `# Heading` + blank lines around it                          |
-| List breaks/mixes               | Different markers (`-`, `*`, `+`) in the same doc | Stick to `-`                                                 |
-| Sublist becomes a paragraph     | Insufficient indentation                          | 4 spaces for the nesting                                     |
-| Enter does not create a line    | A single Enter joins the lines                    | Blank line (paragraph) or 2 spaces (break)                   |
-| Emphasis on identifier with `_` | `my_var` interpreted                              | Use `*` for emphasis                                         |
-| Table does not become a table   | Missing separator row `\|--\|--\|`                | Include a separator with at least 3 hyphens                  |
-| Backtick inside inline code     | One backtick breaks the block                     | Use two backticks: `` `code with ` ` ` ``                    |
-| Code translates markup          | Regular code block interprets `*` etc.            | Use a **fence** (` ` ```) for full literal                   |
-| Strikethrough does not work     | Used `~text~` (single tilde)                      | Use `~~text~~` (GFM)                                         |
-| Link broken by parentheses      | Parens in the destination without escaping        | `https://en.wikipedia.org/wiki/Markdown_(markup)` or `<url>` |
+## Gotchas and solutions
 
-## Quick reference
+| Gotcha                      | Cause                    | Solution               |
+| --------------------------- | ------------------------ | ---------------------- |
+| Heading doesn't render      | `#` without space        | `# Heading`            |
+| List breaks                 | Different markers        | Use `-` consistently   |
+| Sublist becomes paragraph   | Insufficient indentation | 4 spaces               |
+| Enter doesn't create line   | Single Enter joins lines | Blank line or 2 spaces |
+| Emphasis in `variable_name` | `_` interpreted          | Use `*`                |
+| Table fails                 | Missing separator        | Include `\|--\|--\|`   |
+| Backtick inside code        | One backtick breaks      | Use two: `` `code` ``  |
+| Strikethrough fails         | `~text~` (one tilde)     | `~~text~~` (GFM)       |
+| KaTeX doesn't render        | `$ x+1 $` (spaces)       | `$x+1$` (no spaces)    |
+| Mermaid breaks              | Word "end"               | Use quotes: `["end"]`  |
+
+---
+
+## Quick cheat sheet
 
 ````markdown
-# Title
+# Heading
 
-## Subtitle
+## Subheading
 
-**bold** ~~strikethrough~~ `code`
+**bold** _italic_ ~~strikethrough~~ `code`
 
 - list
 
 1. numbered
 
-> blockquote
+> quote
 
 [link](https://example.com)
 ![alt](image.png)
@@ -407,14 +720,30 @@ console.log('code');
 | --- | --- |
 | 1   | 2   |
 
-- [ ] pending task
+- [ ] task
+
+$x^2$ (KaTeX inline)
+
+$$\sum_{i=1}^{n} i$$ (KaTeX block)
+
+```mermaid
+graph LR
+  A --> B
+```
+
+<!-- page-break -->
 ````
+
+---
 
 ## Official references
 
 - **CommonMark Spec** — <https://spec.commonmark.org>
 - **GFM Spec** — <https://github.github.io/gfm>
-- **CommonMark help** — <https://commonmark.org/help>
+- **KaTeX** — <https://katex.org/docs/supported.html>
 - **Mermaid** — <https://mermaid.js.org>
+- **CommonMark Help** — <https://commonmark.org/help>
 
 ---
+
+_Markdown-Studio Manual v1.2 — Updated September 2026_
