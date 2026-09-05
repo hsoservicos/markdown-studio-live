@@ -24,6 +24,7 @@ export function setupPrintSettingsDialog({ container = document, onSaved } = {})
   };
   const form = container.querySelector('#print-settings-form');
   const closeButton = container.querySelector('#print-settings-close');
+  const cancelButton = container.querySelector('#print-settings-cancel');
 
   function open() {
     const settings = loadPrintSettings();
@@ -70,6 +71,7 @@ export function setupPrintSettingsDialog({ container = document, onSaved } = {})
 
   form?.addEventListener('submit', submit);
   closeButton?.addEventListener('click', close);
+  cancelButton?.addEventListener('click', close);
 
   return { open, close };
 }

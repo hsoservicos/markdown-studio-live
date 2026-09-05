@@ -517,44 +517,74 @@
       <div id="snapshots-list" class="snapshots-list" tabindex="0"></div>
     </dialog>
 
-    <dialog id="print-settings-dialog" class="manual-dialog" aria-labelledby="print-settings-title">
-      <div class="manual-dialog-head">
-        <h2 id="print-settings-title" class="manual-dialog-title" data-i18n="printSettings">
+    <dialog id="print-settings-dialog" class="print-dialog" aria-labelledby="print-settings-title">
+      <div class="print-dialog-header">
+        <div class="print-dialog-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9V2h12v7"></path>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+        </div>
+        <h2 id="print-settings-title" class="print-dialog-title" data-i18n="printSettings">
           Configurar impressão
         </h2>
-        <button type="button" id="print-settings-close" class="link-button" data-i18n="closeManual">
-          Fechar
+        <button type="button" id="print-settings-close" class="print-dialog-close" aria-label="Fechar" data-i18n-close>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="18" x2="18" y2="6"></line>
+          </svg>
         </button>
       </div>
-      <form id="print-settings-form" class="print-settings-form">
-        <label class="print-settings-field">
-          <span data-i18n="printMarginLabel">Margem (mm)</span>
-          <input type="number" id="print-margin" min="0" max="40" step="1" />
-        </label>
-        <label class="print-settings-field">
-          <span data-i18n="printPaperLabel">Papel</span>
-          <select id="print-paper">
-            <option value="a4">A4</option>
-            <option value="letter">Letter</option>
-          </select>
-        </label>
-        <label class="print-settings-field">
-          <span data-i18n="printOrientationLabel">Orientação</span>
-          <select id="print-orientation">
-            <option value="portrait" data-i18n="printPortrait">Retrato</option>
-            <option value="landscape" data-i18n="printLandscape">Paisagem</option>
-          </select>
-        </label>
-        <label class="print-settings-field">
-          <span data-i18n="printHeaderLabel">Cabeçalho ({page} = nº)</span>
-          <input type="text" id="print-header" maxlength="200" />
-        </label>
-        <label class="print-settings-field">
-          <span data-i18n="printFooterLabel">Rodapé ({page} = nº)</span>
-          <input type="text" id="print-footer" maxlength="200" />
-        </label>
-        <div class="print-settings-actions">
-          <button type="submit" class="link-button" data-i18n="printSave">Salvar</button>
+      <form id="print-settings-form" class="print-dialog-form">
+        <div class="print-form-grid">
+          <div class="print-form-group">
+            <label class="print-form-label" for="print-margin">
+              <span data-i18n="printMarginLabel">Margem</span>
+              <span class="print-form-hint">(mm)</span>
+            </label>
+            <input type="number" id="print-margin" class="print-form-input" min="0" max="40" step="1" placeholder="10" />
+          </div>
+          <div class="print-form-group">
+            <label class="print-form-label" for="print-paper">
+              <span data-i18n="printPaperLabel">Papel</span>
+            </label>
+            <select id="print-paper" class="print-form-select">
+              <option value="a4">A4 (210 × 297 mm)</option>
+              <option value="letter">Letter (8.5 × 11 in)</option>
+            </select>
+          </div>
+          <div class="print-form-group">
+            <label class="print-form-label" for="print-orientation">
+              <span data-i18n="printOrientationLabel">Orientação</span>
+            </label>
+            <select id="print-orientation" class="print-form-select">
+              <option value="portrait" data-i18n="printPortrait">Retrato</option>
+              <option value="landscape" data-i18n="printLandscape">Paisagem</option>
+            </select>
+          </div>
+        </div>
+        <div class="print-form-group">
+          <label class="print-form-label" for="print-header">
+            <span data-i18n="printHeaderLabel">Cabeçalho</span>
+            <span class="print-form-hint">{page} = nº da página</span>
+          </label>
+          <input type="text" id="print-header" class="print-form-input" maxlength="200" placeholder="Ex: Documento confidencial" />
+        </div>
+        <div class="print-form-group">
+          <label class="print-form-label" for="print-footer">
+            <span data-i18n="printFooterLabel">Rodapé</span>
+            <span class="print-form-hint">{page} = nº da página</span>
+          </label>
+          <input type="text" id="print-footer" class="print-form-input" maxlength="200" placeholder="Ex: Página {page}" />
+        </div>
+        <div class="print-form-actions">
+          <button type="button" id="print-settings-cancel" class="print-btn print-btn-secondary" data-i18n="closeManual">
+            Cancelar
+          </button>
+          <button type="submit" class="print-btn print-btn-primary" data-i18n="printSave">
+            Salvar configurações
+          </button>
         </div>
       </form>
     </dialog>

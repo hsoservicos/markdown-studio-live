@@ -818,3 +818,202 @@ footer {
     height: 50%;
   }
 }
+
+/* ============================================
+   Print Settings Dialog - Modern Design
+   ============================================ */
+
+.print-dialog {
+  max-width: 480px;
+  width: min(480px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 16px);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.15);
+}
+
+.print-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.print-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+  padding: var(--space-md, 16px) var(--space-md, 16px) var(--space-sm, 8px);
+}
+
+.print-dialog-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm, 8px);
+  background-color: var(--color-primary-subtle, rgba(59, 130, 246, 0.1));
+  color: var(--color-primary, #3b82f6);
+  flex-shrink: 0;
+}
+
+.print-dialog-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  flex: 1;
+}
+
+.print-dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-text-muted, #6b7280);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.print-dialog-close:hover {
+  background-color: var(--color-bg-subtle, #f3f4f6);
+  color: var(--color-text);
+}
+
+.print-dialog-close:focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* Form Layout */
+.print-dialog-form {
+  padding: var(--space-sm, 8px) var(--space-md, 16px) var(--space-md, 16px);
+}
+
+.print-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm, 8px);
+  margin-bottom: var(--space-sm, 8px);
+}
+
+@media (max-width: 480px) {
+  .print-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Form Groups */
+.print-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.print-form-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-strong);
+}
+
+.print-form-hint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Inputs */
+.print-form-input,
+.print-form-select {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-sm, 8px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  background-color: var(--color-bg, #ffffff);
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.print-form-input::placeholder {
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.print-form-input:hover,
+.print-form-select:hover {
+  border-color: var(--color-border-hover, #9ca3af);
+}
+
+.print-form-input:focus,
+.print-form-select:focus {
+  outline: none;
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.print-form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+/* Actions */
+.print-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm, 8px);
+  margin-top: var(--space-md, 16px);
+  padding-top: var(--space-md, 16px);
+  border-top: 1px solid var(--color-border);
+}
+
+.print-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 var(--space-md, 16px);
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.print-btn:focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+}
+
+.print-btn-primary {
+  background-color: var(--color-primary, #3b82f6);
+  color: #ffffff;
+}
+
+.print-btn-primary:hover {
+  background-color: var(--color-primary-hover, #2563eb);
+}
+
+.print-btn-secondary {
+  background-color: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.print-btn-secondary:hover {
+  background-color: var(--color-bg-subtle, #f3f4f6);
+}
