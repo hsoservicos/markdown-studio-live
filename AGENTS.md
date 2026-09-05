@@ -4,6 +4,30 @@
 
 Markdown-Studio is a client-side Markdown editor with live preview, re-built from `tanabe/markdown-live-preview` under the BMAD methodology. No backend: content renders in the browser and persists in `localStorage`. Goal: a testable, accessible, pt-BR first, static-deployable editor for personal and professional use.
 
+## Collaborators
+
+| Collaborator    | Role                                        | Terminal                     |
+| --------------- | ------------------------------------------- | ---------------------------- |
+| **hsoservicos** | Desenvolvedor principal e único colaborador | hsantos (terminal principal) |
+
+> O repositório é mantido exclusivamente por **hsoservicos**. O terminal `hsantos` é o mesmo colaborador principal, utilizado em ambiente de desenvolvimento local.
+
+## Coding Agents
+
+Este projeto utiliza os seguintes agentes de codificação:
+
+| Agent        | Description                                                                |
+| ------------ | -------------------------------------------------------------------------- |
+| **Opencode** | Agente de código principal para desenvolvimento, debugging e implementação |
+| **Claude**   | Assistente de IA para análise, documentação e revisão de código            |
+| **Freebuff** | Agente de suporte para tarefas auxiliares e validação                      |
+
+### Agent Guidelines
+
+- **Opencode**: Responsável pela implementação principal, testes e refactoring
+- **Claude**: Responsável por análise de código, documentação e revisão
+- **Freebuff**: Suporte para validação e tarefas auxiliares
+
 ## Key Commands
 
 ### Development

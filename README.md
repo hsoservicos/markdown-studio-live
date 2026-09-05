@@ -168,4 +168,18 @@ Markdown-Studio/
 
 ISC (herdada do projeto original) — para uso pessoal e profissional.
 
+## Colaboradores
+
+| Colaborador     | Função                                      |
+| --------------- | ------------------------------------------- |
+| **hsoservicos** | Desenvolvedor principal e único colaborador |
+
+### Agentes de Código
+
+| Agente       | Descrição                                             |
+| ------------ | ----------------------------------------------------- |
+| **Opencode** | Agente principal para desenvolvimento e implementação |
+| **Claude**   | Assistente de IA para análise e documentação          |
+| **Freebuff** | Agente de suporte para validação                      |
+
 _Baseado em [`tanabe/markdown-live-preview`](https://github.com/tanabe/markdown-live-preview) (ISC)._

@@ -17,6 +17,17 @@
     "type": "git",
     "url": "git+https://github.com/hsoservicos/markdown-studio-live.git"
   },
+  "author": {
+    "name": "hsoservicos",
+    "url": "https://github.com/hsoservicos"
+  },
+  "contributors": [
+    {
+      "name": "hsoservicos",
+      "url": "https://github.com/hsoservicos",
+      "notes": "Desenvolvedor principal e único colaborador do projeto"
+    }
+  ],
   "engines": {
     "node": ">=20.12.0"
   },
