@@ -583,26 +583,52 @@ footer {
   background-color: var(--color-surface);
   color: var(--color-text);
   overflow: hidden;
+  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.15);
 }
 
 .manual-dialog::backdrop {
-  background-color: rgba(26, 32, 38, 0.45);
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
 }
 
 .manual-dialog-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
   border-bottom: 1px solid var(--color-border);
 }
 
 .manual-dialog-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--color-text-strong);
+  flex: 1;
+}
+
+.manual-dialog-head .link-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--ease-state), color var(--ease-state);
+}
+
+.manual-dialog-head .link-button:hover {
+  background-color: var(--color-surface-tint);
+  color: var(--color-text);
+}
+
+.manual-dialog-head .link-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .manual-content {
@@ -612,6 +638,7 @@ footer {
   white-space: normal;
 }
 
+/* Snapshots Dialog */
 .snapshots-list {
   padding: var(--space-sm) var(--space-md);
   overflow-y: auto;
@@ -624,8 +651,9 @@ footer {
 .snapshots-empty {
   margin: 0;
   padding: var(--space-md);
-  color: var(--color-text-muted, var(--color-text));
+  color: var(--color-text-muted);
   font-size: 0.9rem;
+  text-align: center;
 }
 
 .snapshots-row {
@@ -635,8 +663,14 @@ footer {
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
+  transition: border-color var(--ease-state), background-color var(--ease-state);
+}
+
+.snapshots-row:hover {
+  border-color: var(--color-border-strong);
+  background-color: var(--color-surface-tint);
 }
 
 .snapshots-meta {
@@ -647,7 +681,7 @@ footer {
 .snapshots-title {
   font-weight: 600;
   font-size: 0.95rem;
-  color: var(--color-text-strong, var(--color-text));
+  color: var(--color-text-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -655,7 +689,7 @@ footer {
 
 .snapshots-when {
   font-size: 0.8rem;
-  color: var(--color-text-muted, var(--color-text));
+  color: var(--color-text-muted);
 }
 
 .snapshots-actions {
@@ -1016,4 +1050,145 @@ footer {
 
 .print-btn-secondary:hover {
   background-color: var(--color-bg-subtle, #f3f4f6);
+}
+
+/* ============================================
+   Global Design System Improvements
+   ============================================ */
+
+/* Smooth transitions for all interactive elements */
+button,
+a,
+input,
+select,
+textarea {
+  transition: color var(--ease-state), background-color var(--ease-state),
+    border-color var(--ease-state), box-shadow var(--ease-state), opacity var(--ease-state);
+}
+
+/* Better focus states for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Smooth scroll for better UX */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--color-accent);
+  color: #ffffff;
+}
+
+/* Placeholder styling */
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+/* Disabled state */
+:disabled,
+[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dialog animations */
+dialog {
+  animation: dialogFadeIn 0.2s ease-out;
+}
+
+dialog::backdrop {
+  animation: backdropFadeIn 0.2s ease-out;
+}
+
+@keyframes dialogFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sidebar transitions */
+.sidebar {
+  transition: width var(--ease-state), transform var(--ease-state);
+}
+
+.sidebar-item {
+  transition: background-color var(--ease-state), color var(--ease-state);
+}
+
+/* Button hover effects */
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Link hover effects */
+a:not(:disabled):hover {
+  opacity: 0.8;
+}
+
+/* Input focus effects */
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+[data-theme='dark'] input:focus,
+[data-theme='dark'] select:focus,
+[data-theme='dark'] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
