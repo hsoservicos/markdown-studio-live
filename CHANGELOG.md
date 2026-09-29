@@ -14,7 +14,6 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   via GitHub, Docker Image ou local, com Cloudflare Tunnel em `mkdeditor.appservice.tec.br`.
 - **Coolify CLI**: documentação de configuração e uso (`docs/how-to/coolify-cli.md`) para
   deploy direto do terminal via API.
-- **Dockerfile.coolify**: Dockerfile otimizado para Coolify com labels OCI e health check.
 - **Camada de storage de múltiplos documentos (Story 2.1)**: `src/documents.js` é um índice
   versionado puro (`{ version: 1, activeId, documents[] }` em `com.markdownstudio.documents`)
   com conteúdo por `com.markdownstudio.documents.content.<id>`, ids `crypto.randomUUID()`/
@@ -51,9 +50,19 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   varre a árvore inteira do `docDefinition` (parágrafo, heading, lista, blockquote, dentro de
   `strong`/`em` e o payload final) em busca de qualquer `link` com scheme fora da allowlist.
   Verificado: falha em 6 de 7 casos sem a guarda `isSafeLinkHref`.
+- **Teste de integração do mermaid (`tests/unit/mermaid-integration.test.js`)**: exercita a lib
+  real (sem `vi.mock`) cobrindo `initialize`, `render` → `{svg, bindFunctions}`, diagrama com erro
+  e a superfície usada pelo app — trava a compatibilidade em upgrades major do mermaid.
 
 ### Fixed
 
+- **Boot pré-carregava 9,4 MB de JavaScript**: `import('mermaid')` estava lazy, mas o
+  `manualChunks` do `vite.config.js` casava por substring `id.includes('mermaid')` e pegava
+  também `src/render/mermaid.js` — importado estaticamente pelo `main.js` — religando os ~5 MB
+  da lib ao grafo do entry; o Monaco acabava arrastado junto. **Boot agora é 377 KB (−96%)**.
+- **`renderMermaidDiagramsIn` lançava exceção síncrona**: sem `async`, uma falha no default
+  parameter `theme = getMermaidTheme()` estourava antes de existir promise, e o `.catch()` em
+  `sidebar.js` deixava de engolir — quebrava o teste `sidebar` e o carregamento do manual.
 - **Documentação do Coolify Tunnel apontava para a porta errada**: `coolify-deploy.md` e
   `coolify-deploy-step-by-step.md` instruíam `Service URL: http://localhost:80`, mas a
   aplicação é exposta em `5002:80` — seguir o doc derrubava o acesso externo com 502.
@@ -140,6 +149,26 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - `escapeHtmlAttr` (`exportHtml.js`) era uma cópia parcial de `escapeHtml` (`convert.js`): os dois
   agora usam o mesmo helper — um único escape de HTML no projeto, agora também `null`-safe.
 - Removido `data-sidebar-safe` do `index.html` (nenhum consumidor em `src/`, `tests/` ou CSS).
+- **Mermaid passou a lazy-load**: `src/render/mermaid.js` carrega a lib via `import('mermaid')`
+  memoizado (`loadMermaid`), `configureMermaid` ficou `async`, e o single-flight em
+  `renderMermaidDiagramsIn` adquire o lock de forma síncrona — `await` antes da checagem abriria
+  janela de corrida entre dois chamadores concorrentes. Sem diagrama no documento, os ~5 MB
+  (1,4 MB gzip) nunca são baixados.
+- **`build.rollupOptions.output.manualChunks` removido do `vite.config.js`**: o Vite 8 bundla com
+  Rolldown, que faz o code-splitting sozinho a partir do grafo real de imports — uma regra por
+  substring era o que derrotava o lazy-load acima. Monaco e mermaid agora viram chunks próprios
+  carregados sob demanda.
+- `overrides.mermaid.marked` → `^18.0.14`: deduplica o `marked` do mermaid com o do app (uma
+  cópia só). `overrides.mermaid.katex` **não** é aplicável — o npm rejeita e deixa a árvore
+  `invalid` (`ELSPROBLEMS`) mesmo após cache clean; o `katex` 0.16.x aninhado no mermaid é
+  limitação aceita, invisível ao app (que usa o 0.18.9).
+
+### Removed
+
+- **`Dockerfile.coolify`** — era uma cópia divergente do `Dockerfile` e nada o referenciava:
+  o Coolify usa `dockerfile_location=/Dockerfile`, o `compose.yaml` aponta `Dockerfile` e o
+  workflow de CI monitora `Dockerfile`/`Dockerfile.dev`. Dois Dockerfiles para a mesma imagem
+  era armadilha de manutenção.
 
 ### Security
 

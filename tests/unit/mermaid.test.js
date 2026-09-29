@@ -45,7 +45,9 @@ describe('renderMermaidDiagramsIn (single-flight)', () => {
     const p1 = renderMermaidDiagramsIn(root);
     const p2 = renderMermaidDiagramsIn(root);
 
-    // A primeira passagem já iniciou o mermaid.render; a segunda só aguarda.
+    // Lazy-load: o módulo resolve em microtask antes do primeiro render.
+    await vi.waitFor(() => expect(mermaidState.render).toHaveBeenCalledTimes(1));
+    // A segunda passagem não partiu — o single-flight ainda segura uma em voo.
     expect(mermaidState.render).toHaveBeenCalledTimes(1);
 
     first.resolve({ svg: '<svg>primeira</svg>', bindFunctions: undefined });
@@ -63,8 +65,9 @@ describe('renderMermaidDiagramsIn (single-flight)', () => {
 
     const p1 = renderMermaidDiagramsIn(root);
     const p2 = renderMermaidDiagramsIn(root);
-    // Segunda passagem incrementa renderVersion: quando a primeira terminar,
-    // ela não deve escrever o SVG obsoleto.
+    // Só depois do primeiro render entrar em voo a segunda passagem incrementa
+    // renderVersion: quando a primeira terminar, ela não escreve o SVG obsoleto.
+    await vi.waitFor(() => expect(mermaidState.render).toHaveBeenCalledTimes(1));
     first.resolve({ svg: '<svg>stale</svg>', bindFunctions: undefined });
     await p1;
     await p2;
@@ -106,6 +109,7 @@ describe('pauseMermaidScheduling / resumeMermaidScheduling', () => {
     resumeMermaidScheduling();
     scheduleMermaidRender(10);
     await vi.advanceTimersByTimeAsync(30);
-    expect(mermaidState.render).toHaveBeenCalledTimes(1);
+    // O lazy-load do mermaid resolve em microtask após o timer disparar.
+    await vi.waitFor(() => expect(mermaidState.render).toHaveBeenCalledTimes(1));
   });
 });

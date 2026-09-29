@@ -1,4 +1,3 @@
-import mermaid from 'mermaid';
 import { t } from '../i18n/index.js';
 
 let renderTimer = null;
@@ -6,7 +5,26 @@ let renderVersion = 0;
 let renderInFlight = null;
 let schedulingEnabled = true;
 
-export function configureMermaid(theme = 'default') {
+// Lazy: mermaid vale ~5 MB (1,4 MB gzip) e só é necessário quando o documento
+// tem bloco ```mermaid. Import estático aqui puxava tudo para o boot do app.
+let mermaidModule = null;
+let mermaidLoading = null;
+
+function loadMermaid() {
+  if (mermaidModule) {
+    return Promise.resolve(mermaidModule);
+  }
+  if (!mermaidLoading) {
+    mermaidLoading = import('mermaid').then((mod) => {
+      mermaidModule = mod.default;
+      return mermaidModule;
+    });
+  }
+  return mermaidLoading;
+}
+
+export async function configureMermaid(theme = 'default') {
+  const mermaid = await loadMermaid();
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
@@ -34,22 +52,28 @@ export function getMermaidTheme() {
   return 'default';
 }
 
+// `async` aqui não é cosmético: `theme = getMermaidTheme()` é um default
+// parameter, e numa função não-async uma exceção nele lança de forma síncrona —
+// antes de existir promise para quem chamou encadear um `.catch`.
 export async function renderMermaidDiagramsIn(rootElement, theme = getMermaidTheme()) {
   if (!rootElement) {
     return;
   }
 
-  // Single-flight: mermaid.render não é reentrante. Se houver uma passagem em
-  // andamento, aguarda-a concluir antes de iniciar a próxima. O version-guard
-  // continua impedindo que SVG obsoleto seja escrito no DOM.
+  // Single-flight: mermaid.render não é reentrante. O lock é adquirido de forma
+  // SÍNCRONA, antes de qualquer await: como o mermaid virou lazy-load, setar
+  // renderInFlight depois do load abriria uma janela em que dois chamadores
+  // concorrentes passariam pela checagem ao mesmo tempo.
   if (renderInFlight) {
-    await renderInFlight.catch(() => {});
+    return renderInFlight.catch(() => {}).then(() => renderMermaidDiagramsIn(rootElement, theme));
   }
 
   const version = ++renderVersion;
-  configureMermaid(theme);
 
   const current = (async () => {
+    await configureMermaid(theme);
+    const mermaid = await loadMermaid();
+
     const elements = Array.from(rootElement.querySelectorAll('.mermaid'));
     for (const [index, element] of elements.entries()) {
       if (version !== renderVersion) {
@@ -77,13 +101,11 @@ export async function renderMermaidDiagramsIn(rootElement, theme = getMermaidThe
   })();
 
   renderInFlight = current;
-  try {
-    await current;
-  } finally {
+  return current.finally(() => {
     if (renderInFlight === current) {
       renderInFlight = null;
     }
-  }
+  });
 }
 
 export async function renderMermaidDiagramsNow(theme = getMermaidTheme()) {
