@@ -9,7 +9,13 @@ import { applyStoredLocale, setupLanguageSelector } from './ui/language.js';
 import { applyI18n } from './ui/i18nElements.js';
 import { scrollPreviewTo } from './ui/scrollSync.js';
 import { exportPreviewToPdf } from './ui/exportPdf.js';
-import { resetMarkdownEditor, newMarkdownEditor, resolveBootInput } from './ui/editorActions.js';
+import {
+  resetMarkdownEditor,
+  newMarkdownEditor,
+  resolveBootInput,
+  resolveDocumentBootInput,
+  persistDraft,
+} from './ui/editorActions.js';
 import { loadPrintSettings, applyPrintSettingsCss } from './ui/printSettings.js';
 import { setupPrintSettingsDialog } from './ui/printSettingsDialog.js';
 import { setupStatusBar } from './ui/statusBar.js';
@@ -18,37 +24,80 @@ import { copyRichHtml } from './ui/copyRich.js';
 import { exportStandaloneHtml } from './ui/exportHtml.js';
 import { maybeAutoSnapshot } from './ui/snapshots.js';
 import { setupSnapshotsDialog } from './ui/snapshotsDialog.js';
+import { setupDocumentManager } from './ui/documents-ui.js';
 import { getLocaleCode } from './i18n/index.js';
-import { getActiveDocument, safeGetIndex, createDocument, getContent } from './documents.js';
+import {
+  getActiveDocument,
+  safeGetIndex,
+  createDocument,
+  getContent,
+  setContent,
+} from './documents.js';
 // P0-5: estilos do KaTeX (bundled via npm, sem CDN).
 import 'katex/dist/katex.min.css';
 
 applyStoredLocale();
 
-export function setupKeyboardShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    const isCtrl = e.ctrlKey || e.metaKey;
-    if (!isCtrl) return;
+// Atalhos da aplicação: letra do atalho → atributo `[data-sidebar-action]`.
+const SHORTCUT_ACTIONS = {
+  s: 'save',
+  p: 'exportPdf',
+  b: 'copyHtml',
+  e: 'exportHtml',
+};
 
-    switch (e.key.toLowerCase()) {
-      case 's':
-        e.preventDefault();
-        document.querySelector('[data-sidebar-action="save"]')?.click();
-        break;
-      case 'p':
-        e.preventDefault();
-        document.querySelector('[data-sidebar-action="exportPdf"]')?.click();
-        break;
-      case 'b':
-        e.preventDefault();
-        document.querySelector('[data-sidebar-action="copyHtml"]')?.click();
-        break;
-      case 'e':
-        e.preventDefault();
-        document.querySelector('[data-sidebar-action="exportHtml"]')?.click();
-        break;
+/**
+ * Decide se um `keydown` corresponde a um atalho nosso (puro, testável).
+ *
+ * Só a combinação exata, com as demais modificações recusadas:
+ *
+ * - `altKey` é bloqueado porque no Windows o AltGr reporta `ctrlKey + altKey`
+ *   ao mesmo tempo — sem a guarda, digitar AltGr+E (€) dispararia a exportação
+ *   de HTML.
+ * - `shiftKey` é bloqueado porque Ctrl+Shift+S/P/E são atalhos de outra ordem
+ *   ("save as", paleta de comandos), não os nossos.
+ * - `repeat` é bloqueado para não reabrir a ação ao segurar a tecla.
+ *
+ * @param {KeyboardEvent | null} event
+ * @returns {string|null} valor do `[data-sidebar-action]` alvo, ou `null`
+ */
+export function resolveShortcutAction(event) {
+  if (!event) {
+    return null;
+  }
+  const {
+    key,
+    ctrlKey = false,
+    metaKey = false,
+    altKey = false,
+    shiftKey = false,
+    repeat = false,
+  } = event;
+  if (!ctrlKey && !metaKey) {
+    return null;
+  }
+  if (altKey || shiftKey || repeat) {
+    return null;
+  }
+  if (typeof key !== 'string' || key.length !== 1) {
+    return null;
+  }
+  return SHORTCUT_ACTIONS[key.toLowerCase()] ?? null;
+}
+
+export function setupKeyboardShortcuts() {
+  const onKeyDown = (e) => {
+    const action = resolveShortcutAction(e);
+    if (!action) {
+      return;
     }
-  });
+    e.preventDefault();
+    document.querySelector(`[data-sidebar-action="${action}"]`)?.click();
+  };
+  document.addEventListener('keydown', onKeyDown);
+  // Devolve a limpeza: sem ela, re-registrar em testes acumula listeners e
+  // uma mesma tecla dispara a ação N vezes.
+  return () => document.removeEventListener('keydown', onKeyDown);
 }
 
 const init = () => {
@@ -92,7 +141,9 @@ const init = () => {
       }
       const value = editor.getValue();
       scheduleConvertAndRender(value);
-      scheduleSave(value);
+      // O documento é capturado no momento da edição: o timer do debounce pode
+      // disparar depois de uma troca de documento e não deve gravar no doc novo.
+      scheduleSave(value, getActiveDocument()?.id ?? null);
       statusBar?.update();
     });
 
@@ -132,21 +183,27 @@ const init = () => {
 
   let lastAutoSnapshotTs = 0;
 
-  function scheduleSave(value) {
+  function scheduleSave(value, docId = null) {
     if (saveTimer) {
       clearTimeout(saveTimer);
     }
     saveTimer = setTimeout(() => {
       saveTimer = null;
-      // Não persiste templates não editados: assim, ao trocar o idioma, o
-      // editor volta ao template do idioma corrente em vez do outro.
-      if (!isUntouchedTemplate(value)) {
-        setItem(NAMESPACE, KEYS.lastState, value);
+      // Persiste no `last_state` (contrato legado) E no conteúdo do documento
+      // ativo — é o documento que o boot lê, então sem o segundo as edições
+      // eram perdidas no reload (e o `last_state` acabava sobrescrito com o
+      // conteúdo congelado do documento).
+      const persisted = persistDraft(value, {
+        isUntouchedTemplate,
+        setDraft: (draft) => setItem(NAMESPACE, KEYS.lastState, draft),
+        getActiveDocId: () => docId,
+        saveDocContent: (id, draft) => setContent(id, draft),
+      });
+      if (persisted) {
         // P1-8: anel de backup com throttle — protege se last_state corromper.
-        const active = getActiveDocument();
         const result = maybeAutoSnapshot(value, {
           lastAutoTs: lastAutoSnapshotTs,
-          docId: active?.id,
+          docId,
         });
         lastAutoSnapshotTs = result.lastAutoTs;
       }
@@ -167,6 +224,12 @@ const init = () => {
     });
     if (ok) {
       hasEdited = false;
+      // O documento ativo precisa acompanhar o reset: como o boot lê o
+      // documento, sem isto o reload ressuscitava o conteúdo descartado.
+      const active = getActiveDocument();
+      if (active) {
+        setContent(active.id, defaultInput);
+      }
     }
   }
 
@@ -279,6 +342,13 @@ const init = () => {
         hasEdited = true;
       },
     });
+    setupDocumentManager({
+      container: document,
+      editor,
+      getEditorContent: () => editor.getValue(),
+      onStatus: report,
+      confirm: (message) => window.confirm(message),
+    });
 
     const handlers = {
       reset: () => reset(),
@@ -355,16 +425,13 @@ const init = () => {
     let bootInput;
     if (index.documents.length > 0) {
       const active = getActiveDocument();
-      if (active) {
-        const content = getContent(active.id);
-        if (content != null) {
-          bootInput = content;
-        } else {
-          bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
-        }
-      } else {
-        bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
-      }
+      bootInput = resolveDocumentBootInput({
+        lastContent,
+        docContent: active ? getContent(active.id) : null,
+        documentCount: index.documents.length,
+        defaultInput,
+        isUntouchedTemplate,
+      });
     } else if (lastContent && !isUntouchedTemplate(lastContent)) {
       createDocument({
         title: t('docRestored'),

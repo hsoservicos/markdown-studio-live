@@ -27,8 +27,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   html2canvas, mermaid SVG capture, `resolveKatexPlaceholders`.
 - **Fallback e paridade de contrato (Story 1.4)**: `exportRasterFallback` exportado, fallback
   transparente vector→raster.
-- **Gerenciador de documentos UI (Story 2.2)**: `setupDocumentManager` com criar/renomear/
-  alternar/fechar, validação de nomes, `aria-current`, operável por teclado.
+- **Gerenciador de documentos na sidebar (Story 2.2)**: a lista de documentos existe de fato no app
+  — `#document-list` + `#doc-new-btn` no painel, CSS dedicado e `setupDocumentManager` ligado ao boot.
+  Criar/renomear/alternar/fechar, nome único com sufixo `(2)`, `aria-current`, operável por teclado
+  (Enter alterna, Delete fecha), e o documento inicial semeado com o conteúdo já carregado no editor.
 - **Ações no documento ativo (Story 2.3)**: snapshots com `docId`, handlers usam doc ativo,
   `exportHtml` usa nome do doc ativo para filename.
 - **Boot com restauração (Story 2.4)**: boot restaura docs do índice, migra `last_state`
@@ -41,9 +43,59 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **Testes scrollSync**: 2 novos testes para `scrollPreviewTo` (287 total).
 - **Quota warning**: `checkStorageQuota()` + i18n `storageQuotaWarning` para aviso de
   armazenamento quase cheio.
+- **Allowlist de schemes compartilhada (`src/render/urlPolicy.js`)**: preview (DOMPurify) e PDF
+  vetorial passam a ler a mesma política de URLs — `isSafeLinkHref` / `isSafeImageSrc`.
+- **Teste de CSP (`tests/unit/csp.test.js`)**: trava o hash sha256 do script inline de boot
+  contra a diretiva `script-src` do `nginx.conf`; se um dos dois mudar sem o outro, o teste falha.
+- **Regressão de segurança do PDF vetorial (`tests/unit/pdf-vector-link-safety.test.js`)**:
+  varre a árvore inteira do `docDefinition` (parágrafo, heading, lista, blockquote, dentro de
+  `strong`/`em` e o payload final) em busca de qualquer `link` com scheme fora da allowlist.
+  Verificado: falha em 6 de 7 casos sem a guarda `isSafeLinkHref`.
+
+### Fixed
+
+- **Perda de dados no caminho multi-documento**: as edições eram gravadas apenas em `last_state`,
+  enquanto o boot lê o conteúdo do documento ativo — que ficava congelado no momento da migração.
+  Da 3ª sessão em diante o editor reabria com conteúdo antigo e um novo `last_state` o sobrescrevia
+  com o dado velho. `scheduleSave` passa a persistir no documento ativo via `persistDraft`, e
+  `resolveDocumentBootInput` recupera o rascunho mais recente no legado de documento único.
+- **Reset ressuscitava o conteúdo descartado**: `reset()` passa a gravar o template do idioma corrente
+  no documento ativo, então um reload não traz de volta o conteúdo que o usuário mandou apagar.
+- **Nome de documento em loop infinito**: `uniqueName` comparava o candidato contra o nome original,
+  então a condição do `while` nunca mudava — criar o 2º documento com o nome padrão travava a aba.
+  O sufixo agora é comparado contra o conjunto de nomes em uso.
+- **Alternar documento carregava o conteúdo errado**: `loadDocument` chamava o getter do editor
+  (parâmetro também chamado `getContent`) no lugar do `getContent(id)` de `documents.js`. O parâmetro
+  do editor virou `getEditorContent`, eliminando o shadowing que quebrava a troca de documento.
+- **Troca de documento vs. debounce de salvamento**: o id do documento é capturado no momento da
+  edição, evitando que um save pendente grave no documento recém-selecionado.
+- **Fechar documento usava a mensagem de confirmação errada** (`newFileConfirm` → `docCloseConfirm`).
+- **PDF vetorial ignorava a allowlist de schemes**: `[x](javascript:alert(1))` gerava anotação de
+  link ativa no PDF. Agora `href` não seguro (`javascript:`, `tel:`, …) vira só o rótulo.
+- **PDF vetorial despejava imagens como markdown cru**: `![alt](url)` não tinha tratamento e caía
+  no fallback textual (`token.raw`). Imagens viram bloco `image` quando a origem é segura
+  (data URL, http(s) ou relativa) e degradam para o alt quando não é.
+- **Botões de fechar dos diálogos não traduziam**: `aria-label="Fechar"` estava hardcoded e o
+  atributo `data-i18n-close` era inerte. Os quatro botões passam a usar
+  `data-i18n-aria-label="closeDialog"`; o botão "Cancelar" do print-settings exibia "Fechar"
+  (chave `closeManual`) e agora tem chave própria (`cancel`).
+- **`checkStorageQuota` gravava 1 MB em cada boot**: o teste de espaço fazia
+  `setItem('__quota_test__', 'x'.repeat(1MB))` + `removeItem` para descobrir se cabia mais alguma
+  coisa — em toda inicialização, e só avisava quando já era impossível salvar (podendo ainda
+  deixar a chave de teste para trás). Passa a medir por leitura (`measureStorageUsage`, UTF-16) e
+  avisar cedo, a partir de 90% de 5 MB; a falha de leitura degrada para `ok: true`.
+- **Atalhos Ctrl+S/P/B/E sem guarda de modificadores**: checava só `ctrlKey || metaKey`, então
+  Ctrl+Shift+S exportava PDF e o AltGr (que no Windows reporta `ctrlKey + altKey`) dispara
+  exportação de HTML ao digitar `€`. `resolveShortcutAction` agora exige a combinação exata —
+  recusa `altKey`, `shiftKey`, `repeat` e teclas que não são de um caractere — e devolve a
+  função de limpeza para não acumular listeners.
 
 ### Changed
 
+- `markdownlint-cli2` 0.23.2 → **0.23.3** (corrige `smol-toml` ≤1.7.0, DoS — GHSA-7w5x-hrqm-74c2);
+  `npm audit` volta a 0 vulnerabilidades (dev incluído).
+- `.github/workflows/docker.yml`: condição de publicação em `refs/heads/master` → **`main`** — o login
+  e o push para o GHCR nunca executavam depois do rename da branch.
 - `marked` 15.0.12 → **18.0.11** (breaking: trim trailing blank lines, TS v6).
 - `katex` 0.16.47 → **0.18.5**.
 - `monaco-editor` 0.52.2 → **0.53.0** (dompurify vulnerability fix).
@@ -56,12 +108,27 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - `mermaid` 11.16 → **11.17** (minor).
 - CI quality.yml: usa `test:coverage` com thresholds (65/60/60/65).
 - `chunkSizeWarningLimit` ajustado para 4000 (chunks lazy-loaded).
-- CSP documentado: `unsafe-eval` (Monaco) e `unsafe-inline` (KaTeX/Mermaid).
 - Docker: multi-stage com 3 stages, USER app non-root, read_only, security_opt.
 - `.prettierignore` e `.markdownlint-cli2.yaml` expandidos para ignorar `.claude/`.
+- CSP (`nginx.conf`): `script-src` perde `'unsafe-inline'` (o boot de tema passa a ser autorizado
+  por hash sha256) e `'unsafe-eval'` (o bundle não chama `eval`/`new Function`); `style-src`
+  mantém `'unsafe-inline'` (Monaco/KaTeX/Mermaid injetam estilos) e entram `object-src 'none'`,
+  `base-uri`/`frame-ancestors`/`form-action 'self'`.
+- `tests/unit/accessibility.test.js` passa a validar o `index.html` real (via JSDOM) em vez de um
+  fixture paralelo: chaves i18n nos dois idiomas, atributos `data-i18n` conhecidos, nomes
+  acessíveis, rótulos e landmarks.
+- Removido código morto: `src/design-system/` (376 linhas, nunca importado), o parâmetro `_opts`
+  de `convert()` e o build-arg `VITE_BUILD_DATE` (Dockerfiles, compose e workflows), que nunca era
+  lido pelo bundle.
+- `escapeHtmlAttr` (`exportHtml.js`) era uma cópia parcial de `escapeHtml` (`convert.js`): os dois
+  agora usam o mesmo helper — um único escape de HTML no projeto, agora também `null`-safe.
+- Removido `data-sidebar-safe` do `index.html` (nenhum consumidor em `src/`, `tests/` ou CSS).
 
 ### Security
 
+- CSP de produção sem `'unsafe-inline'`/`'unsafe-eval'` em `script-src` (hash do único inline +
+  `'self'`); diretivas de base/objeto/frame/form endurecidas.
+- Links do PDF vetorial submetidos à mesma allowlist de schemes do preview.
 - Vulnerabilidade `qs` 2.2.5–6.15.3 (moderate: DoS) resolvida.
 - Vulnerabilidade `dompurify` em monaco-editor resolvida (upgrade para 0.53.0).
 

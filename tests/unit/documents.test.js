@@ -16,7 +16,13 @@ import {
   CONTENT_KEY,
   INDEX_VERSION,
 } from '../../src/documents.js';
-import { NAMESPACE } from '../../src/i18n/index.js';
+import { NAMESPACE, KEYS } from '../../src/i18n/index.js';
+import { getItem, setItem, removeItem } from '../../src/storage.js';
+import {
+  resolveBootInput,
+  resolveDocumentBootInput,
+  persistDraft,
+} from '../../src/ui/editorActions.js';
 
 function store() {
   return globalThis.localStorage;
@@ -215,6 +221,84 @@ describe('documents layer', () => {
     restoreStorage();
     expect(caught).toBeTruthy();
     expect(caught.code).toBe('quota');
+  });
+});
+
+/**
+ * Regressão P0: as edições eram gravadas apenas em `last_state`, enquanto o boot
+ * lia o conteúdo do documento ativo — que ficava congelado no momento da
+ * migração. Estes testes exercitam o ciclo completo (digitação → reload) sobre os
+ * módulos reais de storage/documentos, não sobre mocks.
+ */
+describe('ciclo de persistência entre sessões (regressão P0)', () => {
+  const defaultInput = '# Template';
+  const isUntouchedTemplate = (v) => v === defaultInput;
+
+  // Liga o núcleo puro aos módulos reais — mesmo wiring do scheduleSave.
+  const wire = () => ({
+    isUntouchedTemplate,
+    setDraft: (v) => setItem(NAMESPACE, KEYS.lastState, v),
+    getActiveDocId: () => getActiveDocument()?.id ?? null,
+    saveDocContent: (id, v) => setContent(id, v),
+  });
+
+  // Espelha a decisão de boot do src/main.js.
+  const boot = () => {
+    const lastContent = getItem(NAMESPACE, KEYS.lastState, { type: 'string' });
+    const index = safeGetIndex();
+    if (index.documents.length > 0) {
+      const active = getActiveDocument();
+      return resolveDocumentBootInput({
+        lastContent,
+        docContent: active ? getContent(active.id) : null,
+        documentCount: index.documents.length,
+        defaultInput,
+        isUntouchedTemplate,
+      });
+    }
+    return resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
+  };
+
+  it('não perde edições depois que a migração cria o documento', () => {
+    // sessão 1 — sem índice: só há rascunho em last_state.
+    expect(boot()).toBe(defaultInput);
+    persistDraft('# Sessão 1', wire());
+    expect(boot()).toBe('# Sessão 1');
+
+    // sessão 2 (reload) — o boot migra last_state para um documento.
+    createDocument({
+      title: 'Documento restaurado',
+      initialContent: getItem(NAMESPACE, KEYS.lastState, { type: 'string' }),
+    });
+    expect(boot()).toBe('# Sessão 1');
+
+    // sessão 2 — o usuário edita de novo.
+    persistDraft('# Sessão 2', wire());
+
+    // A edição precisa ter chegado ao conteúdo do documento (write path), e
+    // não apenas a `last_state` — era exatamente isso que estava faltando.
+    expect(getContent(getActiveDocument().id)).toBe('# Sessão 2');
+
+    // sessão 3 (reload) — a edição da sessão 2 precisa sobreviver.
+    expect(boot()).toBe('# Sessão 2');
+  });
+
+  it('mantém last_state e o conteúdo do documento em sincronia a cada edição', () => {
+    const doc = createDocument({ title: 'Doc', initialContent: '' });
+    persistDraft('# alinhado', wire());
+    expect(getContent(doc.id)).toBe('# alinhado');
+    expect(getItem(NAMESPACE, KEYS.lastState, { type: 'string' })).toBe('# alinhado');
+  });
+
+  it('reset não ressuscita o conteúdo descartado no próximo boot', () => {
+    const doc = createDocument({ title: 'Documento restaurado', initialContent: '# antigo' });
+    persistDraft('# antigo', wire());
+
+    // O que reset() + resetMarkdownEditor() fazem.
+    setContent(doc.id, defaultInput);
+    removeItem(NAMESPACE, KEYS.lastState);
+
+    expect(boot()).toBe(defaultInput);
   });
 });
 

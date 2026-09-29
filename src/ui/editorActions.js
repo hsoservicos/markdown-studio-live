@@ -5,6 +5,64 @@ export function resolveBootInput({ lastContent, defaultInput, isUntouchedTemplat
   return !lastContent || isUntouchedTemplate(lastContent) ? defaultInput : lastContent;
 }
 
+/**
+ * Resolve o conteúdo de boot quando já existe um índice de documentos.
+ *
+ * O conteúdo do documento ativo é a fonte de verdade. A exceção é o legado de
+documento único: versões anteriores gravavam as edições apenas em `last_state`,
+congelando o conteúdo do documento no momento da migração. Nesse cenário — e só
+nele, porque o app não permite criar/alternar documentos sem o gerenciador da
+sidebar — o rascunho é a edição mais recente e tem precedência.
+ *
+ * @param {{ lastContent: string|null, docContent: string|null, documentCount?: number, defaultInput: string, isUntouchedTemplate: (value: string) => boolean }} opts
+ * @returns {string} conteúdo a carregar no editor
+ */
+export function resolveDocumentBootInput({
+  lastContent,
+  docContent,
+  documentCount = 0,
+  defaultInput,
+  isUntouchedTemplate,
+}) {
+  const draft = lastContent && !isUntouchedTemplate(lastContent) ? lastContent : null;
+
+  if (documentCount === 1 && draft) {
+    return draft;
+  }
+  if (docContent != null && !isUntouchedTemplate(docContent)) {
+    return docContent;
+  }
+  return draft ?? defaultInput;
+}
+
+/**
+ * Persiste um rascunho do editor. Grava (1) `last_state` — contrato legado, usado
+ * pela migração de primeiro boot — e (2) o conteúdo do documento ativo, que é o
+ * que o boot lê. Sem (2) as edições eram descartadas no reload e `last_state`
+ * acabava sobrescrito com o conteúdo congelado do documento.
+ *
+ * Templates não editados não são gravados: é o que faz a troca de idioma devolver
+ * o template do idioma corrente em vez do outro.
+ *
+ * @param {string} value
+ * @param {{ isUntouchedTemplate: (value: string) => boolean, setDraft: (value: string) => void, getActiveDocId?: () => string|null, saveDocContent?: (id: string, value: string) => void }} opts
+ * @returns {boolean} `true` quando algo foi persistido (o anel de snapshots só avança então)
+ */
+export function persistDraft(
+  value,
+  { isUntouchedTemplate, setDraft, getActiveDocId, saveDocContent },
+) {
+  if (isUntouchedTemplate(value)) {
+    return false;
+  }
+  setDraft(value);
+  const docId = getActiveDocId?.();
+  if (docId) {
+    saveDocContent?.(docId, value);
+  }
+  return true;
+}
+
 export function resetMarkdownEditor({
   editor,
   defaultInput,

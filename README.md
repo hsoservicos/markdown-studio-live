@@ -8,7 +8,7 @@ Markdown-Studio é um editor 100% client-side (sem backend) com:
 
 - **Editor Monaco** com syntax highlighting para Markdown
 - **Preview em tempo real** com renderização de Mermaid, KaTeX e tabelas
-- **PDF vetorial pesquisável** (Ctrl+F funciona no PDF exportado)
+- **PDF vetorial pesquisável** (Ctrl+F funciona no PDF exportado) — habilitado pela feature-flag `com.markdownstudio.pdf.vector`; com a flag desligada (padrão) a exportação sai em raster
 - **Múltiplos documentos** com gerenciamento na sidebar
 - **Persistência local** via `localStorage` (sem conta, sem nuvem)
 - **Tema claro/escuro** com anti-FOUC
@@ -97,7 +97,7 @@ Markdown-Studio/
 │       ├── sidebar.js           # Sidebar component
 │       ├── snapshots.js         # Backup snapshots
 │       └── ...                  # Other UI modules
-├── tests/unit/              # Vitest unit tests (287 tests)
+├── tests/unit/              # Vitest unit tests (434 tests)
 ├── docs/                    # Diataxis documentation
 ├── specs/                   # PRD, specs, sprint status
 ├── scripts/                 # Docker + version scripts
@@ -158,8 +158,8 @@ Markdown-Studio/
 
 ## Segurança
 
-- **DOMPurify**: sanitização de HTML (fronteira de segurança ÚNICA)
-- **CSP**: documentado (unsafe-eval para Monaco, unsafe-inline para KaTeX)
+- **DOMPurify**: sanitização de HTML (fronteira de segurança ÚNICA); allowlist de schemes compartilhada com o PDF vetorial em `src/render/urlPolicy.js`
+- **CSP**: `script-src` sem `unsafe-inline`/`unsafe-eval` (único inline autorizado por hash sha256); `style-src` mantém `unsafe-inline` (Monaco/KaTeX/Mermaid injetam estilos)
 - **Docker**: non-root, read-only, no-new-privileges, resource limits
 - **Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
 - **0 vulnerabilidades** npm audit

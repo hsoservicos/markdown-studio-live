@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import { svgToDataUrl } from './svg-embed.js';
 import { renderBlockMath, renderInlineMath, createMathExtensions } from '../render/katexExt.js';
+import { isSafeImageSrc, isSafeLinkHref } from '../render/urlPolicy.js';
 
 marked.use({ extensions: createMathExtensions() });
 
@@ -26,11 +27,24 @@ function convertInlineTokens(tokens = []) {
         result.push({ text: token.text, font: 'Courier', background: '#f0f0f0' });
         break;
       case 'link':
-        result.push({
-          text: token.text,
-          link: token.href,
-          color: '#0969da',
-        });
+        // Mesma allowlist de schemes do preview (urlPolicy.js): href não seguro
+        // (javascript:, tel:, …) degrada para o rótulo, sem anotação no PDF.
+        // Teste de regressão: tests/unit/pdf-vector-link-safety.test.js.
+        if (isSafeLinkHref(token.href)) {
+          result.push({
+            text: token.text,
+            link: token.href,
+            color: '#0969da',
+          });
+        } else {
+          result.push(token.text ?? '');
+        }
+        break;
+      case 'image':
+        // pdfmake não aceita `image` dentro de um array `text` (é um item de
+        // bloco), então imagens em contexto inline degradam para o alt — nunca
+        // o markdown cru. Imagens sozinhas no parágrafo viram bloco (abaixo).
+        result.push(token.text ?? '');
         break;
       case 'escape':
         result.push(token.text);
@@ -149,7 +163,32 @@ function convertHeading(token) {
   };
 }
 
+function convertBlockImage(token) {
+  const src = token.href ?? '';
+  if (isSafeImageSrc(src)) {
+    return {
+      image: src,
+      fit: [450, 300],
+      margin: [0, 5, 0, 5],
+    };
+  }
+  // Fonte bloqueada: cai para o texto alternativo (nunca o markdown cru).
+  return { text: token.text ?? '', margin: [0, 3, 0, 3] };
+}
+
+function isImageOnlyParagraph(token) {
+  const tokens = token.tokens ?? [];
+  const meaningful = tokens.filter((t) => !(t.type === 'text' && !String(t.text ?? '').trim()));
+  return meaningful.length > 0 && meaningful.every((t) => t.type === 'image');
+}
+
 function convertParagraph(token) {
+  // `![alt](url)` sozinho no parágrafo é uma imagem de bloco: o pdfmake só
+  // aceita imagens fora de `text`, então monta o item diretamente.
+  if (isImageOnlyParagraph(token)) {
+    const images = token.tokens.filter((t) => t.type === 'image').map(convertBlockImage);
+    return images.length === 1 ? images[0] : { stack: images };
+  }
   const text = convertInlineTokens(token.tokens);
   return {
     text,

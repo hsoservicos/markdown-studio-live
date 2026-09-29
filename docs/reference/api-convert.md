@@ -5,7 +5,7 @@
 Módulos em `src/render/` são **funções puras**: não tocam no DOM (exceto o rendering de
 diagramas via `mermaid.js`, que recebe o root). Ideais para testes.
 
-## `convert(markdown: string, _opts?: object) => string`
+## `convert(markdown: string) => string`
 
 Pipeline completo **sem tocar no DOM**: `marked.parse` → renderer custom → `DOMPurify.sanitize`.
 
@@ -27,21 +27,31 @@ const html = convert(markdown);
   registradas em `createMathExtensions()` (`katexExt.js`).
 - Todo o HTML de saída é sanitizado por DOMPurify (nunca confie em marked puro):
   - allowlist MathML (`ADD_TAGS`) + `aria-hidden` (`ADD_ATTR`);
-  - `ALLOWED_URI_REGEXP` restringe schemes (só `http(s)`, `mailto` e relativos; `tel:`,
-    `javascript:` etc. perdem o href);
+  - `ALLOWED_URI_REGEXP` (de `urlPolicy.js`) restringe schemes (só `http(s)`, `mailto` e
+    relativos; `tel:`, `javascript:` etc. perdem o href);
   - hook `afterSanitizeAttributes`: links `http(s)` ganham `target="_blank"` +
     `rel="noopener noreferrer"` (anti-tabnabbing).
-- `_opts` é aceito por compatibilidade de assinatura; hoje **nenhuma opção altera o
-  comportamento** (o parâmetro antigo `renderMermaid` saiu — diagramas são sempre renderizados
-  à parte).
+- A assinatura é de um único parâmetro (o antigo `_opts` e a opção `renderMermaid` saíram —
+  diagramas são sempre renderizados à parte).
 
 ## Outros exports de `convert.js`
 
-| Export                        | Uso                                                      |
-| ----------------------------- | -------------------------------------------------------- |
-| `escapeHtml(value)`           | escapa `& < > " '` (usado no conteúdo de blocos mermaid) |
-| `slugifyHeading(text, used?)` | gera o slug de heading (mesmo algoritmo do renderer)     |
-| `createMarkedRenderer()`      | cria o renderer custom (code/heading/html)               |
+| Export                        | Uso                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `escapeHtml(value)`           | escapa `& < > " '` — único helper do projeto (blocos mermaid **e** atributos do HTML standalone) |
+| `slugifyHeading(text, used?)` | gera o slug de heading (mesmo algoritmo do renderer)                                             |
+| `createMarkedRenderer()`      | cria o renderer custom (code/heading/html)                                                       |
+
+## `src/render/urlPolicy.js` — allowlist de schemes
+
+Contrato compartilhado entre o preview (DOMPurify) e o PDF vetorial (pdfmake), para que as duas
+fronteiras não divirjam:
+
+- `ALLOWED_URI_REGEXP` / `isSafeLinkHref(href)` — só `http(s)`, `mailto:` e relativas.
+- `ALLOWED_IMAGE_URI_REGEXP` / `isSafeImageSrc(src)` — idem, mais `data:image/<tipo>`.
+
+Uma mudança de política aqui afeta as duas rotas; os testes de `convert` e
+`markdown-to-pdfmake` cobrem os dois lados.
 
 ## `src/render/mermaid.js` — diagramas
 
@@ -78,6 +88,7 @@ const html = convert(markdown);
 2. Mermaid `securityLevel: 'strict'`.
 3. Nunca concatenar HTML não sanitizado.
 4. Links externos: `_blank` + `noopener noreferrer`; schemes não-http perdem o href.
+5. O PDF vetorial reusa `urlPolicy.js`: href inseguro vira texto; imagem insegura vira alt.
 
 ## Como testar
 

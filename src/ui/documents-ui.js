@@ -7,16 +7,39 @@ import {
   setActive,
   deleteDocument,
   setContent,
+  // `getContent` do storage de documentos — NÃO confundir com o getter do
+  // editor que este módulo recebe em `getEditorContent`. As duas funções
+  // tinham o mesmo nome e o shadowing fazia `loadDocument` carregar o conteúdo
+  // atual do editor em vez do conteúdo do documento alvo.
+  getContent as getDocumentContent,
 } from '../documents.js';
 
-function uniqueName(base, existingNames, excludeId = null) {
+/**
+ * Devolve um nome livre a partir de `base`, sufixando `(2)`, `(3)`… quando
+ * necessário. `currentName` permite renomear um documento para o próprio nome
+ * (ou variando a caixa) sem gerar sufixo.
+ *
+ * @param {string} base
+ * @param {string[]} existingNames
+ * @param {string|null} currentName
+ */
+export function uniqueName(base, existingNames = [], currentName = null) {
   const trimmed = (base || '').trim().slice(0, 128) || t('docDefaultName');
-  const lower = trimmed.toLowerCase();
-  let candidate = trimmed;
+  const skip = (currentName || '').trim().toLowerCase();
+  const taken = new Set(
+    existingNames.filter(Boolean).map((name) => String(name).trim().toLowerCase()),
+  );
+  if (skip) {
+    taken.delete(skip);
+  }
+  if (!taken.has(trimmed.toLowerCase())) {
+    return trimmed;
+  }
   let counter = 2;
-  while (existingNames.some((n) => n.toLowerCase() === lower && n !== excludeId)) {
+  let candidate = `${trimmed} (${counter})`;
+  while (taken.has(candidate.toLowerCase())) {
+    counter += 1;
     candidate = `${trimmed} (${counter})`;
-    counter++;
   }
   return candidate;
 }
@@ -24,7 +47,7 @@ function uniqueName(base, existingNames, excludeId = null) {
 export function setupDocumentManager({
   container = document,
   editor,
-  getContent,
+  getEditorContent,
   onStatus,
   confirm,
 } = {}) {
@@ -39,7 +62,13 @@ export function setupDocumentManager({
 
   let currentDoc = getActiveDocument();
   if (!currentDoc) {
-    currentDoc = createDocument({ title: t('docDefaultName') });
+    // Boot sem documento no índice: semeia o documento com o conteúdo que o
+    // boot já colocou no editor. Carregar um documento vazio aqui apagaria o
+    // template/estado inicial do Monaco.
+    currentDoc = createDocument({
+      title: t('docDefaultName'),
+      initialContent: String(getEditorContent?.() ?? ''),
+    });
   }
 
   function renderList() {
@@ -98,9 +127,8 @@ export function setupDocumentManager({
   }
 
   function saveCurrentContent() {
-    if (currentDoc && getContent) {
-      const content = getContent();
-      setContent(currentDoc.id, content);
+    if (currentDoc && getEditorContent) {
+      setContent(currentDoc.id, getEditorContent());
     }
   }
 
@@ -108,8 +136,7 @@ export function setupDocumentManager({
     if (!doc) return;
     currentDoc = doc;
     if (editor && typeof editor.setValue === 'function') {
-      const content = getContent(doc.id) ?? '';
-      editor.setValue(content);
+      editor.setValue(getDocumentContent(doc.id) ?? '');
       editor.revealPosition({ lineNumber: 1, column: 1 });
     }
     renderList();
@@ -134,7 +161,7 @@ export function setupDocumentManager({
     if (!doc) return;
 
     if (confirm) {
-      const confirmed = confirm(t('newFileConfirm'));
+      const confirmed = confirm(t('docCloseConfirm'));
       if (!confirmed) return;
     }
 
@@ -176,10 +203,14 @@ export function setupDocumentManager({
 
     const docs = listDocuments();
     const names = docs.map((d) => d.title);
-    const finalName = uniqueName(trimmed, names, doc.id);
+    const finalName = uniqueName(trimmed, names, doc.title);
     updateTitle(doc.id, finalName);
     renderList();
-    onStatus?.(t('fileSaved').replace('{name}', finalName));
+    onStatus?.(
+      finalName === trimmed
+        ? t('fileSaved').replace('{name}', finalName)
+        : `${t('docNameConflict')} ${finalName}`,
+    );
   }
 
   renderList();

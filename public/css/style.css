@@ -572,6 +572,137 @@ footer {
   display: none;
 }
 
+/* ---------- Sidebar: documentos ---------- */
+
+.sidebar-docs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40vh;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar-docs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm) 0;
+}
+
+.sidebar-doc-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--ease-state),
+    color var(--ease-state);
+}
+
+.sidebar-doc-add:hover {
+  background-color: var(--color-surface-tint);
+  color: var(--color-accent);
+}
+
+.sidebar-doc-add:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 2px;
+}
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+  min-height: 0;
+  padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  overflow-y: auto;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xxs) var(--space-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition:
+    background-color var(--ease-state),
+    border-color var(--ease-state),
+    color var(--ease-state);
+}
+
+.doc-item:hover {
+  background-color: var(--color-surface-tint);
+  color: var(--color-text-strong);
+}
+
+.doc-item:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: -2px;
+}
+
+.doc-item.doc-active {
+  border-color: var(--color-border);
+  background-color: var(--color-surface-tint);
+  color: var(--color-text-strong);
+  font-weight: 600;
+}
+
+.doc-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--ease-state),
+    color var(--ease-state);
+}
+
+.doc-close-btn:hover {
+  background-color: var(--color-surface-tint);
+  color: var(--color-error);
+}
+
+.doc-close-btn:focus-visible {
+  outline: 2px solid var(--color-accent-focus);
+  outline-offset: 2px;
+}
+
+.sidebar.is-collapsed .sidebar-docs {
+  display: none;
+}
+
 /* ---------- Manual dialog ---------- */
 
 .manual-dialog {

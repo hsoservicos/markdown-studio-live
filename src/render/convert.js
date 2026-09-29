@@ -1,11 +1,18 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { createMathExtensions } from './katexExt.js';
+import { ALLOWED_URI_REGEXP } from './urlPolicy.js';
 
 marked.use({ extensions: createMathExtensions() });
 
+/**
+ * Único helper de escape do projeto. Serve para conteúdo de elemento (ex.: blocos
+ * mermaid dentro de `<pre>`) **e** para valor de atributo (ex.: `<title>` do HTML
+ * standalone) — escapar `'` também é inofensivo em atributo entre aspas duplas e
+ * deixa o resultado pronto para qualquer uma das duas citações.
+ */
 export function escapeHtml(value) {
-  return String(value)
+  return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -115,7 +122,8 @@ const SANITIZE_OPTIONS = {
   ADD_ATTR: ['aria-hidden'],
   // B3: perfil de recursos externos — somente http(s)/mailto e URLs relativas;
   // bloqueia schemes como tel:/callto:/javascript: (este último já pelo default).
-  ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  // A allowlist vive em `urlPolicy.js` e é a mesma usada pelo PDF vetorial.
+  ALLOWED_URI_REGEXP,
 };
 
 // B3: links externos abrem em nova aba com rel="noopener noreferrer"
@@ -136,10 +144,9 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
  * Não toca no DOM. Ideal para testes.
  *
  * @param {string} markdown - texto Markdown de entrada
- * @param {{ renderMermaid?: boolean }} opts - (somente diagramas são renderizados à parte)
  * @returns {string} HTML seguro
  */
-export function convert(markdown, _opts = {}) {
+export function convert(markdown) {
   const renderer = createMarkedRenderer();
   const html = marked.parse(markdown, { renderer });
   return DOMPurify.sanitize(html, SANITIZE_OPTIONS);

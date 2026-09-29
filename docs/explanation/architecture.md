@@ -22,9 +22,9 @@ convert(markdown)                           ── src/render/convert.js (funç�
    │     ├─ renderer.heading: ids via slugify (mesmos usados pelo TOC)
    │     ├─ renderer.html: `<!-- page-break -->` → <div class="page-break">
    │     └─ marked extensions KaTeX ($…$ e $$…$$) → MathML/HTML (katexExt.js)
-   ├─ DOMPurify.sanitize(html)              → HTML seguro (fronteira de segurança ÚNICA)
+   ├─ DOMPurify.sanitize(html)              → HTML seguro (fronteira de segurança ÚNICA do HTML)
    │     ├─ allowlist MathML (ADD_TAGS/ADD_ATTR aria-hidden)
-   │     ├─ ALLOWED_URI_REGEXP (só http(s)/mailto/relativos; tel:/javascript: perdem href)
+   │     ├─ ALLOWED_URI_REGEXP de urlPolicy.js (só http(s)/mailto/relativos; tel:/javascript: perdem href)
    │     └─ hook pós-sanitização: links http(s) ganham target="_blank" + rel="noopener noreferrer"
    ├─ #output.innerHTML = sanitizado
    └─ scheduleMermaidRender()               → debounce 150 ms → renderMermaidDiagramsNow()
@@ -32,8 +32,10 @@ convert(markdown)                           ── src/render/convert.js (funç�
 
 Em paralelo à conversão:
 
-- `scheduleSave(value)` — debounce 300 ms → `setItem(last_state)`; templates não editados
-  **não** são persistidos (troca de idioma restaura o template do idioma corrente).
+- `scheduleSave(value, docId)` — debounce 300 ms → `persistDraft`: grava `last_state` **e** o
+  conteúdo do documento ativo (`documents.content.<id>`), que é o que o boot lê. O id do documento é
+  capturado no momento da edição, para um save atrasado não cair no documento recém-selecionado.
+  Templates não editados **não** são persistidos (troca de idioma restaura o template corrente).
 - `maybeAutoSnapshot(value)` — throttle 60 s → anel de backup `com.markdownstudio.backup`
   (máx. 5), protegendo contra `last_state` corrompido (P1-8).
 - `statusBar.update()` — estatísticas (palavras, caracteres, linhas, tempo de leitura) + nome
@@ -41,12 +43,13 @@ Em paralelo à conversão:
 
 ## Módulos de render (`src/render/`, funções puras)
 
-| Módulo        | Responsabilidade                                                                                      |
-| ------------- | ----------------------------------------------------------------------------------------------------- |
-| `convert.js`  | pipeline marked → renderer custom → DOMPurify; `escapeHtml`, `slugifyHeading`, `createMarkedRenderer` |
-| `katexExt.js` | extensões marked para `$…$` (inline) e `$$…$$` (bloco) via KaTeX (sem CDN)                            |
-| `mermaid.js`  | configuração/agendamento/rendering de diagramas (single-flight)                                       |
-| `toc.js`      | extração de headings (do HTML sanitizado ou do markdown) + HTML da árvore                             |
+| Módulo         | Responsabilidade                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| `convert.js`   | pipeline marked → renderer custom → DOMPurify; `escapeHtml`, `slugifyHeading`, `createMarkedRenderer` |
+| `urlPolicy.js` | allowlist de schemes compartilhada (DOMPurify + PDF vetorial): `isSafeLinkHref`, `isSafeImageSrc`     |
+| `katexExt.js`  | extensões marked para `$…$` (inline) e `$$…$$` (bloco) via KaTeX (sem CDN)                            |
+| `mermaid.js`   | configuração/agendamento/rendering de diagramas (single-flight)                                       |
+| `toc.js`       | extração de headings (do HTML sanitizado ou do markdown) + HTML da árvore                             |
 
 ### Por que DOMPurify é obrigatório
 
@@ -55,12 +58,17 @@ Markdown). `DOMPurify.sanitize()` é o único portão antes de `innerHTML`. O Ka
 por ele (allowlist MathML); o hook `afterSanitizeAttributes` reforça links externos
 (`rel="noopener noreferrer"` — anti-tabnabbing).
 
+A rota de PDF vetorial (`src/pdf/markdown-to-pdfmake.js`) não injeta HTML, mas consome os mesmos
+tokens do `marked` — por isso reusa a allowlist de `urlPolicy.js` em vez de confiar no `href`
+bruto: um `href` não seguro (`javascript:`, `tel:`) degrada para texto e uma imagem de origem
+não permitida cai para o texto alternativo, nunca para o markdown cru.
+
 ### Por que Mermaid é renderizado à mão
 
 Em um editor live, o DOM é mutado a cada tecla. `mermaid.startOnLoad()/run()` varre o
 documento e pode capturar estados intermediários. O projeto renderiza **sob demanda** com
 `mermaid.render(id, src)` + **debounce 150 ms** + **single-flight** (`renderInFlight` — o
-`mermaid.render` não é reentrante) + **version-guard** (`renderMermaidVersion`) para
+`mermaid.render` não é reentrante) + **version-guard** (`renderVersion`) para
 descartar renders obsoletos. `pauseMermaidScheduling`/`resumeMermaidScheduling` suspendem o
 debounce durante capturas de export (PDF) para o tema não "vazar" no clone.
 
@@ -69,21 +77,24 @@ debounce durante capturas de export (PDF) para o tema não "vazar" no clone.
 Glue de DOM em torno do pipeline: `divider`, `sidebar`, `i18nElements`, `language`,
 `editorActions`, `scrollSync`, `statusBar`, `exportPdf`, `exportHtml`, `copyRich`,
 `snapshots`/`snapshotsDialog`, `tocDialog`, `printSettings`/`printSettingsDialog`,
-`files`, `workers/monacoSetup` (Monaco sem workers — proxy no-op). O `main.js` orquestra o
-boot; lógica testável é extraída em módulos (ex.: `editorActions`, `i18nElements`).
+`files`, `documents-ui` (lista de documentos da sidebar), `workers/monacoSetup` (Monaco sem
+workers — proxy no-op). O `main.js` orquestra o boot; lógica testável é extraída em módulos
+(ex.: `editorActions`, `i18nElements`).
 
 ## Contratos de persistência (localStorage)
 
-| Chave                                    | Tipo                 | Uso                                  |
-| ---------------------------------------- | -------------------- | ------------------------------------ |
-| `com.markdownstudio.last_state`          | string               | conteúdo do editor                   |
-| `com.markdownstudio.scroll_bar_settings` | boolean              | sincronizar scroll                   |
-| `com.markdownstudio.theme_settings`      | boolean              | tema dark/light (fonte de verdade)   |
-| `com.markdownstudio.backup`              | `Snapshot[]` (máx 5) | snapshots locais (P1-8)              |
-| `com.markdownstudio.locale`              | `'pt-BR'` / `'en'`   | idioma da interface                  |
-| `com.markdownstudio.print_settings`      | JSON string          | configuração de impressão/PDF (P0-1) |
-| `com.markdownstudio.sidebar_collapsed`   | `'1'` / `'0'`        | estado do drawer/sidebar             |
-| `com.markdownstudio_theme` (crua)        | `'dark'` / `'light'` | boot anti-FOUC                       |
+| Chave                                       | Tipo                                 | Uso                                  |
+| ------------------------------------------- | ------------------------------------ | ------------------------------------ |
+| `com.markdownstudio.last_state`             | string                               | conteúdo do editor                   |
+| `com.markdownstudio.scroll_bar_settings`    | boolean                              | sincronizar scroll                   |
+| `com.markdownstudio.theme_settings`         | boolean                              | tema dark/light (fonte de verdade)   |
+| `com.markdownstudio.backup`                 | `Snapshot[]` (máx 5)                 | snapshots locais (P1-8)              |
+| `com.markdownstudio.locale`                 | `'pt-BR'` / `'en'`                   | idioma da interface                  |
+| `com.markdownstudio.print_settings`         | JSON string                          | configuração de impressão/PDF (P0-1) |
+| `com.markdownstudio.documents`              | `{ version, activeId, documents[] }` | índice de documentos (P2-B)          |
+| `com.markdownstudio.documents.content.<id>` | string                               | conteúdo Markdown por documento      |
+| `com.markdownstudio.sidebar_collapsed`      | `'1'` / `'0'`                        | estado do drawer/sidebar             |
+| `com.markdownstudio_theme` (crua)           | `'dark'` / `'light'`                 | boot anti-FOUC                       |
 
 Detalhes e regras de leitura/validação em `docs/reference/storage-contract.md`. O wrapper
 `src/storage.js` substitui o `storehouse-js` com a MESMA semântica de chaves para não quebrar
@@ -208,16 +219,17 @@ Justificativa:
 
 ### Formato suportado por tipo de conteúdo
 
-| Tipo de conteúdo                    | Formato no PDF vetorial                      | Conversão                                              |
-| ----------------------------------- | -------------------------------------------- | ------------------------------------------------------ |
-| Texto (headings, paragraphs, links) | Texto vetorial nativo pdfmake                | AST → docDefinition content[]                          |
-| Listas (ul/ol)                      | `ol`/`ul` content type pdfmake               | AST → list items                                       |
-| Tabelas                             | `table` content type pdfmake                 | AST → table body[]                                     |
-| Código (fenced/inline)              | Texto vetorial com fonte monospace           | AST → text com style                                   |
-| Blockquotes                         | Texto com indentação/border                  | AST → columns ou text com margin                       |
-| Mermaid                             | Imagem (SVG→PNG via canvas)                  | `mermaid.render()` → canvas → dataURL → pdfmake image  |
-| KaTeX inline/bloco                  | SVG embutido (re-render com `output: 'svg'`) | KaTeX `renderToString({output:'svg'})` → pdfmake image |
-| Page break (`<!-- page-break -->`)  | `pageBreak: 'before'` no próximo content     | AST page-break marker → pageBreak property             |
+| Tipo de conteúdo                    | Formato no PDF vetorial                      | Conversão                                                   |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| Texto (headings, paragraphs, links) | Texto vetorial nativo pdfmake                | AST → docDefinition content[] (schemes não seguros → texto) |
+| Imagens                             | Bloco `image` (data URL ou http(s)/relativa) | AST → pdfmake image (origem não segura → alt)               |
+| Listas (ul/ol)                      | `ol`/`ul` content type pdfmake               | AST → list items                                            |
+| Tabelas                             | `table` content type pdfmake                 | AST → table body[]                                          |
+| Código (fenced/inline)              | Texto vetorial com fonte monospace           | AST → text com style                                        |
+| Blockquotes                         | Texto com indentação/border                  | AST → columns ou text com margin                            |
+| Mermaid                             | Imagem (SVG→PNG via canvas)                  | `mermaid.render()` → canvas → dataURL → pdfmake image       |
+| KaTeX inline/bloco                  | SVG embutido (re-render com `output: 'svg'`) | KaTeX `renderToString({output:'svg'})` → pdfmake image      |
+| Page break (`<!-- page-break -->`)  | `pageBreak: 'before'` no próximo content     | AST page-break marker → pageBreak property                  |
 
 ### Feature-flag
 

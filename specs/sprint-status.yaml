@@ -86,8 +86,8 @@ done:
     stories: _bmad-output/planning-artifacts/epics-p2.md
     notes:
       - story 2.1 (índice no storage) DONE — src/documents.js, safeGet type object
-      - story 2.2 (gerenciador UI) DONE — src/ui/documents-ui.js, uniqueName, aria-current
-      - story 2.3 (ações no ativo) DONE — snapshots com docId, handlers com doc ativo
+      - story 2.2 (gerenciador UI) DONE — src/ui/documents-ui.js integrado à sidebar (#document-list, #doc-new-btn) com uniqueName, aria-current, operação por teclado; três bugs corrigidos na integração (loop infinito em uniqueName, shadowing de getContent na troca de documento, mensagem de confirmação de fechar)
+      - story 2.3 (ações no ativo) DONE — snapshots com docId, handlers com doc ativo; save persistido por documento (persistDraft)
       - story 2.4 (boot/persistência) DONE — boot restaura docs, migra last_state legado
       - Epic P2-B completo!
   - key: toolchain-modernization
@@ -100,5 +100,26 @@ done:
       - Coverage thresholds (65/60/60/65) no vitest.config.js
       - marked 15→18, katex 0.16→0.18, monaco-editor 0.52→0.53
       - CSP documentado, quota warning, bundle optimization
-      - 287 testes verdes, 0 vulnerabilidades, quality gate verde
+      - 434 testes verdes, 0 vulnerabilidades, quality gate verde
+  - key: hardening-audit-v2
+    title: 'Hardening pós-auditoria: allowlist no PDF vetorial, a11y real, CSP com hash, código morto'
+    spec: _bmad-output/implementation-artifacts/audit-v2.md
+    notes:
+      - 'src/render/urlPolicy.js: allowlist de schemes compartilhada entre o preview (DOMPurify) e o PDF vetorial (isSafeLinkHref/isSafeImageSrc)'
+      - 'markdown-to-pdfmake: href inseguro (javascript:, tel:) degrada para texto; imagens viram bloco image ou caem para o alt (nunca markdown cru)'
+      - 'tests/unit/accessibility.test.js valida o index.html real (JSDOM) e os botões de fechar traduzem via closeDialog (o data-i18n-close era inerte; o cancelar usava closeManual)'
+      - 'CSP: script-src sem unsafe-inline/unsafe-eval (hash sha256 do boot inline + self); style-src mantém unsafe-inline (Monaco/KaTeX/Mermaid); directivas base-uri/object-src/frame-ancestors/form-action'
+      - 'tests/unit/csp.test.js trava o hash do inline script do index.html contra o nginx.conf'
+      - 'código morto removido: src/design-system/, _opts de convert(), build-arg VITE_BUILD_DATE'
+      - 'checkStorageQuota deixou de gravar 1 MB por boot: medição por leitura (measureStorageUsage) com aviso a partir de 90% de 5 MB'
+      - 'atalhos Ctrl+S/P/B/E agora exigem a combinação exata (resolveShortcutAction): recusa altKey (AltGr), shiftKey, repeat e teclas não simples'
+  - key: persistencia-documento-ativo
+    title: 'Correção: persistência no documento ativo (perda de dados entre sessões)'
+    spec: _bmad-output/implementation-artifacts/epic-2-context.md
+    notes:
+      - 'scheduleSave → persistDraft: grava last_state E o conteúdo do documento ativo — era o write path que faltava (o boot lê o documento, não o last_state)'
+      - resolveDocumentBootInput recupera o rascunho mais recente no legado de documento único (conteúdo do doc congelado pelo bug)
+      - reset grava o template do idioma corrente no documento ativo, evitando que um reload ressuscite o conteúdo descartado
+      - id do documento capturado no momento da edição, para um save atrasado não gravar no documento recém-selecionado
+      - testes de regressão: tests/unit/documents.test.js (ciclo entre sessões) e tests/unit/editorActions.test.js (núcleo puro)
 items: []

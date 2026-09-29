@@ -33,23 +33,54 @@ export function renderStats(container, stats, tFn = (k) => k, fileName) {
   return container;
 }
 
-export function checkStorageQuota() {
+// O localStorage guarda ~5 MB por origem no menor dos navegadores suportados
+// (Safari/Firefox dão 5 MB; Chrome dá 10 MB), então 5 MB é o teto conservador.
+export const STORAGE_QUOTA_BYTES = 5 * 1024 * 1024;
+// Aviso dispara antes de encher: gravar só falha quando já é tarde demais.
+export const QUOTA_WARN_PERCENT = 90;
+
+/**
+ * Mede o uso do localStorage apenas com leituras — nunca escreve.
+ * O limite do navegador é sobre chaves + valores em UTF-16 (2 bytes/caractere).
+ */
+export function measureStorageUsage(storage) {
+  const count = storage?.length ?? 0;
+  let bytes = 0;
+  for (let i = 0; i < count; i++) {
+    const key = storage.key(i) ?? '';
+    const value = storage.getItem(key) ?? '';
+    bytes += (key.length + value.length) * 2;
+  }
+  return { bytes, entries: count };
+}
+
+/**
+ * Verificação de espaço sem efeito colateral.
+ *
+ * A versão anterior gravava um string de 1 MB a cada boot para descobrir se
+ * cabia mais alguma coisa — um teste destrutivo que enche/esvazia o storage em
+ * toda inicialização, podia deixar a chave `__quota_test__` para trás e só
+ * avisava quando já era impossível salvar. Aqui o uso é medido por leitura e o
+ * aviso sai cedo, quando ainda dá tempo de exportar os documentos.
+ *
+ * @param {{ storage?: Storage, quotaBytes?: number, warnPercent?: number }} [opts]
+ * @returns {{ ok: boolean, percentUsed: number, bytes: number, quotaBytes: number }}
+ *   `ok: false` = perto do limite. Uma falha de leitura (storage desabilitado,
+ *   SecurityError) degrada para `ok: true`: não dá para avaliar, e a falha real
+ *   aparece na própria gravação.
+ */
+export function checkStorageQuota({
+  storage,
+  quotaBytes = STORAGE_QUOTA_BYTES,
+  warnPercent = QUOTA_WARN_PERCENT,
+} = {}) {
   try {
-    const testKey = '__quota_test__';
-    const bigString = 'x'.repeat(1024 * 1024);
-    localStorage.setItem(testKey, bigString);
-    localStorage.removeItem(testKey);
-    return { ok: true, percentUsed: 0 };
-  } catch (e) {
-    if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
-      let total = 0;
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        total += (localStorage.getItem(key) || '').length;
-      }
-      return { ok: false, percentUsed: Math.round((total / (5 * 1024 * 1024)) * 100) };
-    }
-    return { ok: true, percentUsed: 0 };
+    const target = storage ?? globalThis.localStorage;
+    const { bytes } = measureStorageUsage(target);
+    const percentUsed = Math.min(100, Math.round((bytes / quotaBytes) * 100));
+    return { ok: percentUsed < warnPercent, percentUsed, bytes, quotaBytes };
+  } catch {
+    return { ok: true, percentUsed: 0, bytes: 0, quotaBytes };
   }
 }
 

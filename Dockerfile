@@ -26,9 +26,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ARG VITE_BUILD_DATE=unknown
-ENV VITE_BUILD_DATE=${VITE_BUILD_DATE}
-
 RUN npm run build
 
 # ---------- Stage 3: runtime (nginx) ----------
@@ -54,10 +51,6 @@ RUN chown -R app:app /usr/share/nginx/html && \
     chown -R app:app /var/log/nginx && \
     touch /var/run/nginx.pid && \
     chown app:app /var/run/nginx.pid
-
-# Marca de build reproduzível
-ARG VITE_BUILD_DATE=unknown
-ENV VITE_BUILD_DATE=${VITE_BUILD_DATE}
 
 EXPOSE 80
 

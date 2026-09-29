@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   computeStats,
   formatStats,
   renderStats,
   setupStatusBar,
   checkStorageQuota,
+  measureStorageUsage,
 } from '../../src/ui/statusBar.js';
 
 const tFn = {
@@ -86,10 +87,87 @@ describe('renderStats', () => {
   });
 });
 
+/** Storage falso somente-leitura, com as escritas espiadas. */
+function fakeStorage(entries) {
+  const map = new Map(entries);
+  return {
+    get length() {
+      return map.size;
+    },
+    key: (i) => [...map.keys()][i] ?? null,
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  };
+}
+
+describe('measureStorageUsage', () => {
+  it('conta 2 bytes por caractere de chave e valor (UTF-16)', () => {
+    expect(measureStorageUsage(fakeStorage([['abc', 'de']]))).toEqual({ bytes: 10, entries: 1 });
+  });
+
+  it('storage vazio zera', () => {
+    expect(measureStorageUsage(fakeStorage([]))).toEqual({ bytes: 0, entries: 0 });
+  });
+});
+
 describe('checkStorageQuota', () => {
   it('retorna ok: true quando storage funciona', () => {
     const result = checkStorageQuota();
     expect(result.ok).toBe(true);
+  });
+
+  it('não escreve nada no storage (a versão anterior gravava 1 MB por boot)', () => {
+    const storage = fakeStorage([['last_state', 'x']]);
+    const result = checkStorageQuota({ storage });
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, percentUsed: 0 });
+  });
+
+  it('não escreve nada no localStorage real no caminho padrão', () => {
+    const setSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const removeSpy = vi.spyOn(Storage.prototype, 'removeItem');
+    try {
+      const result = checkStorageQuota();
+      expect(setSpy).not.toHaveBeenCalled();
+      expect(removeSpy).not.toHaveBeenCalled();
+      expect(result.ok).toBe(true);
+    } finally {
+      setSpy.mockRestore();
+      removeSpy.mockRestore();
+    }
+  });
+
+  it('marca ok: false quando o uso passa do limite', () => {
+    const storage = fakeStorage([['k', 'x'.repeat(49)]]); // (1 + 49) * 2 = 100 bytes
+    const result = checkStorageQuota({ storage, quotaBytes: 100 });
+    expect(result.bytes).toBe(100);
+    expect(result.percentUsed).toBe(100);
+    expect(result.ok).toBe(false);
+  });
+
+  it('permanece ok enquanto o uso está abaixo do limite', () => {
+    const storage = fakeStorage([['k', 'x']]); // (1 + 1) * 2 = 4 bytes
+    const result = checkStorageQuota({ storage, quotaBytes: 100 });
+    expect(result.percentUsed).toBe(4);
+    expect(result.ok).toBe(true);
+  });
+
+  it('percentUsed é limitado a 100', () => {
+    const storage = fakeStorage([['k', 'x'.repeat(999)]]);
+    expect(checkStorageQuota({ storage, quotaBytes: 10 }).percentUsed).toBe(100);
+  });
+
+  it('storage que lança degrada para ok: true (sem crash)', () => {
+    const result = checkStorageQuota({
+      storage: {
+        get length() {
+          throw new Error('SecurityError');
+        },
+      },
+    });
+    expect(result).toMatchObject({ ok: true, percentUsed: 0 });
   });
 });
 

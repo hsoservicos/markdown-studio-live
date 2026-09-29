@@ -3,6 +3,7 @@
  * CSS do github-markdown (light) é embutido via fetch no momento da exportação.
  */
 import { downloadBlob, toMarkdownName } from './files.js';
+import { escapeHtml } from '../render/convert.js';
 
 const DEFAULT_CSS_URLS = ['/css/github-markdown-light.css'];
 
@@ -28,14 +29,6 @@ html, body { margin: 0; padding: 0; background: #fff; color: #24292f; }
 }
 `.trim();
 
-export function escapeHtmlAttr(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
 /**
  * Monta o documento HTML completo (puro, testável).
  * @param {string} bodyHtml
@@ -45,8 +38,9 @@ export function buildStandaloneHtml(
   bodyHtml,
   { title = 'Markdown', cssText = '', lang = 'pt-BR' } = {},
 ) {
-  const safeTitle = escapeHtmlAttr(title);
-  const safeLang = escapeHtmlAttr(lang || 'pt-BR');
+  // Mesmo helper usado pelo pipeline de preview — um único escape no projeto.
+  const safeTitle = escapeHtml(title);
+  const safeLang = escapeHtml(lang || 'pt-BR');
   const styles = [cssText, BASE_BODY_CSS].filter(Boolean).join('\n');
   return `<!DOCTYPE html>
 <html lang="${safeLang}">

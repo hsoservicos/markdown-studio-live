@@ -94,7 +94,6 @@
       class="sidebar"
       data-i18n-aria-label="sidebarTitle"
       aria-label="Navegação"
-      data-sidebar-safe
     >
         <div class="sidebar-head">
           <span class="sidebar-title" data-i18n="sidebarTitle">Navegação</span>
@@ -110,6 +109,43 @@
             <span class="sidebar-toggle-icon" aria-hidden="true"></span>
           </button>
         </div>
+        <div class="sidebar-docs">
+          <div class="sidebar-docs-head">
+            <span class="sidebar-title" data-i18n="documents">Documentos</span>
+            <button
+              id="doc-new-btn"
+              type="button"
+              class="sidebar-doc-add"
+              data-i18n-title="docNew"
+              data-i18n-aria-label="docNew"
+              aria-label="Novo documento"
+              title="Novo documento"
+            >
+              <svg
+                class="sidebar-item-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M12 5v14M5 12h14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+          <div
+            id="document-list"
+            class="doc-list"
+            role="group"
+            data-i18n-aria-label="docListLabel"
+            aria-label="Documentos abertos"
+          ></div>
+        </div>
+
         <nav id="sidebar-nav" class="sidebar-nav">
           <button
             type="button"
@@ -493,7 +529,13 @@
         <h2 id="manual-title" class="print-dialog-title" data-i18n="openManual">
           Manual do Markdown
         </h2>
-        <button type="button" id="manual-close" class="print-dialog-close" aria-label="Fechar">
+        <button
+          type="button"
+          id="manual-close"
+          class="print-dialog-close"
+          data-i18n-aria-label="closeDialog"
+          aria-label="Fechar"
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="18" x2="18" y2="6"></line>
@@ -516,7 +558,13 @@
           </svg>
         </div>
         <h2 id="toc-title" class="print-dialog-title" data-i18n="toc">Sumário</h2>
-        <button type="button" id="toc-close" class="print-dialog-close" aria-label="Fechar">
+        <button
+          type="button"
+          id="toc-close"
+          class="print-dialog-close"
+          data-i18n-aria-label="closeDialog"
+          aria-label="Fechar"
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="18" x2="18" y2="6"></line>
@@ -535,7 +583,13 @@
           </svg>
         </div>
         <h2 id="snapshots-title" class="print-dialog-title" data-i18n="snapshots">Snapshots</h2>
-        <button type="button" id="snapshots-close" class="print-dialog-close" aria-label="Fechar">
+        <button
+          type="button"
+          id="snapshots-close"
+          class="print-dialog-close"
+          data-i18n-aria-label="closeDialog"
+          aria-label="Fechar"
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="18" x2="18" y2="6"></line>
@@ -560,7 +614,13 @@
         <h2 id="print-settings-title" class="print-dialog-title" data-i18n="printSettings">
           Configurar impressão
         </h2>
-        <button type="button" id="print-settings-close" class="print-dialog-close" aria-label="Fechar" data-i18n-close>
+        <button
+          type="button"
+          id="print-settings-close"
+          class="print-dialog-close"
+          data-i18n-aria-label="closeDialog"
+          aria-label="Fechar"
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="18" x2="18" y2="6"></line>
@@ -610,7 +670,12 @@
           <input type="text" id="print-footer" class="print-form-input" maxlength="200" placeholder="Ex: Página {page}" />
         </div>
         <div class="print-form-actions">
-          <button type="button" id="print-settings-cancel" class="print-btn print-btn-secondary" data-i18n="closeManual">
+          <button
+            type="button"
+            id="print-settings-cancel"
+            class="print-btn print-btn-secondary"
+            data-i18n="cancel"
+          >
             Cancelar
           </button>
           <button type="submit" class="print-btn print-btn-primary" data-i18n="printSave">

@@ -2,7 +2,7 @@
 title: 'Gerenciador de documentos (UI)'
 type: 'feature'
 created: '2026-09-04'
-status: 'ready-for-dev'
+status: 'done'
 baseline_commit: 'b32bda3cd2b0a73c65a886c756ade103fe0991a8'
 context:
   - src/documents.js
@@ -39,10 +39,16 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/ui/documents.js` -- `setupDocumentManager({ container, editor, getContent, onStatus })`: renderiza lista de docs na sidebar, ações criar/renomear/alternar/fechar
-- [ ] `src/i18n/index.js` -- Adicionar chaves: `docNew`, `docRename`, `docClose`, `docDefaultName`, `docNameConflict`, `docEmpty`
-- [ ] `src/main.js` -- Integrar `setupDocumentManager` no boot, conectar com editor
-- [ ] `tests/unit/documents-ui.test.js` -- Testes: criar doc, renomear (trim, vazio, duplicata), alternar, fechar, aria-current, teclado
+- [x] `src/ui/documents-ui.js` (spec dizia `documents.js`) -- `setupDocumentManager({ container, editor, getEditorContent, onStatus, confirm })`: renderiza lista de docs na sidebar, ações criar/renomear/alternar/fechar
+- [x] `index.html` + `public/css/style.css` -- lista de documentos na sidebar (`#document-list`, `#doc-new-btn`, `.sidebar-docs`/`.doc-item`)
+- [x] `src/i18n/index.js` -- Chaves `docName*` já existiam; adicionadas `documents`, `docListLabel` e `docCloseConfirm`
+- [x] `src/main.js` -- `setupDocumentManager` integrado ao boot depois de `editor.setValue(bootInput)`, conectado ao editor
+- [x] `tests/unit/documents-ui.test.js` -- Testes: criar doc, renomear (trim, vazio, duplicata, cancelamento), alternar, fechar, aria-current, teclado
+
+**Desvios do spec (registrados na implementação):**
+- Confirmação ao fechar usa a chave `docCloseConfirm` em vez de `newFileConfirm` — "criar um novo arquivo" não descreve fechar um documento (`docEmpty`/`docNameConflict` também entraram em uso).
+- O documento inicial é semeado com o conteúdo que o boot já colocou no editor; carregar um documento vazio apagaria o template/estado inicial do Monaco.
+- Três bugs do módulo pré-existente foram corrigidos na integração: loop infinito em `uniqueName` (condição do `while` nunca mudava), shadowing de `getContent` em `loadDocument` (troca de documento carregava o conteúdo errado) e a mensagem de confirmação.
 
 **Acceptance Criteria:**
 - Given sidebar aberta, when usuário clica "Novo documento", then novo doc é criado e se torna ativo
@@ -55,7 +61,7 @@ context:
 ## Verification
 
 **Commands:**
-- `npm run quality` -- expected: verde (285+ tests)
+- `npm run quality` -- expected: verde (344 tests)
 - `npm run build` -- expected: build OK
 
 **Manual checks:**

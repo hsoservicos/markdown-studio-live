@@ -1,15 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  escapeHtmlAttr,
-  buildStandaloneHtml,
-  loadCssText,
-  exportStandaloneHtml,
-} from '../../src/ui/exportHtml.js';
+import { buildStandaloneHtml, loadCssText, exportStandaloneHtml } from '../../src/ui/exportHtml.js';
+import { escapeHtml } from '../../src/render/convert.js';
 
 describe('exportHtml', () => {
-  describe('escapeHtmlAttr', () => {
+  describe('escapeHtml (helper único, usado em atributos e conteúdo)', () => {
     it('escapa caracteres perigosos', () => {
-      expect(escapeHtmlAttr('a&b"c<d>e')).toBe('a&amp;b&quot;c&lt;d&gt;e');
+      expect(escapeHtml('a&b"c<d>e')).toBe('a&amp;b&quot;c&lt;d&gt;e');
+    });
+
+    it('escapa aspas simples e nulos', () => {
+      expect(escapeHtml("a'b")).toBe('a&#39;b');
+      expect(escapeHtml(null)).toBe('');
     });
   });
 

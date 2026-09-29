@@ -3,8 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        VITE_BUILD_DATE: ${VITE_BUILD_DATE:-unknown}
     image: markdown-studio:local
     container_name: markdown-studio
     ports:

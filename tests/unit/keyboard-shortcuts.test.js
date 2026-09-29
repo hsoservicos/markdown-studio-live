@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { setupKeyboardShortcuts } from '../../src/main.js';
+import { setupKeyboardShortcuts, resolveShortcutAction } from '../../src/main.js';
 
 describe('Keyboard Shortcuts', () => {
+  let dispose;
+
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = `
@@ -10,10 +12,13 @@ describe('Keyboard Shortcuts', () => {
       <button data-sidebar-action="copyHtml"></button>
       <button data-sidebar-action="exportHtml"></button>
     `;
-    setupKeyboardShortcuts();
+    dispose = setupKeyboardShortcuts();
   });
 
   afterEach(() => {
+    // Sem a limpeza os listeners se acumulam e a mesma tecla dispara N vezes.
+    dispose?.();
+    dispose = null;
     document.body.innerHTML = '';
   });
 
@@ -57,5 +62,62 @@ describe('Keyboard Shortcuts', () => {
     const clickSpy = vi.spyOn(saveBtn, 'click');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true }));
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('não aciona quando Shift também está pressionado (Ctrl+Shift+S)', () => {
+    const saveBtn = document.querySelector('[data-sidebar-action="save"]');
+    const clickSpy = vi.spyOn(saveBtn, 'click');
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'S', ctrlKey: true, shiftKey: true }),
+    );
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('não aciona no AltGr (Ctrl+Alt) — digitar € não pode exportar HTML', () => {
+    const exportBtn = document.querySelector('[data-sidebar-action="exportHtml"]');
+    const clickSpy = vi.spyOn(exportBtn, 'click');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', ctrlKey: true, altKey: true }));
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('uma única tecla dispara a ação exatamente uma vez', () => {
+    const saveBtn = document.querySelector('[data-sidebar-action="save"]');
+    const clickSpy = vi.spyOn(saveBtn, 'click');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }));
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('resolveShortcutAction', () => {
+  it.each([
+    ['s', 'save'],
+    ['p', 'exportPdf'],
+    ['b', 'copyHtml'],
+    ['e', 'exportHtml'],
+    ['S', 'save'],
+  ])('%s → %s', (key, action) => {
+    expect(resolveShortcutAction({ key, ctrlKey: true })).toBe(action);
+  });
+
+  it('aceita Meta como modificador único', () => {
+    expect(resolveShortcutAction({ key: 'e', metaKey: true })).toBe('exportHtml');
+  });
+
+  it.each([
+    ['sem modificador', { key: 's' }],
+    ['só Alt', { key: 's', altKey: true }],
+    ['AltGr (ctrl+alt)', { key: 'e', ctrlKey: true, altKey: true }],
+    ['Ctrl+Shift', { key: 's', ctrlKey: true, shiftKey: true }],
+    ['tecla repetida', { key: 's', ctrlKey: true, repeat: true }],
+    ['tecla não simples (Enter)', { key: 'Enter', ctrlKey: true }],
+    ['tecla não simples (dead)', { key: 'Dead', ctrlKey: true }],
+    ['letra fora da tabela', { key: 'z', ctrlKey: true }],
+  ])('recusa %s', (_label, event) => {
+    expect(resolveShortcutAction(event)).toBeNull();
+  });
+
+  it('tolera entrada nula/ausente', () => {
+    expect(resolveShortcutAction(null)).toBeNull();
+    expect(resolveShortcutAction({})).toBeNull();
   });
 });

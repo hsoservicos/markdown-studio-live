@@ -166,4 +166,90 @@ describe('markdownToPdfmake', () => {
     expect(doc.content).toHaveLength(1);
     expect(doc.content[0].background).toBe('#f6f8fa');
   });
+
+  describe('links — allowlist de schemes (mesma do preview)', () => {
+    function inlineText(md) {
+      const doc = markdownToPdfmake(md);
+      const text = doc.content[0]?.text;
+      return Array.isArray(text) ? text : [text];
+    }
+
+    it('preserva mailto como link', () => {
+      const link = inlineText('[contato](mailto:a@b.c)').find(
+        (t) => typeof t === 'object' && t.link,
+      );
+      expect(link).toBeDefined();
+      expect(link.link).toBe('mailto:a@b.c');
+    });
+
+    it('preserva link relativo como link', () => {
+      const link = inlineText('[doc](/docs/x.md)').find((t) => typeof t === 'object' && t.link);
+      expect(link).toBeDefined();
+      expect(link.link).toBe('/docs/x.md');
+    });
+
+    it.each(['javascript:alert(1)', 'tel:5511999', 'vbscript:msgbox(1)', 'data:text/html,x'])(
+      'não gera anotação para scheme ativo: %s',
+      (href) => {
+        const items = inlineText(`[clique](${href})`);
+        // `typeof` evita casar com String.prototype.link (função truthy).
+        expect(items.some((t) => typeof t === 'object' && t.link)).toBe(false);
+        expect(items).toContain('clique');
+      },
+    );
+
+    it('rótulo do link inseguro sobrevive sem virar anotação', () => {
+      const doc = markdownToPdfmake('Texto [clique](javascript:alert(1)) fim');
+      const flat = JSON.stringify(doc.content);
+      expect(flat).not.toContain('"link"');
+      expect(flat).toContain('clique');
+    });
+  });
+
+  describe('imagens', () => {
+    it('imagem sozinha no parágrafo vira item de bloco com image', () => {
+      const doc = markdownToPdfmake('![alt](/image/Markdown-mark.svg)');
+      expect(doc.content).toHaveLength(1);
+      expect(doc.content[0].image).toBe('/image/Markdown-mark.svg');
+      expect(doc.content[0].text).toBeUndefined();
+    });
+
+    it('data URL de imagem vira item de bloco', () => {
+      const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
+      const doc = markdownToPdfmake(`![alt](${dataUrl})`);
+      expect(doc.content[0].image).toBe(dataUrl);
+    });
+
+    it('imagem http vira item de bloco', () => {
+      const doc = markdownToPdfmake('![alt](https://example.com/x.png)');
+      expect(doc.content[0].image).toBe('https://example.com/x.png');
+    });
+
+    it('imagem inline degrada para o alt sem vazar markdown cru', () => {
+      const doc = markdownToPdfmake('Antes ![descrição](/x.png) depois');
+      const flat = JSON.stringify(doc.content);
+      expect(flat).not.toContain('![');
+      expect(flat).not.toContain('/x.png');
+      expect(flat).toContain('Antes');
+      expect(flat).toContain('descrição');
+    });
+
+    it('imagem em heading degrada para o alt', () => {
+      const doc = markdownToPdfmake('# Título ![descrição](/x.png)');
+      const flat = JSON.stringify(doc.content);
+      expect(flat).not.toContain('![');
+      expect(flat).toContain('descrição');
+    });
+
+    it('imagem com scheme ativo degrada para o alt', () => {
+      const doc = markdownToPdfmake('![alt](javascript:alert(1))');
+      expect(doc.content[0].image).toBeUndefined();
+      expect(JSON.stringify(doc.content)).not.toContain('javascript');
+    });
+
+    it('data:text/html não é embutido como imagem', () => {
+      const doc = markdownToPdfmake('![alt](data:text/html,hello)');
+      expect(doc.content[0].image).toBeUndefined();
+    });
+  });
 });

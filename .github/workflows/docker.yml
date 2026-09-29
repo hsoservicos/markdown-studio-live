@@ -48,8 +48,6 @@ jobs:
           tags: markdown-studio:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            VITE_BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
       - name: Test image health
         run: |
@@ -68,7 +66,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push (main branch only)
-        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -78,5 +76,3 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            VITE_BUILD_DATE=${{ github.event.head_commit.timestamp }}

@@ -14,6 +14,7 @@ export default [
         window: 'readonly',
         document: 'readonly',
         localStorage: 'readonly',
+        Storage: 'readonly',
         navigator: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
@@ -45,6 +46,7 @@ export default [
     files: ['tests/**/*.test.js'],
     languageOptions: {
       globals: {
+        process: 'readonly',
         describe: 'readonly',
         it: 'readonly',
         expect: 'readonly',
