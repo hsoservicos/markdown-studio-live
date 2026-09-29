@@ -78,4 +78,13 @@ describe('CSP (nginx.conf)', () => {
     expect(imgSrc).toContain('data:');
     expect(imgSrc).toContain('blob:');
   });
+
+  // O Cloudflare injeta o JavaScript Detections como <script> inline com hash dinâmico
+  // por request: não há hash estável que autorizar no script-src, então sem esta linha a
+  // CSP estrita gera erro de console em toda visita. A doc do Cloudflare determina que
+  // `Cache-Control: no-transform` na resposta da origin suspende a injeção.
+  it('declara no-transform para o Cloudflare não injetar o JavaScript Detections', () => {
+    const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
+    expect(conf).toMatch(/add_header\s+Cache-Control\s+"[^"]*no-transform[^"]*"\s+always/);
+  });
 });

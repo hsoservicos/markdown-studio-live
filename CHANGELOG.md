@@ -89,6 +89,11 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   exportação de HTML ao digitar `€`. `resolveShortcutAction` agora exige a combinação exata —
   recusa `altKey`, `shiftKey`, `repeat` e teclas que não são de um caractere — e devolve a
   função de limpeza para não acumular listeners.
+- **CSP estrita gerava erro de console em produção**: o Cloudflare injeta o JavaScript Detections
+  (`/cdn-cgi/challenge-platform/scripts/jsd/`) como `<script>` inline com hash dinâmico por request,
+  impossível de autorizar no `script-src`. `nginx.conf` passa a emitir
+  `Cache-Control: no-transform`, diretiva que — segundo a doc do Cloudflare — suspende a injeção;
+  travada por `tests/unit/csp.test.js`.
 
 ### Changed
 
