@@ -6,11 +6,11 @@ Markdown-Studio is a client-side Markdown editor with live preview, re-built fro
 
 ## Collaborators
 
-| Collaborator    | Role                                        | Terminal                     |
-| --------------- | ------------------------------------------- | ---------------------------- |
-| **hsoservicos** | Desenvolvedor principal e único colaborador | hsantos (terminal principal) |
+| Collaborator | Role                                    | Terminal           |
+| ------------ | --------------------------------------- | ------------------ |
+| **Opencode** | Desenvolvimento e elaboração do projeto | hsantos (terminal) |
 
-> O repositório é mantido exclusivamente por **hsoservicos**. O terminal `hsantos` é o mesmo colaborador principal, utilizado em ambiente de desenvolvimento local.
+> O terminal `hsantos` é utilizado em ambiente de desenvolvimento local.
 
 ## Coding Agents
 

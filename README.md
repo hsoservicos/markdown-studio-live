@@ -170,9 +170,9 @@ ISC (herdada do projeto original) — para uso pessoal e profissional.
 
 ## Colaboradores
 
-| Colaborador     | Função                                      |
-| --------------- | ------------------------------------------- |
-| **hsoservicos** | Desenvolvedor principal e único colaborador |
+| Colaborador  | Função                                  |
+| ------------ | --------------------------------------- |
+| **Opencode** | Desenvolvimento e elaboração do projeto |
 
 ### Agentes de Código
 
