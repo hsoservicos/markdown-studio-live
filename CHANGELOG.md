@@ -97,6 +97,15 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Changed
 
+- `mermaid` 11.17.2 → **12.0.0** (major). Smoke test real cobre a superfície usada pelo app
+  (`initialize({startOnLoad,securityLevel,theme})` + `render(id, src)` → `{svg, bindFunctions}`);
+  `tests/unit/mermaid.test.js` só exercita o mock, não a lib. **Chunk 3,4 MB → 5,1 MB (+52%)**.
+- `dompurify` 3.4.14 → **3.4.16**, `marked` 18.0.11 → **18.0.14**, `katex` 0.18.5 → **0.18.9** (patches).
+- `html2canvas` passa a ser **declarada** em `dependencies` — era importada diretamente
+  por `src/render/katexExt.js` sem constar no manifesto, sobrevivendo só como dependência
+  transitiva de `html2pdf.js`.
+- `github-markdown-css` **removida** de `dependencies`: nenhum import em JS/CSS/HTML;
+  os estilos usados são as cópias versionadas em `public/css/`.
 - `markdownlint-cli2` 0.23.2 → **0.23.3** (corrige `smol-toml` ≤1.7.0, DoS — GHSA-7w5x-hrqm-74c2);
   `npm audit` volta a 0 vulnerabilidades (dev incluído).
 - `.github/workflows/docker.yml`: condição de publicação em `refs/heads/master` → **`main`** — o login
@@ -131,6 +140,9 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Security
 
+- `overrides` para `lodash-es@^4.18.1`: o `mermaid@12` puxa `chevrotain@11.1.2`, que trava
+  `lodash-es@4.17.23` em 3 cópias aninhadas — GHSA-r5fr-rjxr-66jc (code injection via
+  `_.template`) e GHSA-f23m-r3pf-42rh (prototype pollution). `npm audit` volta a **0**.
 - CSP de produção sem `'unsafe-inline'`/`'unsafe-eval'` em `script-src` (hash do único inline +
   `'self'`); diretivas de base/objeto/frame/form endurecidas.
 - Links do PDF vetorial submetidos à mesma allowlist de schemes do preview.
