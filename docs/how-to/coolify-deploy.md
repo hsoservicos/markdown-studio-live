@@ -121,14 +121,18 @@ Coolify → git pull → docker build → docker run
 2. Clique em **Add route**
 3. Configuração:
 
-| Campo       | Valor                 |
-| ----------- | --------------------- |
-| Subdomain   | `mkdeditor`           |
-| Domain      | `appservice.tec.br`   |
-| Path        | (vazio)               |
-| Service URL | `http://localhost:80` |
+| Campo       | Valor                   |
+| ----------- | ----------------------- |
+| Subdomain   | `mkdeditor`             |
+| Domain      | `appservice.tec.br`     |
+| Path        | (vazio)                 |
+| Service URL | `http://localhost:5002` |
 
 Após preencher, clique em **Add route**.
+
+> **A porta precisa ser `5002`.** O Coolify mapeia `5002:80` (`ports_mappings` da
+> aplicação) — a porta 80 do nginx fica interna ao container. Apontar o tunnel para
+> `localhost:80` devolve **502 Bad Gateway**.
 
 ### 3. Configurar DNS
 

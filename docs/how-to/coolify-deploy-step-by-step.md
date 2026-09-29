@@ -121,12 +121,12 @@ Se ainda não estiver configurado:
 2. Selecione o tunnel existente ou crie um novo
 3. Clique em **Add route**
 
-| Campo           | Valor                 |
-| --------------- | --------------------- |
-| **Subdomain**   | `mkdeditor`           |
-| **Domain**      | `appservice.tec.br`   |
-| **Path**        | (vazio)               |
-| **Service URL** | `http://localhost:80` |
+| Campo           | Valor                   |
+| --------------- | ----------------------- |
+| **Subdomain**   | `mkdeditor`             |
+| **Domain**      | `appservice.tec.br`     |
+| **Path**        | (vazio)                 |
+| **Service URL** | `http://localhost:5002` |
 
 Após preencher, clique em **Add route**.
 

@@ -54,6 +54,9 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Fixed
 
+- **Documentação do Coolify Tunnel apontava para a porta errada**: `coolify-deploy.md` e
+  `coolify-deploy-step-by-step.md` instruíam `Service URL: http://localhost:80`, mas a
+  aplicação é exposta em `5002:80` — seguir o doc derrubava o acesso externo com 502.
 - **Perda de dados no caminho multi-documento**: as edições eram gravadas apenas em `last_state`,
   enquanto o boot lê o conteúdo do documento ativo — que ficava congelado no momento da migração.
   Da 3ª sessão em diante o editor reabria com conteúdo antigo e um novo `last_state` o sobrescrevia
