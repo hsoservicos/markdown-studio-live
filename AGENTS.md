@@ -49,6 +49,7 @@ npm run lint:md        # markdownlint-cli2
 npm run format:check   # Prettier check
 npm run format:fix     # Prettier fix
 npm run quality        # format:check && lint && lint:md && test:coverage && build (gate = CI)
+npm run deploy:audit   # audita a cadeia GitHub → CI → Coolify → produção (exit != 0 se falhar)
 ```
 
 ### Release

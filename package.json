@@ -59,6 +59,7 @@
     "docker:dev:down": "docker compose -f compose.dev.yaml down",
     "docker:clean": "docker compose down --rmi local --volumes",
     "docker:audit": "bash scripts/docker-audit.sh",
+    "deploy:audit": "bash scripts/deploy-audit.sh",
     "docker:shell": "docker exec -it markdown-studio sh",
     "docker:status": "bash scripts/docker.sh status"
   },

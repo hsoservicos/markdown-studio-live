@@ -7,6 +7,12 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+- **Auditoria da cadeia de deploy**: `npm run deploy:audit` (`scripts/deploy-audit.sh`)
+  prova que o push em `main` vira release sozinho — webhook ativo nos dois lados, branch
+  protegida, último deploy origem=`webhook` igual ao HEAD, fila vazia, API do Coolify
+  desabilitada, container healthy e produção servindo o mesmo bundle do build local.
+  Sai com código ≠ 0 na primeira falha; a URL do webhook é mascarada no output (o domínio
+  do painel não vai para o repositório).
 - **Deploy automático via webhook**: GitHub → Coolify (`push` em `main`) publica sozinho —
   antes o último deploy era manual e produção ficava defasada em 15 commits. Webhook criado
   com assinatura `X-Hub-Signature-256`, e o guia de deploy deixa de descrever um workflow de
@@ -27,6 +33,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **Procedimento de release reescrito**: `docs/how-to/re-edit-overview.md` apontava para
   `master` (branch morta), `git push origin master --tags` e `firebase deploy`. Passa a
   descrever o workflow `Release`, `main` e o deploy automático via webhook do Coolify.
+- **Runbook do webhook ganha gotchas e recuperação**: `coolify-deploy.md` agora registra
+  que `Last delivery: OK` no GitHub **não** significa deploy (o Coolify responde 200 até
+  para `Invalid signature`), que o segredo é criptografado no banco e a tabela de
+  sintoma → causa → ação para quando a cadeia quebrar.
 
 ### Deprecated
 

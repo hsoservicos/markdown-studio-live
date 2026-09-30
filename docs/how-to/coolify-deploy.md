@@ -187,6 +187,52 @@ No repositório, vá para **Settings** → **Webhooks** → **Add webhook**:
 2. **Deployments** → nova entrada com origem `webhook`
 3. `https://mkdeditor.appservice.tec.br` serve o build novo
 
+### 5. Verificação operacional (checklist repetível)
+
+Para provar que a cadeia segue de pé sem fazer push de teste, rode:
+
+```bash
+npm run deploy:audit
+```
+
+O script (`scripts/deploy-audit.sh`) valida as condições operacionais e sai com
+código ≠ 0 se alguma falhar:
+
+| Seção     | O que prova                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Git       | `local = origin/main`, working tree limpo                                                                                |
+| Webhook   | hook existe, ativo, evento `push`, `application/json`, última entrega                                                    |
+| Proteção  | check `quality` exigido, `strict`, `enforce_admins`, PR obrigatório                                                      |
+| Deploy    | último deploy **origem=webhook**, `finished`, commit = HEAD da branch, fila vazia, API do Coolify desabilitada, 0 tokens |
+| Container | `running` + `healthcheck healthy`                                                                                        |
+| Produção  | `GET /` = 200 e o bundle servido é idêntico ao build local                                                               |
+
+Requer `gh` autenticado, `git`, `curl` e `jq`. Os checks de fila/segurança usam
+`docker exec` no container do banco e viram **warn** (não falham) se ele não existir.
+
+### 6. Gotchas (o que engana)
+
+- **"Last delivery: OK" no GitHub ≠ deploy aconteceu.** O Coolify responde
+  `HTTP 200` mesmo quando recusa a entrega (`[{"status":"failed","message":"Invalid signature."}]`),
+  então o GitHub marca `OK` de qualquer jeito. O sinal real de aceite é a fila
+  de deploys com `is_webhook=true` no commit correspondente.
+- **O segredo é criptografado no banco** (prefixo `eyJpdiI6`, formato Laravel).
+  Não dá para forjar uma assinatura lendo o Postgres — só o Coolify consegue
+  validar, o que é exatamente o esperado. Prova de aceite: entregas reais do GitHub.
+- **O filtro é repo + branch.** Entrega com branch ou repositório errado responde
+  `Nothing to do. No applications found...` e é descartada sem virar erro.
+- **`ping` responde `pong`** e não gera deploy — é o teste de saúde do hook.
+
+### 7. Se quebrar
+
+| Sintoma                             | Causa provável                          | Ação                                                          |
+| ----------------------------------- | --------------------------------------- | ------------------------------------------------------------- |
+| Push em `main` não gera deploy      | hook inativo ou segredo divergente      | GitHub → Settings → Webhooks → Redeliver; conferir no Coolify |
+| `deploy` nasce com origem `manual`  | webhook não foi a fonte (deploy manual) | esperado se alguém disparou à mão; o próximo push corrige     |
+| `Invalid signature` em entrega real | segredo trocado no Coolify              | copiar o segredo novo no Coolify e atualizar o hook no GitHub |
+| Container `unhealthy` após deploy   | build quebrou                           | ver logs no Coolify; a versão anterior continua no ar         |
+| Fila presa (`queued`/`in_progress`) | worker do Coolify travado               | reiniciar o container `coolify`                               |
+
 ## Deploy Local (Build no Servidor)
 
 ### 1. Via Coolify Dashboard
