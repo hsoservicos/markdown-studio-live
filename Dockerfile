@@ -10,7 +10,7 @@
 # Imagem final: apenas nginx + dist (~40-50MB).
 
 # ---------- Stage 1: dependencies (cache) ----------
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN npm ci --no-audit --no-fund --ignore-scripts \
     && npm cache clean --force
 
 # ---------- Stage 2: build ----------
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
