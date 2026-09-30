@@ -29,7 +29,7 @@ COPY . .
 RUN npm run build
 
 # ---------- Stage 3: runtime (nginx) ----------
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 # Metadata
 LABEL maintainer="markdown-studio"
