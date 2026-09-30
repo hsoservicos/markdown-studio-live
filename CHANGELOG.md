@@ -37,6 +37,13 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   que `Last delivery: OK` no GitHub **não** significa deploy (o Coolify responde 200 até
   para `Invalid signature`), que o segredo é criptografado no banco e a tabela de
   sintoma → causa → ação para quando a cadeia quebrar.
+- **`deploy:audit` pega falha silenciosa**: além do último deploy, agora **falha** quando
+  nenhum canal de alerta de falha está ativo e expõe com warn os deploys antigos já
+  registrados como `failed` (o script só olhava o deploy mais recente).
+- **Runbook do webhook ganha dois enganos**: o `Content-Type` registrado na entrega
+  (`form-urlencoded`) não bate com a config do hook (`application/json`) e a validação
+  passa mesmo assim; e notificação de falha habilitada **sem transporte configurado** não
+  envia — dois casos que enganam quem confia na superfície.
 
 ### Deprecated
 
@@ -72,6 +79,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   `dompurify@3.4.15` (advisory `low`, DOM XSS via hook `afterSanitize`, afeta 3.4.13–3.4.15).
   O `overrides` dedup a cópia aninhada para a `3.4.16` que a app já usa — sem baixar o Monaco
   (a única correção sem override seria `monaco@0.56.0`, downgrade quebrando a 0.57 recém-adotada).
+- **HSTS no `nginx.conf`**: `max-age=31536000; includeSubDomains`, sem `preload` de propósito
+  (a lista de preload é difícil de reverter). A origem segue em HTTP atrás do tunnel
+  `cloudflared` — o FQDN do Coolify fica em `http://`: trocar para `https://` faria o traefik
+  exigir TLS e derrubaria o ingress do tunnel. A borda TLS é do Cloudflare.
 
 ## [1.3.0] — 2026-09-30
 

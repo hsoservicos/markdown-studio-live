@@ -137,6 +137,33 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$DB_CONTAINER"; then
     PENDING=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -c \
       "select count(*) from application_deployment_queues where application_id='4' and status in ('queued','in_progress');" 2>/dev/null || echo 0)
     if [ "${PENDING:-0}" = "0" ]; then pass "nenhum deploy preso na fila"; else warn "$PENDING deploy(s) em fila"; fi
+    # Historico de falhas: o audit ja falha se o ULTIMO deploy falhou (acima);
+    # aqui apenas expoe falhas antigas, que continuam registradas para sempre.
+    HIST_FAIL=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -c \
+      "select count(*) from application_deployment_queues where application_id='4' and status='failed';" 2>/dev/null || echo 0)
+    if [ "${HIST_FAIL:-0}" = "0" ]; then
+      pass "historico de deploys sem falhas"
+    else
+      warn "$HIST_FAIL deploy(s) antigo(s) com falha no historico (o ultimo ja e verificado acima)"
+    fi
+    # Alerta de falha: notificacao habilitada NAO basta — precisa de transporte
+    # configurado, senao a falha de deploy passa em silencio e producao fica
+    # na versao antiga sem aviso (fica para sempre, ninguem percebe).
+    NOTIF=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -c \
+      "select coalesce(
+         (select 'email'    from email_notification_settings    where smtp_enabled  and deployment_failure_email_notifications),
+         (select 'telegram' from telegram_notification_settings where telegram_enabled and deployment_failure_telegram_notifications),
+         (select 'discord'  from discord_notification_settings  where discord_enabled and deployment_failure_discord_notifications),
+         (select 'slack'    from slack_notification_settings    where slack_enabled and deployment_failure_slack_notifications),
+         (select 'webhook'  from webhook_notification_settings  where webhook_enabled and deployment_failure_webhook_notifications),
+         (select 'pushover' from pushover_notification_settings where pushover_enabled and deployment_failure_pushover_notifications),
+         'nenhum');" 2>/dev/null || echo "?")
+    case "$NOTIF" in
+      "")     warn "nao consegui ler os canais de notificacao" ;;
+      "?")    warn "nao consegui ler os canais de notificacao" ;;
+      "nenhum") fail "nenhum canal de alerta de FALHA de deploy ativo (falha real ficaria silenciosa)" ;;
+      *)      pass "alerta de falha de deploy via $NOTIF" ;;
+    esac
     # API desabilitada: o deploy só pode nascer do webhook, nunca de um token.
     API_ON=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -c \
       "select is_api_enabled from instance_settings;" 2>/dev/null || echo "")
