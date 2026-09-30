@@ -7,6 +7,20 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [1.3.0] — 2026-09-30
+
+### Added
+
 - **Manual do Markdown aprimorado**: reescrito do básico ao avançado com 4 partes
   (Básico, Intermediário, Avançado, Referência), KaTeX completo (símbolos, exemplos reais),
   Mermaid completo (flowchart, sequence, gantt, class, ER, state), cheatsheet integrado.
