@@ -148,40 +148,44 @@ mkdeditor.appservice.tec.br → <tunnel-id>.cfargotunnel.com
 2. Mode: **Full (Strict)** ou **Full**
 3. **Always Use HTTPS**: Ativado
 
-## Deploy via GitHub Actions (Automático)
+## Deploy Automático via Webhook (GitHub → Coolify)
 
-### 1. Configurar GitHub Secrets
+Push em `main` dispara o build sozinho: quem publica em produção é o webhook
+nativo do Coolify, não um workflow do GitHub. O `.github/workflows/docker.yml`
+apenas builda e publica a imagem no GHCR.
 
-No repositório GitHub, vá para **Settings** → **Secrets and variables** → **Actions**:
-
-| Secret            | Valor          | Descrição                        |
-| ----------------- | -------------- | -------------------------------- |
-| `COOLIFY_WEBHOOK` | URL do webhook | Webhook do Coolify para deploy   |
-| `COOLIFY_TOKEN`   | Token da API   | Token de acesso à API do Coolify |
-
-### 2. Criar Workflow
-
-O workflow `.github/workflows/docker.yml` já está configurado para:
-
-1. Build da imagem Docker
-2. Push para GHCR
-3. Trigger do deploy no Coolify
-
-### 3. Configurar Webhook no Coolify
+### 1. Copiar URL e segredo no Coolify
 
 1. No Coolify, abra a aplicação
 2. Vá para **Configuration** → **Webhooks**
-3. Copie a **Deploy Webhook URL**
-4. Adicione como secret `COOLIFY_WEBHOOK` no GitHub
+3. Copie a **Webhook URL** (modo manual) e o **segredo**
 
-### 4. Criar API Token no Coolify
+### 2. Criar o webhook no GitHub
 
-1. No Coolify, vá para **Keys & Tokens** → **API Tokens**
-2. Clique em **Create Token**
-3. Nome: `github-deploy`
-4. Permissões: **Deploy**
-5. Copie o token
-6. Adicione como secret `COOLIFY_TOKEN` no GitHub
+No repositório, vá para **Settings** → **Webhooks** → **Add webhook**:
+
+| Campo        | Valor                          |
+| ------------ | ------------------------------ |
+| Payload URL  | Webhook URL copiada no Coolify |
+| Content type | `application/json`             |
+| Secret       | Segredo copiado no Coolify     |
+| Which events | **Just the push event**        |
+| Active       | Marcado                        |
+
+### 3. Comportamento
+
+- Só o branch configurado na aplicação (`main`) dispara deploy; pushes em
+  branches de Dependabot ou de feature são recebidos e ignorados.
+- Commits com `[skip ci]` ou `[skip cd]` não disparam deploy.
+- A assinatura `X-Hub-Signature-256` é validada contra o segredo; sem ela a
+  entrega falha.
+- O deploy aparece em **Deployments** com a origem `webhook`.
+
+### 4. Verificar
+
+1. Faça um push em `main`
+2. **Deployments** → nova entrada com origem `webhook`
+3. `https://mkdeditor.appservice.tec.br` serve o build novo
 
 ## Deploy Local (Build no Servidor)
 

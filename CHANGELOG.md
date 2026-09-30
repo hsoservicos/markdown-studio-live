@@ -7,6 +7,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+- **Deploy automático via webhook**: GitHub → Coolify (`push` em `main`) publica sozinho —
+  antes o último deploy era manual e produção ficava defasada em 15 commits. Webhook criado
+  com assinatura `X-Hub-Signature-256`, e o guia de deploy deixa de descrever um workflow de
+  deploy inexistente (o `docker.yml` só publica no GHCR) e documenta o mecanismo real.
 - **Dispatch manual no Docker Build**: `.github/workflows/docker.yml` ganha `workflow_dispatch`
   para republicar a imagem GHCR sob demanda, e o push em `main` publica também a tag `:<versão>`
   lida de `package.json` (antes apenas `latest` e `<sha>`).
