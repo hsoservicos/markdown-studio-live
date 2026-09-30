@@ -16,7 +16,12 @@ on:
 permissions:
   contents: write
   packages: write
+  pull-requests: write
 
+# `main` exige pull request e o check `quality`. O GITHUB_TOKEN não pode
+# empurrar direto (GH006), e o bypass de proteção só existe em repositórios
+# de organização — então o bump viaja numa branch de release, abre PR e
+# aguarda o auto-merge disparar sozinho quando a CI aprovar.
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -24,6 +29,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -49,14 +55,54 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=release/v$VERSION" >> $GITHUB_OUTPUT
 
-      # bump-version.js cria o commit e a tag apenas no runner. Sem este push,
-      # o commit de release nunca chegava a main (a tag sim, via action-gh-release)
-      # e o version bump se perdia — por isso o v1.2.0 só entrou na mão.
-      - name: Push release commit and tag
+      - name: Push release branch
         run: |
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          git push origin "v${{ steps.version.outputs.version }}"
+          git checkout -b "${{ steps.version.outputs.branch }}"
+          git push origin "HEAD:refs/heads/${{ steps.version.outputs.branch }}"
+
+      - name: Open pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "${{ steps.version.outputs.branch }}" \
+            --title "chore: release v${{ steps.version.outputs.version }}" \
+            --body "Release automatizado de \`v${{ steps.version.outputs.version }}\` (bump ${{ inputs.bump }}) gerado pelo workflow \`Release\`."
+          PR=$(gh pr list --head "${{ steps.version.outputs.branch }}" --base "${GITHUB_REF_NAME}" --json number --jq '.[0].number')
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+          echo "PR #$PR aberto"
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ steps.pr.outputs.pr }}" --squash --auto --delete-branch
+
+      - name: Wait for merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR="${{ steps.pr.outputs.pr }}"
+          for i in $(seq 1 90); do
+            STATE=$(gh pr view "$PR" --json state --jq .state)
+            echo "attempt $i: state=$STATE"
+            if [ "$STATE" = "MERGED" ]; then exit 0; fi
+            if [ "$STATE" = "CLOSED" ]; then echo "PR fechado sem merge"; exit 1; fi
+            sleep 10
+          done
+          echo "timeout esperando o auto-merge"; exit 1
+
+      # O commit que sobrevive é o squash-merge em `main`, não o commit local do
+      # bump — a tag precisa apontar para o SHA que de fato entrou na branch.
+      - name: Tag merged commit
+        run: |
+          git fetch origin "${GITHUB_REF_NAME}"
+          git tag -d "${{ steps.version.outputs.tag }}" 2>/dev/null || true
+          git tag "${{ steps.version.outputs.tag }}" "origin/${GITHUB_REF_NAME}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Build
         run: npm run build
