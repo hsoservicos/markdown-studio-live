@@ -50,6 +50,14 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
+      # bump-version.js cria o commit e a tag apenas no runner. Sem este push,
+      # o commit de release nunca chegava a main (a tag sim, via action-gh-release)
+      # e o version bump se perdia — por isso o v1.2.0 só entrou na mão.
+      - name: Push release commit and tag
+        run: |
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
       - name: Build
         run: npm run build
 

@@ -30,7 +30,28 @@ if (existsSync(changelogPath)) {
     process.exit(1);
   }
   const today = new Date().toISOString().slice(0, 10);
-  const updated = changelog.replace('## [Unreleased]', `## [${next}] — ${today}`);
+  const heading = `## [${next}] — ${today}`;
+  // Promove o acumulado para a nova versão e reabre um [Unreleased] vazio logo
+  // acima. Sem reabrir, o release seguinte aborta na guarda acima — foi
+  // precisamente o que aconteceu no 1.2.0 e motivou o commit manual 07e8c6c.
+  const fresh = [
+    '## [Unreleased]',
+    '',
+    '### Added',
+    '',
+    '### Changed',
+    '',
+    '### Deprecated',
+    '',
+    '### Removed',
+    '',
+    '### Fixed',
+    '',
+    '### Security',
+    '',
+    '',
+  ].join('\n');
+  const updated = changelog.replace('## [Unreleased]', `${fresh}${heading}`);
   writeFileSync(changelogPath, updated, 'utf8');
 }
 
