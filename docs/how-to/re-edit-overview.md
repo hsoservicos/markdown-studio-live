@@ -86,12 +86,17 @@ Guia operacional para qualquer mudança no projeto — do planejamento ao merge 
 
 ## Como publicar um release
 
-1. Garanta `npm run quality` verde em HEAD (o husky `pre-push` roda o gate automaticamente).
-2. Garanta que `CHANGELOG.md` tenha entradas sob `## [Unreleased]` (Added/Changed/Deprecated/Removed/Fixed/Security).
-3. Rode a tag: `npm run release` (padrão: patch) ou `npm run release:minor|major` — o script promove `[Unreleased]` → `[X.Y.Z] — <data>`, bumpa o `package.json`, commita (`chore: release vX.Y.Z`) e cria a tag.
-4. Reabra uma seção `## [Unreleased]` vazia no topo do `CHANGELOG.md` (commit próprio) e publique no GitHub: `git push origin master --tags` (branch padrão é `master`).
-5. Confira o workflow `Quality` no GitHub Actions (dispara em push/PR para `master`).
-6. Se quiser deploy: `firebase login` e `firebase deploy` (config em `firebase.json`, hosta `dist/`).
+1. Garanta que `CHANGELOG.md` tenha entradas sob `## [Unreleased]` (Added/Changed/Deprecated/Removed/Fixed/Security).
+2. Dispare o workflow oficial: `gh workflow run release.yml -f bump=patch` (`patch` | `minor` | `major`).
+   O workflow promove `[Unreleased]` → `[X.Y.Z] — <data>`, bumpa o `package.json`, abre o PR e
+   **aprova o run do `pull_request`** — sem esse passo ele nasce em `action_required`, nunca roda, e o
+   auto-merge fica `BLOCKED` até estourar o timeout.
+3. Com o check `quality` verde, o PR auto-merga em `main`; a tag `vX.Y.Z` é criada no squash-merge.
+4. A imagem `ghcr.io/hsoservicos/markdown-studio-live:<versão>` (+ `:latest`) é publicada e a GitHub Release é publicada.
+5. O push em `main` dispara o webhook do **Coolify** (`/webhooks/source/github/events/manual`) e o deploy em
+   `mkdeditor.appservice.tec.br` acontece sozinho — valide com `curl -I https://mkdeditor.appservice.tec.br/`.
+
+Para um bump local (sem publicar): `npm run release` / `release:minor` / `release:major`.
 
 ## Husky (hooks locais)
 
@@ -107,10 +112,7 @@ Guia operacional para qualquer mudança no projeto — do planejamento ao merge 
 
 ## Checklist pré-push
 
-- [ ] `npm test` passa
-- [ ] `npm run lint` passa (sem warnings)
-- [ ] `npm run lint:md` passa
-- [ ] `npm run format:check` passa (fim de linha LF — `.gitattributes`/`.editorconfig`/`endOfLine:'lf'`)
+- [ ] `npm run quality` verde (format:check + lint + lint:md + test:coverage + build — mesmo gate do CI)
 - [ ] CHANGELOG atualizado sob `[Unreleased]`
 - [ ] Commit em Conventional Commits
-- [ ] Push via `git push origin master` (hook `pre-push` roda o quality gate) — para releases, `--tags`
+- [ ] Push via `git push origin main` (hook `pre-push` roda o quality gate)

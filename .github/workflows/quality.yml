@@ -5,11 +5,16 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Exceção documentada à anti-recursão do GitHub: eventos causados por
-  # GITHUB_TOKEN (push, pull_request) não disparam workflows, mas
-  # workflow_dispatch dispara. É o que faz o check `quality` aparecer no
-  # PR aberto pelo release, sem ele o auto-merge nunca dispara.
+  # Gatilho manual por branch. ATENÇÃO: o run criado aqui NÃO entra no rollup do
+  # pull request — a proteção de `main` só conta o check do evento `pull_request`.
+  # Quem destrava o release é o step "Approve pull request runs" do release.yml,
+  # que aprova esse run via API (sem isso ele nasce em `action_required` e nunca
+  # roda, e o auto-merge fica BLOCKED até estourar o timeout).
   workflow_dispatch:
+
+# Least privilege: o job só lê o repositório e publica coverage/artefato de build.
+permissions:
+  contents: read
 
 jobs:
   quality:

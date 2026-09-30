@@ -363,9 +363,14 @@ Para mais detalhes, veja `docs/how-to/coolify-cli.md`.
 
 ### Via GitHub (Automático)
 
-1. Faça push para o branch `master`
-2. GitHub Actions builda a nova imagem
-3. Coolify automaticamente redeploya
+1. Faça push para o branch `main`
+2. O webhook do GitHub (`POST /webhooks/source/github/events/manual`, assinado com
+   `X-Hub-Signature-256`) notifica o Coolify
+3. O Coolify builda a partir do `Dockerfile` e troca o container (o `:latest` do GHCR é um
+   artefato paralelo, não a fonte do deploy)
+
+> Passos manuais de setup do webhook (segredo, rota, branch): ver
+> `docs/how-to/docker-workflow.md` — nunca documente o domínio do painel publicamente.
 
 ### Via Coolify (Manual)
 
@@ -376,7 +381,7 @@ Para mais detalhes, veja `docs/how-to/coolify-cli.md`.
 ### Via Docker (Manual)
 
 ```bash
-git pull origin master
+git pull origin main
 docker compose build --no-cache
 docker compose up -d
 ```

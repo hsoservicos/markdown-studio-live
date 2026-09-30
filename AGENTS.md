@@ -48,17 +48,21 @@ npm run lint           # ESLint check (--max-warnings=0)
 npm run lint:md        # markdownlint-cli2
 npm run format:check   # Prettier check
 npm run format:fix     # Prettier fix
-npm run quality        # format:check && lint && lint:md && test  (pre-push gate)
+npm run quality        # format:check && lint && lint:md && test:coverage && build (gate = CI)
 ```
 
 ### Release
 
 ```bash
-npm run release           # Bump patch + tag
-npm run release:minor     # Bump minor + tag
-npm run release:major     # Bump major + tag
-npm run changelog         # promote [Unreleased] section
+gh workflow run release.yml -f bump=patch   # release oficial (patch | minor | major)
+npm run release                            # bump local: promove [Unreleased] + tag
+npm run release:minor                      # bump minor
+npm run release:major                      # bump major
 ```
+
+O workflow `Release` abre o PR, aprova o run do `pull_request` (sem isso ele fica
+`action_required`), auto-mergeia, cria a tag no squash-merge, publica imagem no
+GHCR e a GitHub Release.
 
 ### Docker (acesso local em container)
 
@@ -138,5 +142,7 @@ edição no Monaco
 ## Build/Deploy notes
 
 - Node 22 LTS required (see `.nvmrc`); engines `>=20.12.0`.
-- `firebase.json` hosts `dist/` (Firebase Hosting). Optional firebase-tools install for `firebase deploy`.
+- Produção: Coolify builda do `Dockerfile` em push a `main` via webhook do GitHub
+  (`/webhooks/source/github/events/manual`) — `mkdeditor.appservice.tec.br`.
+  `firebase.json` é um caminho de hosting alternativo, não usado em produção.
 - Monaco, marked, DOMPurify, mermaid are npm deps (no runtime CDN) — app is offline-capable after build.

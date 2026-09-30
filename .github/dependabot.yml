@@ -25,3 +25,15 @@ updates:
       - "ci"
     commit-message:
       prefix: "chore(ci)"
+  # Base images do multi-stage build ficariam congeladas sem isto: o Dependabot
+  # cobre npm e Actions, mas não `nginx:1.27-alpine`/`node:22-alpine` do Dockerfile.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"
