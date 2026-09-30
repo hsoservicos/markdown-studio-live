@@ -32,6 +32,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Removed
 
+- **`firebase.json` removido**: nunca houve projeto vinculado (sem `.firebaserc`, sem
+  `firebase-tools`, nenhum workflow de deploy em todo o histórico) — era o último
+  resquício de um segundo caminho de hosting ao lado do Coolify.
+
 ### Fixed
 
 - **Release aprova os runs do `pull_request`**: o PR aberto pelo workflow `Release` nascia em
