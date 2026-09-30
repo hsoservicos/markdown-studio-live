@@ -57,10 +57,15 @@ jobs:
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
           echo "branch=release/v$VERSION" >> $GITHUB_OUTPUT
 
+      # Um release que morreu no meio (ex.: permissão de criar PR) deixa a branch
+      # para trás, e o push seguinte sai como non-fast-forward. A branch é
+      # descartável — sempre começa limpa. `main` segue protegido contra force-push.
       - name: Push release branch
         run: |
-          git checkout -b "${{ steps.version.outputs.branch }}"
-          git push origin "HEAD:refs/heads/${{ steps.version.outputs.branch }}"
+          BRANCH="${{ steps.version.outputs.branch }}"
+          git push origin --delete "$BRANCH" 2>/dev/null || true
+          git checkout -b "$BRANCH"
+          git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Open pull request
         id: pr
