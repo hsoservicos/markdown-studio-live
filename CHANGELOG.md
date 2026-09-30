@@ -169,6 +169,11 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   cópia só). `overrides.mermaid.katex` **não** é aplicável — o npm rejeita e deixa a árvore
   `invalid` (`ELSPROBLEMS`) mesmo após cache clean; o `katex` 0.16.x aninhado no mermaid é
   limitação aceita, invisível ao app (que usa o 0.18.9).
+- **`release.yml` publica via PR + auto-merge**: `main` exige pull request e o check `quality`,
+  e o `GITHUB_TOKEN` é recusado (`GH006`) — o bypass de proteção só existe em repos de
+  organização. O bump agora viaja numa branch `release/vX.Y.Z`, abre PR, habilita auto-merge,
+  aguarda a CI e então versiona o SHA do squash-merge, publica a tag e o GitHub Release.
+  Repo com `allow_auto_merge` habilitado e `pull-requests: write` no workflow.
 
 ### Removed
 
