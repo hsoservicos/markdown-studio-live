@@ -33,7 +33,7 @@ Objetivo: **uma única remodelagem coesa** — portar o `markdown-live-preview` 
 | T7  | i18n pt-BR                | `src/i18n/index.js`                                                                    | ✅     |
 | T8  | UI glue                   | `index.html`, `src/main.js`, `src/ui/*`                                                | ✅     |
 | T9  | Assets estáticos          | `public/css/style.css`, `public/image/*`                                               | ✅     |
-| T10 | quality + CI              | `.github/workflows/quality.yml`, firebase.json                                         | ✅     |
+| T10 | quality + CI              | `.github/workflows/quality.yml`                                                        | ✅     |
 
 ## ACs (Given/When/Then)
 

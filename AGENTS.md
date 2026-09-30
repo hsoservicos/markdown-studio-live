@@ -144,5 +144,4 @@ edição no Monaco
 - Node 22 LTS required (see `.nvmrc`); engines `>=20.12.0`.
 - Produção: Coolify builda do `Dockerfile` em push a `main` via webhook do GitHub
   (`/webhooks/source/github/events/manual`) — `mkdeditor.appservice.tec.br`.
-  `firebase.json` é um caminho de hosting alternativo, não usado em produção.
 - Monaco, marked, DOMPurify, mermaid are npm deps (no runtime CDN) — app is offline-capable after build.
