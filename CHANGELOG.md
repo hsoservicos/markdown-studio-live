@@ -56,6 +56,13 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Fixed
 
+- **`scripts/bump-version.js` não reabria `## [Unreleased]`**: o `replace` só renomeava a
+  seção, então o release seguinte abortava na guarda "não contém seção ## [Unreleased]".
+  O 1.2.0 foi seguido do commit manual `07e8c6c` exatamente para consertar isso; o script
+  agora promove a seção e reabre um `[Unreleased]` vazio com as seis subseções.
+- **`release.yml` não publicava o commit de release**: o workflow criava commit e tag no
+  runner e só a tag ia para o GitHub (via `action-gh-release`) — o version bump em `main`
+  dependia de um `git push` manual. Passo de push adicionado após o bump.
 - **Boot pré-carregava 9,4 MB de JavaScript**: `import('mermaid')` estava lazy, mas o
   `manualChunks` do `vite.config.js` casava por substring `id.includes('mermaid')` e pegava
   também `src/render/mermaid.js` — importado estaticamente pelo `main.js` — religando os ~5 MB
