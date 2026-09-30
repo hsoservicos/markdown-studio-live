@@ -35,5 +35,11 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    # `node:22-alpine` já flutua dentro de 22.x (os patches entram sozinhos a cada
+    # build); o salto de linha 22 → 26 exige alinhar `.nvmrc`, CI e `engines` junto —
+    # decisão humana, não automática. `nginx` segue liberado (1.27 → 1.31 é desejável).
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(docker)"

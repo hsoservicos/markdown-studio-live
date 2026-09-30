@@ -16,12 +16,14 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   lida de `package.json` (antes apenas `latest` e `<sha>`).
 - **Dependabot para imagens Docker**: ecossistema `docker` semanal — `nginx:1.27-alpine` e
   `node:22-alpine` ficariam congelados para sempre (o Dependabot cobria só npm e Actions).
+  `node` tem `ignore` para major: a tag `22-alpine` já flutua dentro de 22.x (patch entra no
+  build) e o salto 22 → 26 exige alinhar `.nvmrc`, CI e `engines` juntos — decisão humana.
 
 ### Changed
 
-- **`npm run quality` roda o mesmo gate do CI**: agora `format:check && lint && lint:md &&
-test:coverage && build` — antes o `pre-push` não cobria coverage nem build, então um push
-  podia passar local e falhar no CI.
+- **`npm run quality` roda o mesmo gate do CI**: agora
+  `format:check && lint && lint:md && test:coverage && build` — antes o `pre-push` não cobria
+  coverage nem build, então um push podia passar local e falhar no CI.
 - **Procedimento de release reescrito**: `docs/how-to/re-edit-overview.md` apontava para
   `master` (branch morta), `git push origin master --tags` e `firebase deploy`. Passa a
   descrever o workflow `Release`, `main` e o deploy automático via webhook do Coolify.
