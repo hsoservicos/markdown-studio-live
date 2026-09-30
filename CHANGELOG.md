@@ -7,6 +7,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+- **Dispatch manual no Docker Build**: `.github/workflows/docker.yml` ganha `workflow_dispatch`
+  para republicar a imagem GHCR sob demanda, e o push em `main` publica também a tag `:<versão>`
+  lida de `package.json` (antes apenas `latest` e `<sha>`).
+
 ### Changed
 
 ### Deprecated
@@ -14,6 +18,12 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 ### Removed
 
 ### Fixed
+
+- **Release aprova os runs do `pull_request`**: o PR aberto pelo workflow `Release` nascia em
+  `action_required` (0 jobs, nunca executava) e era o único check contado pela proteção de `main` —
+  o do `workflow_dispatch` não entrava no rollup do PR, então o auto-merge estourava o timeout.
+  O workflow agora aprova esses runs via API antes de aguardar o merge e falha alto se o
+  `quality` não passar.
 
 ### Security
 
