@@ -54,6 +54,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 - **`brace-expansion` 5.0.9 → 5.0.12**: 3 advisories `high` (DoS por recursão/quadrático) via
   `eslint → minimatch`, apenas em dev — `npm audit` agora reporta 0 vulnerabilidades.
+- **`dompurify` dentro do Monaco forçado para `^3.4.16`**: `monaco-editor@0.57.0` fixa
+  `dompurify@3.4.15` (advisory `low`, DOM XSS via hook `afterSanitize`, afeta 3.4.13–3.4.15).
+  O `overrides` dedup a cópia aninhada para a `3.4.16` que a app já usa — sem baixar o Monaco
+  (a única correção sem override seria `monaco@0.56.0`, downgrade quebrando a 0.57 recém-adotada).
 
 ## [1.3.0] — 2026-09-30
 
