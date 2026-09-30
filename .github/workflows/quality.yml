@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Exceção documentada à anti-recursão do GitHub: eventos causados por
+  # GITHUB_TOKEN (push, pull_request) não disparam workflows, mas
+  # workflow_dispatch dispara. É o que faz o check `quality` aparecer no
+  # PR aberto pelo release, sem ele o auto-merge nunca dispara.
+  workflow_dispatch:
 
 jobs:
   quality:
