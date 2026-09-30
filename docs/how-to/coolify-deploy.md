@@ -198,14 +198,14 @@ npm run deploy:audit
 O script (`scripts/deploy-audit.sh`) valida as condições operacionais e sai com
 código ≠ 0 se alguma falhar:
 
-| Seção     | O que prova                                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Git       | `local = origin/main`, working tree limpo                                                                                |
-| Webhook   | hook existe, ativo, evento `push`, `application/json`, última entrega                                                    |
-| Proteção  | check `quality` exigido, `strict`, `enforce_admins`, PR obrigatório                                                      |
-| Deploy    | último deploy **origem=webhook**, `finished`, commit = HEAD da branch, fila vazia, API do Coolify desabilitada, 0 tokens |
-| Container | `running` + `healthcheck healthy`                                                                                        |
-| Produção  | `GET /` = 200 e o bundle servido é idêntico ao build local                                                               |
+| Seção     | O que prova                                                                                                                                                                               |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Git       | `local = origin/main`, working tree limpo                                                                                                                                                 |
+| Webhook   | hook existe, ativo, evento `push`, `application/json`, última entrega                                                                                                                     |
+| Proteção  | check `quality` exigido, `strict`, `enforce_admins`, PR obrigatório                                                                                                                       |
+| Deploy    | último deploy **origem=webhook**, `finished`, commit = HEAD da branch, fila vazia, histórico de falhas exposto, **canal de alerta de falha ativo**, API do Coolify desabilitada, 0 tokens |
+| Container | `running` + `healthcheck healthy`                                                                                                                                                         |
+| Produção  | `GET /` = 200 e o bundle servido é idêntico ao build local                                                                                                                                |
 
 Requer `gh` autenticado, `git`, `curl` e `jq`. Os checks de fila/segurança usam
 `docker exec` no container do banco e viram **warn** (não falham) se ele não existir.
@@ -222,6 +222,21 @@ Requer `gh` autenticado, `git`, `curl` e `jq`. Os checks de fila/segurança usam
 - **O filtro é repo + branch.** Entrega com branch ou repositório errado responde
   `Nothing to do. No applications found...` e é descartada sem virar erro.
 - **`ping` responde `pong`** e não gera deploy — é o teste de saúde do hook.
+- **O `Content-Type` registrado na entrega não bate com a config do hook.**
+  O hook está salvo com `config.content_type = application/json`, mas o registro
+  de entrega (`GET .../deliveries/{id}` → `request.headers`) reporta
+  `application/x-www-form-urlencoded`. Independente da causa, **a validação
+  passa**: o `X-Hub-Signature-256` é conferido contra o corpo exato transmitido
+  e o Coolify parseia o payload — prova disso é que deploys nascem via webhook.
+  O `deploy:audit` checa a **configuração**; o corpo real só aparece em
+  _Recent Deliveries_. Se um dia a assinatura passar a falhar, é aqui: o
+  content-type mudou de um lado só — troque GitHub **e** Coolify juntos.
+- **Falha de deploy não avisa sozinha.** Notificação habilitada não basta: o
+  canal precisa de **transporte** configurado (SMTP host+destinatário, token do
+  Telegram, URL de webhook…). Com `enabled=t` e transporte vazio, o e-mail simples
+  não sai, o build falha, produção fica na versão antiga e ninguém percebe.
+  O `deploy:audit` agora falha se nenhum canal de alerta estiver de pé —
+  verifique-o antes de confiar na cadeia.
 
 ### 7. Se quebrar
 
@@ -386,7 +401,7 @@ Para mais detalhes, veja `docs/how-to/coolify-cli.md`.
 - **HTTPS**: Cloudflare handles TLS termination
 - **Non-root**: Container roda como UID 1001 (app)
 - **Read-only**: Root filesystem read-only (via compose.yaml)
-- **Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP
+- **Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP, **HSTS** (`max-age=31536000; includeSubDomains`, sem `preload` de propósito)
 - **No backend**: 100% client-side, sem dados sensíveis no servidor
 
 ## Monitoramento
