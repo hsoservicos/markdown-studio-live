@@ -17,6 +17,7 @@ permissions:
   contents: write
   packages: write
   pull-requests: write
+  actions: write
 
 # `main` exige pull request e o check `quality`. O GITHUB_TOKEN não pode
 # empurrar direto (GH006), e o bypass de proteção só existe em repositórios
@@ -80,6 +81,14 @@ jobs:
           PR=$(gh pr list --head "${{ steps.version.outputs.branch }}" --base "${GITHUB_REF_NAME}" --json number --jq '.[0].number')
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
           echo "PR #$PR aberto"
+
+      # PR e push feitos com GITHUB_TOKEN não disparam workflows (anti-recursão do
+      # GitHub), então o check `quality` nunca apareceria e o auto-merge ficaria
+      # BLOCKED para sempre. workflow_dispatch é a exceção documentada.
+      - name: Trigger quality check on release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run quality.yml --ref "${{ steps.version.outputs.branch }}"
 
       - name: Enable auto-merge
         env:

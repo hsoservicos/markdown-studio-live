@@ -177,7 +177,10 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   `can_approve_pull_request_reviews` ativo — sem ele o `gh pr create` falha com "GitHub
   Actions is not permitted to create or approve pull requests". A branch de release é
   recriada do zero a cada execução para absorver restos de runs abortados no meio
-  (senão o push sai como non-fast-forward).
+  (senão o push sai como non-fast-forward). PR e push feitos com `GITHUB_TOKEN` não
+  disparam workflows (anti-recursão), então o release dispara `quality` via
+  `workflow_dispatch` — a exceção documentada — para o check aparecer e o auto-merge
+  liberar o merge; sem isso o PR fica `BLOCKED` para sempre.
 
 ### Removed
 
