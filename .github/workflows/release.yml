@@ -27,12 +27,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -82,13 +82,37 @@ jobs:
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
           echo "PR #$PR aberto"
 
-      # PR e push feitos com GITHUB_TOKEN não disparam workflows (anti-recursão do
-      # GitHub), então o check `quality` nunca apareceria e o auto-merge ficaria
-      # BLOCKED para sempre. workflow_dispatch é a exceção documentada.
-      - name: Trigger quality check on release branch
+      # O `pull_request` criado pelo `gh pr create` nasce em `action_required`:
+      # 0 jobs, ninguém roda — e É esse check que a proteção da branch enxerga.
+      # O do `workflow_dispatch` não entra no rollup do PR, então dispará-lo não
+      # destravava o auto-merge; só a aprovação via API o faz concluir.
+      - name: Approve pull request runs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run quality.yml --ref "${{ steps.version.outputs.branch }}"
+          BRANCH: ${{ steps.version.outputs.branch }}
+        run: |
+          RUNS_API="repos/$GITHUB_REPOSITORY/actions/runs?branch=$BRANCH&event=pull_request&per_page=50"
+          for i in $(seq 1 30); do
+            PENDING=$(gh api "$RUNS_API" --jq '.workflow_runs[] | select(.conclusion == "action_required") | .id')
+            FINISHED=$(gh api "$RUNS_API" --jq '[.workflow_runs[] | select(.name == "Quality" and .status == "completed" and .conclusion != "action_required")] | length')
+            echo "attempt $i: finished=$FINISHED action_required=[$PENDING]"
+            if [ "$FINISHED" -gt 0 ]; then
+              CONCLUSION=$(gh api "$RUNS_API" --jq '[.workflow_runs[] | select(.name == "Quality" and .status == "completed" and .conclusion != "action_required")][0].conclusion')
+              echo "pull_request Quality: $CONCLUSION"
+              if [ "$CONCLUSION" != "success" ]; then
+                echo "::error::quality não passou no PR de release (conclusion=$CONCLUSION)"
+                exit 1
+              fi
+              exit 0
+            fi
+            for id in $PENDING; do
+              echo "aprovando run $id"
+              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$id/approve"
+            done
+            sleep 10
+          done
+          echo "::error::nenhum run de pull_request concluiu após 30 tentativas"
+          exit 1
 
       - name: Enable auto-merge
         env:
@@ -122,7 +146,7 @@ jobs:
         run: npm run build
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -132,14 +156,14 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -150,7 +174,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
