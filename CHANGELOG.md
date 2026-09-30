@@ -173,7 +173,11 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   e o `GITHUB_TOKEN` é recusado (`GH006`) — o bypass de proteção só existe em repos de
   organização. O bump agora viaja numa branch `release/vX.Y.Z`, abre PR, habilita auto-merge,
   aguarda a CI e então versiona o SHA do squash-merge, publica a tag e o GitHub Release.
-  Repo com `allow_auto_merge` habilitado e `pull-requests: write` no workflow.
+  Repo com `allow_auto_merge` habilitado, `pull-requests: write` no workflow e
+  `can_approve_pull_request_reviews` ativo — sem ele o `gh pr create` falha com "GitHub
+  Actions is not permitted to create or approve pull requests". A branch de release é
+  recriada do zero a cada execução para absorver restos de runs abortados no meio
+  (senão o push sai como non-fast-forward).
 
 ### Removed
 
