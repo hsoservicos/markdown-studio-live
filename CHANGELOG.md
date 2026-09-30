@@ -14,8 +14,17 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **Dispatch manual no Docker Build**: `.github/workflows/docker.yml` ganha `workflow_dispatch`
   para republicar a imagem GHCR sob demanda, e o push em `main` publica também a tag `:<versão>`
   lida de `package.json` (antes apenas `latest` e `<sha>`).
+- **Dependabot para imagens Docker**: ecossistema `docker` semanal — `nginx:1.27-alpine` e
+  `node:22-alpine` ficariam congelados para sempre (o Dependabot cobria só npm e Actions).
 
 ### Changed
+
+- **`npm run quality` roda o mesmo gate do CI**: agora `format:check && lint && lint:md &&
+test:coverage && build` — antes o `pre-push` não cobria coverage nem build, então um push
+  podia passar local e falhar no CI.
+- **Procedimento de release reescrito**: `docs/how-to/re-edit-overview.md` apontava para
+  `master` (branch morta), `git push origin master --tags` e `firebase deploy`. Passa a
+  descrever o workflow `Release`, `main` e o deploy automático via webhook do Coolify.
 
 ### Deprecated
 
@@ -28,8 +37,21 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   o do `workflow_dispatch` não entrava no rollup do PR, então o auto-merge estourava o timeout.
   O workflow agora aprova esses runs via API antes de aguardar o merge e falha alto se o
   `quality` não passar.
+- **`AGENTS.md` deixava de guiar**: documentava `npm run changelog` (script inexistente) e
+  dizia que o deploy era Firebase Hosting; agora descreve o workflow `Release` e o webhook do Coolify.
+- **`quality.yml` com comentário falso e permissão ampla**: afirmava que o `workflow_dispatch`
+  fazia o check aparecer no PR de release (não faz — quem aprova é o `release.yml`); ganha
+  `permissions: contents: read`.
+- **`docker.yml` com `paths` incompletos**: PR só validava `Dockerfile`/`src`/deps, então mudanças
+  em `nginx.conf`, `index.html`, `public/**` ou no próprio workflow entravam sem buildar; o push
+  em `main` ignorava alterações no workflow (sem autorregeneração).
+- **Referências a `master` e Firebase removidas dos guias**: `coolify-deploy.md` pedia
+  `git pull origin master` e descrevia um fluxo de deploy errado.
 
 ### Security
+
+- **`brace-expansion` 5.0.9 → 5.0.12**: 3 advisories `high` (DoS por recursão/quadrático) via
+  `eslint → minimatch`, apenas em dev — `npm audit` agora reporta 0 vulnerabilidades.
 
 ## [1.3.0] — 2026-09-30
 

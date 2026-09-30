@@ -45,7 +45,7 @@
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
     "format:check": "prettier --check \"**/*.{js,mjs,json,yaml,md}\"",
     "format:fix": "prettier --write \"**/*.{js,mjs,json,yaml,md}\"",
-    "quality": "npm run format:check && npm run lint && npm run lint:md && npm test",
+    "quality": "npm run format:check && npm run lint && npm run lint:md && npm run test:coverage && npm run build",
     "prepare": "husky",
     "release": "node scripts/bump-version.js patch",
     "release:minor": "node scripts/bump-version.js minor",

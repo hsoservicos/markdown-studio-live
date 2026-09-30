@@ -14,13 +14,24 @@ on:
       - 'src/**'
       - 'public/**'
       - 'index.html'
+      # Sem isto, mudar o próprio workflow não valida a build em `main`.
+      - '.github/workflows/docker.yml'
   pull_request:
     branches: [main]
     paths:
+      # Mesmo conjunto do push: qualquer entrada da imagem precisa ser testada
+      # antes de entrar, não só `Dockerfile`/`src`/deps.
       - 'Dockerfile'
-      - 'src/**'
+      - 'Dockerfile.dev'
+      - 'compose.yaml'
+      - 'compose.dev.yaml'
+      - 'nginx.conf'
       - 'package.json'
       - 'package-lock.json'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - '.github/workflows/docker.yml'
   workflow_dispatch:
 
 env:
