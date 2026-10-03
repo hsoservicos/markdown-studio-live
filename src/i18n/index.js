@@ -39,10 +39,14 @@ const ptBR = {
   exportError: 'Falha ao exportar o PDF.',
   quotaExceeded: 'Espaço de armazenamento cheio. A última versão salva foi mantida.',
   storageDisabled: 'O armazenamento local está desabilitado neste navegador.',
+  saveFailed: 'Não foi possível salvar a alteração. Tente novamente.',
+  bootFailed: 'Não foi possível iniciar o editor. Recarregue a página.',
+  renderFailed: 'Falha ao renderizar a pré-visualização. A versão anterior foi mantida.',
+  docOpRefused:
+    'A operação não foi concluída. O documento pode ter sido alterado em outra aba — recarregue a lista.',
   mermaidError: 'Erro do Mermaid: ',
   mermaidRenderFailed: 'Falha ao renderizar o diagrama.',
   editorLabel: 'Editor de Markdown',
-  previewLabel: 'Pré-visualização',
   syncLabel: 'Sincronizar rolagem',
   themeLabel: 'Modo escuro',
   githubAlt: 'Repositório no GitHub',
@@ -84,10 +88,10 @@ const ptBR = {
   lines: '{n} linhas',
   readingTime: '~{n} min de leitura',
   statsLabel: 'Estatísticas do documento',
+  skipToContent: 'Pular para o conteúdo',
   toc: 'Sumário',
   tocTitle: 'Sumário',
   tocEmpty: 'Sem títulos para listar.',
-  tocHeading: 'Sumário',
   documents: 'Documentos',
   docListLabel: 'Documentos abertos',
   docNew: 'Novo documento',
@@ -134,10 +138,14 @@ const enUS = {
   exportError: 'Failed to export PDF.',
   quotaExceeded: 'Storage is full. The last saved version was kept.',
   storageDisabled: 'Local storage is disabled in this browser.',
+  saveFailed: 'Could not save the change. Please try again.',
+  bootFailed: 'Could not start the editor. Reload the page.',
+  renderFailed: 'Failed to render the preview. The previous version was kept.',
+  docOpRefused:
+    'The operation was not completed. The document may have changed in another tab — reload the list.',
   mermaidError: 'Mermaid error: ',
   mermaidRenderFailed: 'Failed to render the diagram.',
   editorLabel: 'Markdown editor',
-  previewLabel: 'Preview',
   syncLabel: 'Sync scroll',
   themeLabel: 'Dark mode',
   githubAlt: 'GitHub repository',
@@ -178,10 +186,10 @@ const enUS = {
   lines: '{n} lines',
   readingTime: '~{n} min read',
   statsLabel: 'Document statistics',
+  skipToContent: 'Skip to content',
   toc: 'Table of contents',
   tocTitle: 'Table of contents',
   tocEmpty: 'No headings to list.',
-  tocHeading: 'Table of contents',
   documents: 'Documents',
   docListLabel: 'Open documents',
   docNew: 'New document',
@@ -209,10 +217,6 @@ export function setLocale(locale) {
 
 export function getLocaleCode() {
   return currentCode;
-}
-
-export function getLocale() {
-  return current;
 }
 
 export function t(key) {

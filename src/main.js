@@ -25,6 +25,7 @@ import { exportStandaloneHtml } from './ui/exportHtml.js';
 import { maybeAutoSnapshot } from './ui/snapshots.js';
 import { setupSnapshotsDialog } from './ui/snapshotsDialog.js';
 import { setupDocumentManager } from './ui/documents-ui.js';
+import { guardStorage as guardStorageCall } from './ui/storageFeedback.js';
 import { getLocaleCode } from './i18n/index.js';
 import {
   getActiveDocument,
@@ -85,7 +86,16 @@ export function resolveShortcutAction(event) {
   return SHORTCUT_ACTIONS[key.toLowerCase()] ?? null;
 }
 
+// Limpeza da registration ativa. Guardada aqui — e não só devolvida — porque o
+// caller pode descartar o retorno: `init()` chamava `setupKeyboardShortcuts()`
+// sem guardar nada. Sem este guarda, um segundo `init()` ou um teste que
+// esqueça o `dispose` acumulava o listener e a mesma tecla disparava a ação N
+// vezes.
+let disposeActiveShortcuts = null;
+
 export function setupKeyboardShortcuts() {
+  // Uma registration por vez: quem chamar de novo desfaz a anterior.
+  disposeActiveShortcuts?.();
   const onKeyDown = (e) => {
     const action = resolveShortcutAction(e);
     if (!action) {
@@ -95,9 +105,14 @@ export function setupKeyboardShortcuts() {
     document.querySelector(`[data-sidebar-action="${action}"]`)?.click();
   };
   document.addEventListener('keydown', onKeyDown);
-  // Devolve a limpeza: sem ela, re-registrar em testes acumula listeners e
-  // uma mesma tecla dispara a ação N vezes.
-  return () => document.removeEventListener('keydown', onKeyDown);
+  const dispose = () => {
+    document.removeEventListener('keydown', onKeyDown);
+    if (disposeActiveShortcuts === dispose) {
+      disposeActiveShortcuts = null;
+    }
+  };
+  disposeActiveShortcuts = dispose;
+  return dispose;
 }
 
 const init = () => {
@@ -106,6 +121,20 @@ const init = () => {
   let statusBar = null;
 
   const defaultInput = getDefaultTemplate();
+
+  // F2: todo ponto de gravação passa por aqui. O autosave roda dentro de um
+  // `setTimeout` e as ações da UI correm em handlers de evento — sem isto, uma
+  // StorageError (quota cheia) não tem dono e vira erro silencioso no console:
+  // o usuário só descobre que perdeu as edições no próximo reload.
+  const guardStorage = (fn) =>
+    guardStorageCall(fn, {
+      onFail: (message) => {
+        const status = document.querySelector('#sidebar-status');
+        if (status) {
+          status.textContent = message;
+        }
+      },
+    });
 
   // M4: leitura tipada na fronteira do storage — fragmento corrompido não
   // restaura em silêncio; o boot cai no padrão via fallback null.
@@ -158,10 +187,25 @@ const init = () => {
     return editor;
   }
 
+  // M3: roda dentro de um `setTimeout`, então uma exceção aqui subia como
+  // uncaught, o preview congelava na última versão boa e o usuário não tinha
+  // sinal nenhum de que o documento tinha deixado de renderizar. A falha agora
+  // fica visível no status e o HTML válido anterior permanece em pé.
   function convertAndRender(value) {
     const output = document.querySelector('#output');
-    const sanitized = convert(value);
-    output.innerHTML = sanitized;
+    if (!output) {
+      return;
+    }
+    try {
+      output.innerHTML = convert(value);
+    } catch (error) {
+      console.error('[render]', error);
+      const status = document.querySelector('#sidebar-status');
+      if (status) {
+        status.textContent = t('renderFailed');
+      }
+      return;
+    }
     scheduleMermaidRender();
   }
 
@@ -183,12 +227,14 @@ const init = () => {
 
   let lastAutoSnapshotTs = 0;
 
-  function scheduleSave(value, docId = null) {
-    if (saveTimer) {
-      clearTimeout(saveTimer);
-    }
-    saveTimer = setTimeout(() => {
-      saveTimer = null;
+  // Última edição ainda não persistida. Vive aqui porque o `pagehide` precisa
+  // alcançar o que o debounce de 300ms ainda não conseguiu gravar.
+  let pendingSave = null;
+
+  function persistNow(value, docId) {
+    // O callback de um setTimeout não tem dono: uma StorageError daqui subia
+    // como uncaught e o usuário nunca via que a edição não foi gravada.
+    guardStorage(() => {
       // Persiste no `last_state` (contrato legado) E no conteúdo do documento
       // ativo — é o documento que o boot lê, então sem o segundo as edições
       // eram perdidas no reload (e o `last_state` acabava sobrescrito com o
@@ -207,28 +253,68 @@ const init = () => {
         });
         lastAutoSnapshotTs = result.lastAutoTs;
       }
+    });
+  }
+
+  // Grava de imediato o que estiver pendente e desarma o timer, para o mesmo
+  // valor não ser gravado duas vezes.
+  function flushSave() {
+    if (!pendingSave) {
+      return;
+    }
+    const { value, docId } = pendingSave;
+    pendingSave = null;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    persistNow(value, docId);
+  }
+
+  function scheduleSave(value, docId = null) {
+    pendingSave = { value, docId };
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+    }
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      flushSave();
     }, 300);
   }
+
+  // A4: fechar a aba ou recarregar antes do debounce disparar perdia a última
+  // edição — não havia nenhum `pagehide`/`beforeunload` no projeto. O handler
+  // roda de forma síncrona, enquanto o storage ainda é gravável.
+  window.addEventListener('pagehide', flushSave);
 
   const scrollTop = () => {
     document.querySelectorAll('.column').forEach((el) => el.scrollTo({ top: 0 }));
   };
 
   function reset() {
-    const ok = resetMarkdownEditor({
-      editor,
-      defaultInput,
-      hasEdited,
-      confirm: () => window.confirm(t('resetConfirm')),
-      scrollTop,
+    let ok = false;
+    // `resetMarkdownEditor` já limpou o editor antes de remover o `last_state`:
+    // se esse removeItem lançar, o utilizador viu a tela limpar mas o reload
+    // traria o conteúdo antigo de volta — precisa ouvir sobre a falha.
+    const ran = guardStorage(() => {
+      ok = resetMarkdownEditor({
+        editor,
+        defaultInput,
+        hasEdited,
+        confirm: () => window.confirm(t('resetConfirm')),
+        scrollTop,
+      });
     });
+    if (!ran) {
+      return;
+    }
     if (ok) {
       hasEdited = false;
       // O documento ativo precisa acompanhar o reset: como o boot lê o
       // documento, sem isto o reload ressuscitava o conteúdo descartado.
       const active = getActiveDocument();
       if (active) {
-        setContent(active.id, defaultInput);
+        guardStorage(() => setContent(active.id, defaultInput));
       }
     }
   }
@@ -255,7 +341,10 @@ const init = () => {
     checkbox.addEventListener('change', (event) => {
       const checked = event.currentTarget.checked;
       scrollBarSync = checked;
-      setItem(NAMESPACE, KEYS.scrollBar, checked);
+      // Todo ponto de gravação passa pelo guard (F2). Sem ele uma quota
+      // estourada aqui virava exceção solta dentro do handler, com o checkbox
+      // já virado e a preferência perdida no próximo reload, sem nenhum aviso.
+      guardStorage(() => setItem(NAMESPACE, KEYS.scrollBar, checked));
     });
   }
 
@@ -299,11 +388,14 @@ const init = () => {
     checkbox.addEventListener('change', (event) => {
       const checked = event.currentTarget.checked;
       setTheme(checked);
-      setItem(NAMESPACE, KEYS.theme, checked);
-      if (checked) {
-        localStorage.setItem(KEYS.themeBoot, 'dark');
-      } else {
-        localStorage.setItem(KEYS.themeBoot, 'light');
+      guardStorage(() => setItem(NAMESPACE, KEYS.theme, checked));
+      // A chave do anti-FOUC é crua (não passa por `storage.js`). No boot ela
+      // já ia em try/catch; aqui não ia, e uma exceção abortava o resto do
+      // handler — CSS, Monaco e mermaid ficavam com o tema velho.
+      try {
+        localStorage.setItem(KEYS.themeBoot, checked ? 'dark' : 'light');
+      } catch {
+        // storage indisponível — anti-FOUC assume o padrão na próxima carga
       }
       setPreviewCss(checked);
       import('./ui/workers/monacoSetup.js').then(({ monaco }) => {
@@ -401,6 +493,12 @@ const init = () => {
       container: document,
       editor,
       getContent: () => editor.getValue(),
+      // M9: o handle de arquivo aberto precisa ser associado a um documento —
+      // sem isto o Ctrl+S gravava o documento ativo por cima de outro arquivo.
+      getActiveDoc: () => {
+        const doc = getActiveDocument();
+        return doc ? { id: doc.id, title: doc.title } : null;
+      },
       onStatus: (message) => {
         if (status) {
           status.textContent = message;
@@ -416,71 +514,91 @@ const init = () => {
   let sidebarApi = null;
   const getCurrentFileName = () => sidebarApi?.getCurrentName?.() ?? null;
 
-  setupEditor().then((ed) => {
-    editor = ed;
+  setupEditor()
+    .then((ed) => {
+      editor = ed;
 
-    const lastContent = safeGet(NAMESPACE, KEYS.lastState, 'string');
-    const index = safeGetIndex();
+      const lastContent = safeGet(NAMESPACE, KEYS.lastState, 'string');
+      const index = safeGetIndex();
 
-    let bootInput;
-    if (index.documents.length > 0) {
-      const active = getActiveDocument();
-      bootInput = resolveDocumentBootInput({
-        lastContent,
-        docContent: active ? getContent(active.id) : null,
-        documentCount: index.documents.length,
-        defaultInput,
-        isUntouchedTemplate,
+      let bootInput;
+      if (index.documents.length > 0) {
+        const active = getActiveDocument();
+        bootInput = resolveDocumentBootInput({
+          lastContent,
+          docContent: active ? getContent(active.id) : null,
+          documentCount: index.documents.length,
+          defaultInput,
+          isUntouchedTemplate,
+        });
+      } else if (lastContent && !isUntouchedTemplate(lastContent)) {
+        // A2: `createDocument` roda `atomicWrite` e lança StorageError com a
+        // quota cheia. Sem o guard essa exceção abortava o `.then` inteiro —
+        // setValue, tema, status bar e sidebar nunca montavam. O conteúdo segue
+        // no `last_state`, então o próximo boot tenta criar o documento de novo.
+        guardStorage(() =>
+          createDocument({
+            title: t('docRestored'),
+            initialContent: lastContent,
+          }),
+        );
+        bootInput = lastContent;
+      } else {
+        bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
+      }
+
+      editor.setValue(bootInput);
+      editor.revealPosition({ lineNumber: 1, column: 1 });
+
+      const scrollSettings = safeGet(NAMESPACE, KEYS.scrollBar, 'boolean') === true;
+      initScrollBarSync(scrollSettings);
+
+      const dark = safeGet(NAMESPACE, KEYS.theme, 'boolean') === true;
+      initThemeToggle(dark);
+
+      applyPrintSettingsCss(loadPrintSettings());
+
+      statusBar = setupStatusBar({
+        container: document,
+        getContent: () => editor.getValue(),
+        tFn: t,
+        getFileName: () => getCurrentFileName(),
       });
-    } else if (lastContent && !isUntouchedTemplate(lastContent)) {
-      createDocument({
-        title: t('docRestored'),
-        initialContent: lastContent,
-      });
-      bootInput = lastContent;
-    } else {
-      bootInput = resolveBootInput({ lastContent, defaultInput, isUntouchedTemplate });
-    }
+      statusBar?.update();
 
-    editor.setValue(bootInput);
-    editor.revealPosition({ lineNumber: 1, column: 1 });
+      setupDivider();
 
-    const scrollSettings = safeGet(NAMESPACE, KEYS.scrollBar, 'boolean') === true;
-    initScrollBarSync(scrollSettings);
+      setupSidebarActions();
 
-    const dark = safeGet(NAMESPACE, KEYS.theme, 'boolean') === true;
-    initThemeToggle(dark);
+      setupLanguageSelector();
 
-    applyPrintSettingsCss(loadPrintSettings());
+      // O retorno é a limpeza do listener. `setupKeyboardShortcuts` já desfaz a
+      // registration anterior sozinho, então aqui basta chamar — mas se um
+      // `init()` rodasse duas vezes, não haveria listener duplicado.
+      setupKeyboardShortcuts();
 
-    statusBar = setupStatusBar({
-      container: document,
-      getContent: () => editor.getValue(),
-      tFn: t,
-      getFileName: () => getCurrentFileName(),
-    });
-    statusBar?.update();
-
-    setupDivider();
-
-    setupSidebarActions();
-
-    setupLanguageSelector();
-
-    setupKeyboardShortcuts();
-
-    if (statusBar) {
-      const quota = statusBar.checkQuota();
-      if (!quota.ok) {
-        const msg = t('storageQuotaWarning').replace('{percent}', String(quota.percentUsed));
-        console.warn(msg);
-        const statusEl = document.querySelector('#sidebar-status');
-        if (statusEl) {
-          statusEl.textContent = msg;
+      if (statusBar) {
+        const quota = statusBar.checkQuota();
+        if (!quota.ok) {
+          const msg = t('storageQuotaWarning').replace('{percent}', String(quota.percentUsed));
+          console.warn(msg);
+          const statusEl = document.querySelector('#sidebar-status');
+          if (statusEl) {
+            statusEl.textContent = msg;
+          }
         }
       }
-    }
-  });
+    })
+    .catch((error) => {
+      // A1: `setupEditor` dynamic-importa o Monaco. Se esse chunk falhar (404
+      // pós-deploy, cache stale), a cadeia morria em `unhandledrejection` com a
+      // tela vazia e nenhum sinal para o usuário.
+      console.error('[boot] falha ao iniciar o editor', error);
+      const status = document.querySelector('#sidebar-status');
+      if (status) {
+        status.textContent = t('bootFailed');
+      }
+    });
 };
 
 window.addEventListener('load', () => {

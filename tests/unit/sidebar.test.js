@@ -479,3 +479,308 @@ describe('sidebar helpers', () => {
     });
   });
 });
+
+describe('M9 — handle de arquivo amarrado ao documento ativo', () => {
+  let container;
+  let editor;
+  let value;
+  let activeDoc;
+  let statuses;
+  let writeOriginal;
+
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: fakeStorage(),
+      writable: true,
+      configurable: true,
+    });
+    container = document.createElement('div');
+    container.innerHTML = `
+      <aside id="sidebar" class="sidebar"></aside>
+      <nav id="sidebar-nav">
+        <button type="button" class="sidebar-item" data-sidebar-action="open"></button>
+        <button type="button" class="sidebar-item" data-sidebar-action="save"></button>
+      </nav>
+    `;
+    value = '';
+    editor = {
+      getValue: () => value,
+      setValue: vi.fn((next) => {
+        value = next;
+      }),
+    };
+    activeDoc = { id: 'doc-a', title: 'Documento A' };
+    statuses = [];
+    writeOriginal = vi.fn();
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+  });
+
+  afterEach(() => {
+    delete window.showOpenFilePicker;
+    delete window.showSaveFilePicker;
+    delete window.isSecureContext;
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  function mountSidebar() {
+    setupSidebar({
+      container,
+      editor,
+      getContent: () => editor.getValue(),
+      getActiveDoc: () => activeDoc,
+      onStatus: (message) => statuses.push(message),
+      handlers: {},
+    });
+  }
+
+  async function openFile(name) {
+    const handle = {
+      name,
+      getFile: async () => ({ text: async () => `# conteúdo de ${name}` }),
+      createWritable: async () => ({ write: writeOriginal, close: vi.fn() }),
+    };
+    window.showOpenFilePicker = vi.fn(async () => [handle]);
+    container.querySelector('[data-sidebar-action="open"]').click();
+    await vi.waitFor(() => expect(window.showOpenFilePicker).toHaveBeenCalled());
+    await vi.waitFor(() => expect(value).toBe(`# conteúdo de ${name}`));
+    return handle;
+  }
+
+  function stubSavePicker() {
+    const writePicked = vi.fn();
+    window.showSaveFilePicker = vi.fn(async ({ suggestedName }) => ({
+      name: suggestedName,
+      createWritable: async () => ({ write: writePicked, close: vi.fn() }),
+    }));
+    return writePicked;
+  }
+
+  it('não sobrescreve o arquivo aberto depois de trocar de documento', async () => {
+    mountSidebar();
+    await openFile('notas.md');
+
+    // o usuário troca para outro documento e digita nele
+    activeDoc = { id: 'doc-b', title: 'Documento B' };
+    value = '# conteúdo do documento B';
+
+    const writePicked = stubSavePicker();
+    container.querySelector('[data-sidebar-action="save"]').click();
+    await vi.waitFor(() => expect(writePicked).toHaveBeenCalledTimes(1));
+
+    // notas.md permanece intacto
+    expect(writeOriginal).not.toHaveBeenCalled();
+    expect(writePicked).toHaveBeenCalledWith('# conteúdo do documento B');
+    // e o picker sugere o documento corrente, não o nome de outro arquivo
+    // (`toMarkdownName` é quem acrescenta a extensão)
+    expect(window.showSaveFilePicker).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: 'Documento B.md' }),
+    );
+  });
+
+  it('continua sobrescrevendo quando o handle pertence ao documento ativo', async () => {
+    mountSidebar();
+    await openFile('notas.md');
+
+    value = '# notas editadas';
+    container.querySelector('[data-sidebar-action="save"]').click();
+    await vi.waitFor(() => expect(writeOriginal).toHaveBeenCalledTimes(1));
+
+    expect(writeOriginal).toHaveBeenCalledWith('# notas editadas');
+    // não caiu no caminho de "salvar como"
+    expect(window.showSaveFilePicker).toBeUndefined();
+    expect(statuses.at(-1)).toBe(t('fileSaved').replace('{name}', 'notas.md'));
+  });
+
+  it('voltar ao documento de origem reabilita a sobrescrita', async () => {
+    mountSidebar();
+    await openFile('notas.md');
+
+    activeDoc = { id: 'doc-b', title: 'Documento B' };
+    const writePicked = stubSavePicker();
+    container.querySelector('[data-sidebar-action="save"]').click();
+    await vi.waitFor(() => expect(writePicked).toHaveBeenCalledTimes(1));
+    expect(writeOriginal).not.toHaveBeenCalled();
+
+    activeDoc = { id: 'doc-a', title: 'Documento A' };
+    container.querySelector('[data-sidebar-action="save"]').click();
+    await vi.waitFor(() => expect(writeOriginal).toHaveBeenCalledTimes(1));
+    expect(writeOriginal).toHaveBeenCalledWith('# conteúdo de notas.md');
+  });
+});
+
+describe('ações da sidebar ainda sem cobertura', () => {
+  let container;
+  let statuses;
+
+  function setup(handlers = {}) {
+    const statusesRef = statuses;
+    return setupSidebar({
+      container,
+      editor: { getValue: () => '# x', setValue: vi.fn(), revealPosition: vi.fn() },
+      getContent: () => '# x',
+      handlers,
+      onStatus: (message) => statusesRef.push(message),
+    });
+  }
+
+  beforeEach(() => {
+    statuses = [];
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: fakeStorage(),
+      writable: true,
+      configurable: true,
+    });
+    container = document.createElement('div');
+    container.innerHTML = `
+      <aside id="sidebar" class="sidebar"></aside>
+      <nav id="sidebar-nav">
+        <button type="button" data-sidebar-action="manual"></button>
+        <button type="button" data-sidebar-action="print"></button>
+        <button type="button" data-sidebar-action="save"></button>
+        <button type="button" data-sidebar-action="desconhecida"></button>
+      </nav>
+      <dialog id="manual-dialog"><button id="manual-close" type="button"></button></dialog>
+      <div id="sidebar-status"></div>
+    `;
+    document.body.appendChild(container);
+    document.body.insertAdjacentHTML('beforeend', '<div id="manual-content"></div>');
+  });
+
+  afterEach(() => {
+    container.remove();
+    document.getElementById('manual-content')?.remove();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    clearManualCache();
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it('print chama window.print', () => {
+    const print = vi.fn();
+    Object.defineProperty(window, 'print', { value: print, configurable: true, writable: true });
+    setup();
+    container.querySelector('[data-sidebar-action="print"]').click();
+    expect(print).toHaveBeenCalledTimes(1);
+    expect(statuses).not.toContain(t('printError'));
+  });
+
+  it('quando window.print lança, reporta printError', () => {
+    Object.defineProperty(window, 'print', {
+      value: () => {
+        throw new Error('bloqueado');
+      },
+      configurable: true,
+      writable: true,
+    });
+    setup();
+    container.querySelector('[data-sidebar-action="print"]').click();
+    expect(statuses).toContain(t('printError'));
+  });
+
+  it('manual abre o diálogo, renderiza o corpo e o fecha pelo botão', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, text: async () => '# Manual\n\nseção' })),
+    );
+    setup();
+    container.querySelector('[data-sidebar-action="manual"]').click();
+
+    const dialog = container.querySelector('#manual-dialog');
+    expect(dialog.hasAttribute('open')).toBe(true);
+    await vi.waitFor(() =>
+      expect(document.querySelector('#manual-content').innerHTML).toContain('Manual'),
+    );
+
+    container.querySelector('#manual-close').click();
+    expect(dialog.hasAttribute('open')).toBe(false);
+  });
+
+  it('manual com o fetch fora do ar reporta fileError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline');
+      }),
+    );
+    setup();
+    container.querySelector('[data-sidebar-action="manual"]').click();
+    await vi.waitFor(() => expect(statuses).toContain(t('fileError')));
+  });
+
+  it('openManual da API abre o mesmo diálogo', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, text: async () => '# Manual' })),
+    );
+    const api = setup();
+    api.openManual();
+    expect(container.querySelector('#manual-dialog').hasAttribute('open')).toBe(true);
+    expect(api.getCurrentName()).toBe('documento.md');
+    expect(api.getState()).toEqual({ collapsed: false });
+    expect(api.getState().collapsed).toBe(false);
+  });
+
+  it('setupSidebar devolve null sem container e sem #sidebar', () => {
+    expect(setupSidebar({ container: null })).toBeNull();
+    expect(setupSidebar({ container: document.createElement('div') })).toBeNull();
+  });
+
+  it('localStorage lançando não derruba a montagem (collapsed cai para false)', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: {
+        getItem: () => {
+          throw new Error('modo privado');
+        },
+        setItem: () => {},
+        clear: () => {},
+      },
+      writable: true,
+      configurable: true,
+    });
+    const api = setup();
+    expect(api).not.toBeNull();
+    expect(container.querySelector('#sidebar').classList.contains('is-collapsed')).toBe(false);
+  });
+
+  it('botão sem data-sidebar-action não registra handler', () => {
+    const bare = document.createElement('div');
+    bare.innerHTML =
+      '<aside id="sidebar"></aside><button type="button" data-sidebar-action></button>';
+    const api = setupSidebar({ container: bare, editor: {}, handlers: {} });
+    expect(api).not.toBeNull();
+    expect(() => bare.querySelector('button').click()).not.toThrow();
+  });
+
+  it('save reporta saveError quando o picker falha fora de cancelamento', async () => {
+    Object.defineProperty(window, 'isSecureContext', {
+      value: true,
+      configurable: true,
+      writable: true,
+    });
+    // `supportsOpenPicker()` olha `isSecureContext` + `showOpenFilePicker`;
+    // sem os dois o save cai no download e nunca reporta saveError.
+    Object.defineProperty(window, 'showOpenFilePicker', {
+      value: vi.fn(),
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(window, 'showSaveFilePicker', {
+      value: vi.fn(async () => {
+        throw new Error('sem permissão');
+      }),
+      configurable: true,
+      writable: true,
+    });
+    setup();
+    container.querySelector('[data-sidebar-action="save"]').click();
+    await vi.waitFor(() => expect(statuses).toContain(t('saveError')));
+    delete window.showSaveFilePicker;
+    delete window.showOpenFilePicker;
+    delete window.isSecureContext;
+  });
+});

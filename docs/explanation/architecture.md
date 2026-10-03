@@ -36,6 +36,9 @@ Em paralelo à conversão:
   conteúdo do documento ativo (`documents.content.<id>`), que é o que o boot lê. O id do documento é
   capturado no momento da edição, para um save atrasado não cair no documento recém-selecionado.
   Templates não editados **não** são persistidos (troca de idioma restaura o template corrente).
+  O timer e o `reset()` passam por `guardStorage` (F2): quota/`SecurityError` viram mensagem no
+  `#sidebar-status` em vez de erro silencioso no console, e `handleSwitch` **aborta** a troca de
+  documento se a gravação prévia falhou (senão descartaria o que estava no editor).
 - `maybeAutoSnapshot(value)` — throttle 60 s → anel de backup `com.markdownstudio.backup`
   (máx. 5), protegendo contra `last_state` corrompido (P1-8).
 - `statusBar.update()` — estatísticas (palavras, caracteres, linhas, tempo de leitura) + nome
@@ -77,7 +80,8 @@ debounce durante capturas de export (PDF) para o tema não "vazar" no clone.
 Glue de DOM em torno do pipeline: `divider`, `sidebar`, `i18nElements`, `language`,
 `editorActions`, `scrollSync`, `statusBar`, `exportPdf`, `exportHtml`, `copyRich`,
 `snapshots`/`snapshotsDialog`, `tocDialog`, `printSettings`/`printSettingsDialog`,
-`files`, `documents-ui` (lista de documentos da sidebar), `workers/monacoSetup` (Monaco sem
+`files`, `documents-ui` (lista de documentos da sidebar), `storageFeedback` (mensagem i18n e
+`guardStorage` para falha de gravação), `workers/monacoSetup` (Monaco sem
 workers — proxy no-op). O `main.js` orquestra o boot; lógica testável é extraída em módulos
 (ex.: `editorActions`, `i18nElements`).
 
@@ -230,6 +234,17 @@ Justificativa:
 | Mermaid                             | Imagem (SVG→PNG via canvas)                  | `mermaid.render()` → canvas → dataURL → pdfmake image       |
 | KaTeX inline/bloco                  | SVG embutido (re-render com `output: 'svg'`) | KaTeX `renderToString({output:'svg'})` → pdfmake image      |
 | Page break (`<!-- page-break -->`)  | `pageBreak: 'before'` no próximo content     | AST page-break marker → pageBreak property                  |
+
+> A linha **KaTeX** passa por `resolveKatexPlaceholders` (`src/pdf/markdown-to-pdfmake.js`),
+> que troca os placeholders `__KATEX_HTML__:…__END__` por nós `{image, fit}`:
+>
+> - **math-block** (string direta no `text` do item) → o item inteiro vira nó de imagem;
+> - **math-inline** (run `{text: …}` dentro de `text[]`) → só aquele run vira imagem, o texto
+>   ao redor é preservado.
+>
+> O nó sai **sem** a propriedade `text`: o pdfmake testa `node.text !== undefined` antes de
+> `node.image`, então `text: {image, …}` seria medido como texto e viraria lixo. Uma fórmula
+> que não rasteriza degrada para o texto, sem derrubar o export inteiro.
 
 ### Feature-flag
 

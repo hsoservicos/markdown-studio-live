@@ -49,6 +49,7 @@ npm run lint:md        # markdownlint-cli2
 npm run format:check   # Prettier check
 npm run format:fix     # Prettier fix
 npm run quality        # format:check && lint && lint:md && test:coverage && build (gate = CI)
+npm run docker:audit   # builda, sobe read-only e audita headers/cache/health (exit != 0 se falhar)
 npm run deploy:audit   # audita a cadeia GitHub → CI → Coolify → produção (exit != 0 se falhar)
 ```
 
@@ -84,7 +85,7 @@ A imagem é multi-stage (`Dockerfile`): stage `builder` (node:22-alpine, `npm ci
 - `src/main.js` — entry point / bootstrap (`window.addEventListener('load', init)`).
 - `src/storage.js` — deterministic localStorage wrapper (replaces storehouse-js).
 - `src/render/` — pure rendering pipeline (marked → DOMPurify → mermaid).
-- `src/ui/` — DOM glue: editor bootstrap, scroll sync, theme, divider, buttons.
+- `src/ui/` — DOM glue: editor bootstrap, scroll sync, theme, divider, buttons, `storageFeedback` (write-failure guard).
 - `src/i18n/` — pt-BR first localization (strings + default template).
 
 ### Data flow
@@ -103,6 +104,8 @@ edição no Monaco
 
 - **Security edge**: DOMPurify is the ONLY frontier sanitizing `marked` output before DOM injection.
 - **Mermaid render discipline**: manual `render()`, never `startOnLoad`; deferred debounce + version-guard against races.
+- **nginx security headers**: declared twice (server block + `location /`) because a `add_header` inside a `location` cancels all server-level inheritance; `/assets/` uses only `expires` so it inherits them without a second `Cache-Control`.
+- **Storage write failures**: `setItem`/`setRaw`/`removeItem` wrap in `StorageError` keeping `cause.name`; `guardStorage` (src/ui/storageFeedback.js) turns it into an i18n status message and the caller aborts the next operation instead of dropping data.
 - **localStorage contract**: keys `com.markdownstudio.last_state`, `scroll_bar_settings`, `theme_settings`; expiry 2099.
 - **Theme boot**: inline head script sets `data-theme` pre-paint (anti-FOUC); app keeps source of truth.
 

@@ -40,6 +40,8 @@
   </head>
 
   <body>
+    <a class="skip-link" href="#container" data-i18n="skipToContent">Pular para o conteúdo</a>
+
     <header>
       <div id="menu-items">
         <div>
@@ -54,7 +56,9 @@
           >
             <span class="sidebar-toggle-icon" aria-hidden="true"></span>
           </button>
-          <a href="/" class="wordmark">Markdown-Studio</a>
+          <h1 class="wordmark-heading">
+            <a href="/" class="wordmark">Markdown-Studio</a>
+          </h1>
         </div>
         <div id="sync-button">
           <label
@@ -485,7 +489,7 @@
         <div id="sidebar-status" class="sidebar-status" role="status" aria-live="polite"></div>
       </aside>
 
-      <div id="container" class="split-container">
+      <main id="container" class="split-container">
         <div id="edit" class="column editor-pane">
           <div id="editor-wrapper">
             <div
@@ -515,7 +519,7 @@
             <div id="output" class="content markdown-body"></div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
 
     <dialog id="manual-dialog" class="print-dialog" aria-labelledby="manual-title">
@@ -686,8 +690,8 @@
     </dialog>
 
     <footer>
-      <span id="status-stats" class="status-stats" data-i18n-aria-label="statsLabel"
-        aria-label="Estatísticas do documento"></span>
+      <span class="sr-only" data-i18n="statsLabel">Estatísticas do documento</span>
+      <span id="status-stats" class="status-stats"></span>
     </footer>
   </body>
 </html>

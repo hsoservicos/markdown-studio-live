@@ -3,6 +3,7 @@ import { getMermaidTheme } from '../render/mermaid.js';
 import { pauseMermaidScheduling } from '../render/mermaid.js';
 import { resumeMermaidScheduling } from '../render/mermaid.js';
 import { t } from '../i18n/index.js';
+import { isVectorPdfEnabled } from './pdfVectorFlag.js';
 import {
   DEFAULT_PRINT_SETTINGS,
   getPrintStylesheetCss,
@@ -11,16 +12,6 @@ import {
 } from './printSettings.js';
 
 export const DEFAULT_PDF_FILENAME = 'markdown-preview.pdf';
-
-export const PDF_VECTOR_FLAG = 'com.markdownstudio.pdf.vector';
-
-function isVectorPdfEnabled(storage = globalThis.localStorage) {
-  try {
-    return storage.getItem(PDF_VECTOR_FLAG) === 'true';
-  } catch {
-    return false;
-  }
-}
 
 const PAPER_WIDTH_MM = { a4: 210, letter: 216 };
 

@@ -43,8 +43,8 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
-    "format:check": "prettier --check \"**/*.{js,mjs,json,yaml,md}\"",
-    "format:fix": "prettier --write \"**/*.{js,mjs,json,yaml,md}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,yml,yaml,md}\"",
+    "format:fix": "prettier --write \"**/*.{js,mjs,json,yml,yaml,md}\"",
     "quality": "npm run format:check && npm run lint && npm run lint:md && npm run test:coverage && npm run build",
     "prepare": "husky",
     "release": "node scripts/bump-version.js patch",
@@ -76,6 +76,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^5.0.2",
+    "axe-core": "^4.13.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "http-server": "^14.1.1",
@@ -99,7 +100,7 @@
       "npm run lint:fix",
       "npm run format:fix"
     ],
-    "*.{json,yaml,md}": [
+    "*.{json,yml,yaml,md}": [
       "npm run format:fix"
     ],
     "*.md": [

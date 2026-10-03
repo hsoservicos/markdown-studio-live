@@ -34,6 +34,40 @@ describe('exportHtml', () => {
       expect(html).toContain('&quot;&gt;&lt;script&gt;x&lt;/script&gt;');
       expect(html).not.toContain('<script>x</script>');
     });
+
+    it('M2: declara CSP que proíbe script e origem padrão nula', () => {
+      const html = buildStandaloneHtml('<p>ok</p>');
+      const csp = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/);
+      expect(csp).toBeTruthy();
+      // o escapeHtml do projeto codifica as aspas; o browser decodifica os
+      // character references ao ler o valor do atributo.
+      const policy = csp[1]
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+      expect(policy).toContain("default-src 'none'");
+      expect(policy).toContain("script-src 'none'");
+      expect(policy).toContain("object-src 'none'");
+      expect(policy).toContain("connect-src 'none'");
+      // o CSS embutido, os style do KaTeX e o <style> dos SVGs são inline
+      expect(policy).toContain("style-src 'unsafe-inline'");
+      // imagens e fontes seguem liberadas: markdown permite ![](url)
+      expect(policy).toContain('img-src');
+    });
+
+    it('M2: a CSP sai escapada dentro do atributo', () => {
+      const html = buildStandaloneHtml('', { csp: 'x" onload="alert(1)' });
+      expect(html).not.toContain('onload="alert(1)"');
+      expect(html).toContain('x&quot; onload=&quot;alert(1)');
+    });
+
+    it('M2: csp null remove a meta (para quem hospeda com header próprio)', () => {
+      expect(buildStandaloneHtml('<p>x</p>', { csp: null })).not.toContain(
+        'Content-Security-Policy',
+      );
+    });
   });
 
   describe('loadCssText', () => {

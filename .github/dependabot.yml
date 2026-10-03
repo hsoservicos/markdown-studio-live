@@ -1,45 +1,45 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     open-pull-requests-limit: 10
     labels:
-      - "dependencies"
+      - 'dependencies'
     groups:
       dev-dependencies:
-        dependency-type: "development"
+        dependency-type: 'development'
       production-dependencies:
-        dependency-type: "production"
+        dependency-type: 'production'
     commit-message:
-      prefix: "chore(deps)"
-  - package-ecosystem: "github-actions"
-    directory: "/"
+      prefix: 'chore(deps)'
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     labels:
-      - "dependencies"
-      - "ci"
+      - 'dependencies'
+      - 'ci'
     commit-message:
-      prefix: "chore(ci)"
+      prefix: 'chore(ci)'
   # Base images do multi-stage build ficariam congeladas sem isto: o Dependabot
   # cobre npm e Actions, mas não `nginx:1.27-alpine`/`node:22-alpine` do Dockerfile.
-  - package-ecosystem: "docker"
-    directory: "/"
+  - package-ecosystem: 'docker'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: 'weekly'
+      day: 'monday'
     labels:
-      - "dependencies"
-      - "docker"
+      - 'dependencies'
+      - 'docker'
     # `node:22-alpine` já flutua dentro de 22.x (os patches entram sozinhos a cada
     # build); o salto de linha 22 → 26 exige alinhar `.nvmrc`, CI e `engines` junto —
     # decisão humana, não automática. `nginx` segue liberado (1.27 → 1.31 é desejável).
     ignore:
-      - dependency-name: "node"
-        update-types: ["version-update:semver-major"]
+      - dependency-name: 'node'
+        update-types: ['version-update:semver-major']
     commit-message:
-      prefix: "chore(docker)"
+      prefix: 'chore(docker)'

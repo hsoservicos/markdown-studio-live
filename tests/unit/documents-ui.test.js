@@ -7,7 +7,9 @@ import {
   getContent,
   setContent,
   listDocuments,
+  deleteDocument,
 } from '../../src/documents.js';
+import { t } from '../../src/i18n/index.js';
 
 function makeEditor(value = '') {
   let current = value;
@@ -172,6 +174,27 @@ describe('setupDocumentManager', () => {
     expect(listDocuments()[0].title).toBe('Antes');
   });
 
+  it('M8: documento apagado durante o prompt não é anunciado como salvo', () => {
+    createDocument({ title: 'A' });
+    const b = createDocument({ title: 'B' });
+    const { api, statuses } = setup();
+    vi.spyOn(window, 'prompt').mockImplementation(() => {
+      // outra aba apaga enquanto o prompt está aberto — a janela real de race
+      deleteDocument(b.id);
+      return 'B renomeado';
+    });
+
+    api.rename(b.id);
+
+    // o guard só enxerga exceções; sem capturar o `false` do `updateTitle`
+    // a UI teria anunciado o rename como gravado
+    expect(statuses.at(-1)).toBe(t('docOpRefused'));
+    expect(statuses.some((m) => m.includes('B renomeado'))).toBe(false);
+    // a lista é recarregada e o documento fantasma some
+    expect(listDocuments().map((d) => d.title)).toEqual(['A']);
+    expect(document.querySelectorAll('.doc-item')).toHaveLength(1);
+  });
+
   it('fecha o documento após confirmação e carrega o restante', () => {
     const a = createDocument({ title: 'A', initialContent: 'conteúdo A' });
     const b = createDocument({ title: 'B', initialContent: 'conteúdo B' });
@@ -228,7 +251,12 @@ describe('setupDocumentManager', () => {
 
     expect(listDocuments().map((d) => d.id)).toEqual([b.id]);
     expect(getActiveDocument().id).toBe(b.id);
-    expect(editor.setValue).toHaveBeenCalledWith('conteúdo B');
+    // M4: B já é o que está aberto. Recarregá-lo aqui seria `setValue` com o
+    // mesmo texto — que limpa o undo stack do Monaco e joga o scroll para o
+    // topo — só porque uma outra linha foi fechada.
+    expect(editor.setValue).not.toHaveBeenCalled();
+    // a lista foi re-renderizada mesmo sem recarregar o documento
+    expect(document.querySelectorAll('.doc-item')).toHaveLength(1);
   });
 
   it('refresh re-renderiza a lista a partir do índice', () => {
@@ -252,5 +280,72 @@ describe('setupDocumentManager', () => {
     document.querySelector('#doc-new-btn').click();
 
     expect(getContent(first.id)).toBe('editado agora');
+  });
+});
+
+// F2: localStorage pode estourar a quota. Sem guard, a StorageError abortava o
+// handler de evento em silêncio — o clique "não fazia nada" e a perda só
+// aparecia no reload. O contrato é: não lançar, avisar no status, abortar.
+describe('falha de escrita no localStorage', () => {
+  function failWrites() {
+    const err = new Error('quota');
+    err.name = 'QuotaExceededError';
+    return vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw err;
+    });
+  }
+
+  it('criação reporta quota no status e não lança', () => {
+    createDocument({ title: 'A' });
+    const { statuses } = setup();
+    const before = listDocuments().length;
+    failWrites();
+
+    expect(() => document.querySelector('#doc-new-btn').click()).not.toThrow();
+
+    expect(listDocuments()).toHaveLength(before);
+    expect(statuses.at(-1)).toContain('armazenamento cheio');
+  });
+
+  it('troca de documento aborta quando o save anterior falha', () => {
+    const a = createDocument({ title: 'A', initialContent: 'conteúdo A' });
+    const b = createDocument({ title: 'B', initialContent: 'conteúdo B' });
+    const { api, editor, statuses } = setup({ editorValue: 'editado em B' });
+    expect(getActiveDocument().id).toBe(b.id);
+    const setValueCalls = editor.setValue.mock.calls.length;
+    failWrites();
+
+    expect(() => api.switchTo(a.id)).not.toThrow();
+
+    // não trocou: carregar A descartaria o "editado em B" que não foi salvo
+    expect(editor.setValue.mock.calls).toHaveLength(setValueCalls);
+    expect(getActiveDocument().id).toBe(b.id);
+    expect(statuses.at(-1)).toContain('armazenamento cheio');
+  });
+
+  it('renomear reporta quota no status e mantém o título', () => {
+    const doc = createDocument({ title: 'Antes' });
+    const { api, statuses } = setup();
+    vi.spyOn(window, 'prompt').mockReturnValue('Depois');
+    failWrites();
+
+    expect(() => api.rename(doc.id)).not.toThrow();
+
+    expect(listDocuments()[0].title).toBe('Antes');
+    expect(statuses.at(-1)).toContain('armazenamento cheio');
+  });
+
+  it('fecha documento reporta quota quando a gravação prévia falha', () => {
+    createDocument({ title: 'A' });
+    createDocument({ title: 'B' });
+    const { statuses } = setup({ confirm: () => true });
+    expect(listDocuments()).toHaveLength(2);
+    failWrites();
+
+    expect(() => document.querySelector('.doc-close-btn').click()).not.toThrow();
+
+    // nada mudou: nem o save nem a remoção passaram
+    expect(listDocuments()).toHaveLength(2);
+    expect(statuses.at(-1)).toContain('armazenamento cheio');
   });
 });

@@ -19,6 +19,13 @@ permissions:
   pull-requests: write
   actions: write
 
+# Dois releases simultâneos brigariam pela mesma branch `release/vX.Y.Z`, pelo
+# mesmo PR e pela mesma tag. Espera em fila — cancelar no meio deixaria o
+# auto-merge e a tag pela metade.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 # `main` exige pull request e o check `quality`. O GITHUB_TOKEN não pode
 # empurrar direto (GH006), e o bypass de proteção só existe em repositórios
 # de organização — então o bump viaja numa branch de release, abre PR e
@@ -34,7 +41,8 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Mesmo `.nvmrc` do quality.yml — uma fonte só para a versão do Node.
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -62,16 +70,22 @@ jobs:
       # para trás, e o push seguinte sai como non-fast-forward. A branch é
       # descartável — sempre começa limpa. `main` segue protegido contra force-push.
       - name: Push release branch
+        id: push
         run: |
           BRANCH="${{ steps.version.outputs.branch }}"
           git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
           git push origin "HEAD:refs/heads/$BRANCH"
+          SHA=$(git rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "pushed $BRANCH @ $SHA"
 
       - name: Open pull request
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.push.outputs.sha }}
         run: |
           gh pr create \
             --base "${GITHUB_REF_NAME}" \
@@ -79,19 +93,32 @@ jobs:
             --title "chore: release v${{ steps.version.outputs.version }}" \
             --body "Release automatizado de \`v${{ steps.version.outputs.version }}\` (bump ${{ inputs.bump }}) gerado pelo workflow \`Release\`."
           PR=$(gh pr list --head "${{ steps.version.outputs.branch }}" --base "${GITHUB_REF_NAME}" --json number --jq '.[0].number')
+          # `gh pr list` aceita qualquer PR com essa head, inclusive um legado já
+          # fechado. Confirma que o PR escolhido é o do commit que acabamos de
+          # empurrar antes de nele aprovar/checkar/consumir o auto-merge.
+          PR_HEAD=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          if [ "$PR_HEAD" != "$HEAD_SHA" ]; then
+            echo "::error::PR #$PR aponta para $PR_HEAD, esperado $HEAD_SHA"
+            exit 1
+          fi
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
-          echo "PR #$PR aberto"
+          echo "PR #$PR aberto @ $PR_HEAD"
 
       # O `pull_request` criado pelo `gh pr create` nasce em `action_required`:
       # 0 jobs, ninguém roda — e É esse check que a proteção da branch enxerga.
       # O do `workflow_dispatch` não entra no rollup do PR, então dispará-lo não
       # destravava o auto-merge; só a aprovação via API o faz concluir.
+      #
+      # `head_sha` restringe a busca ao commit exato que empurramos: só filtrar
+      # por branch/event pega também runs de tentativas anteriores da mesma
+      # branch (release/vX.Y.Z é reciclável) e aprovava/consumia o run errado.
       - name: Approve pull request runs
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ steps.version.outputs.branch }}
+          HEAD_SHA: ${{ steps.push.outputs.sha }}
         run: |
-          RUNS_API="repos/$GITHUB_REPOSITORY/actions/runs?branch=$BRANCH&event=pull_request&per_page=50"
+          RUNS_API="repos/$GITHUB_REPOSITORY/actions/runs?branch=$BRANCH&head_sha=$HEAD_SHA&event=pull_request&per_page=50"
           for i in $(seq 1 30); do
             PENDING=$(gh api "$RUNS_API" --jq '.workflow_runs[] | select(.conclusion == "action_required") | .id')
             FINISHED=$(gh api "$RUNS_API" --jq '[.workflow_runs[] | select(.name == "Quality" and .status == "completed" and .conclusion != "action_required")] | length')
@@ -120,6 +147,7 @@ jobs:
         run: gh pr merge "${{ steps.pr.outputs.pr }}" --squash --auto --delete-branch
 
       - name: Wait for merge
+        id: merge
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -127,20 +155,34 @@ jobs:
           for i in $(seq 1 90); do
             STATE=$(gh pr view "$PR" --json state --jq .state)
             echo "attempt $i: state=$STATE"
-            if [ "$STATE" = "MERGED" ]; then exit 0; fi
+            if [ "$STATE" = "MERGED" ]; then
+              MERGE_SHA=$(gh pr view "$PR" --json mergeCommit --jq .mergeCommit.oid)
+              echo "merge_commit=$MERGE_SHA" >> "$GITHUB_OUTPUT"
+              echo "merged as $MERGE_SHA"
+              exit 0
+            fi
             if [ "$STATE" = "CLOSED" ]; then echo "PR fechado sem merge"; exit 1; fi
             sleep 10
           done
           echo "timeout esperando o auto-merge"; exit 1
 
-      # O commit que sobrevive é o squash-merge em `main`, não o commit local do
-      # bump — a tag precisa apontar para o SHA que de fato entrou na branch.
+      # A tag precisa apontar para o squash-merge DESTE PR. Marcar a ponta de
+      # `main` no instante do fetch pega qualquer outro commit que tenha entrado
+      # na janela entre o merge e o tag — foi assim que a tag `v1.3.0` acabou
+      # apontando para um commit diferente do artefato publicado no GHCR.
       - name: Tag merged commit
+        env:
+          MERGE_SHA: ${{ steps.merge.outputs.merge_commit }}
         run: |
           git fetch origin "${GITHUB_REF_NAME}"
+          if [ -z "$MERGE_SHA" ] || ! git cat-file -e "$MERGE_SHA" 2>/dev/null; then
+            echo "::error::merge commit não encontrado: ${MERGE_SHA:-<vazio>}"
+            exit 1
+          fi
           git tag -d "${{ steps.version.outputs.tag }}" 2>/dev/null || true
-          git tag "${{ steps.version.outputs.tag }}" "origin/${GITHUB_REF_NAME}"
+          git tag "${{ steps.version.outputs.tag }}" "$MERGE_SHA"
           git push origin "${{ steps.version.outputs.tag }}"
+          echo "tag ${{ steps.version.outputs.tag }} -> $MERGE_SHA"
 
       - name: Build
         run: npm run build

@@ -182,6 +182,41 @@ describe('documents layer', () => {
     expect(safeGetIndex()).toEqual(freshIndex());
   });
 
+  it('M5: quando a reversão funciona, o erro afirma que houve reversão', () => {
+    installThrowingStorage('QuotaExceededError');
+    let caught;
+    try {
+      createDocument({ title: 'A', initialContent: 'x' });
+    } catch (err) {
+      caught = err;
+    }
+    restoreStorage();
+    expect(caught.reverted).toBe(true);
+    expect(caught.message).toContain('alteração revertida');
+    expect(safeGetIndex()).toEqual(freshIndex());
+  });
+
+  it('M5: quando a reversão também falha, o erro não mente sobre o rollback', () => {
+    installFailingRollbackStorage('QuotaExceededError');
+    let caught;
+    try {
+      createDocument({ title: 'A', initialContent: 'x' });
+    } catch (err) {
+      caught = err;
+    }
+    restoreStorage();
+
+    expect(caught).toBeTruthy();
+    expect(caught.code).toBe('quota');
+    expect(caught.reverted).toBe(false);
+    expect(caught.message).not.toContain('alteração revertida');
+    expect(caught.message).toContain('reversão do índice também falhou');
+    // o estado real que a mensagem descreve: índice apontando para um
+    // documento sem registro de conteúdo nenhum
+    expect(safeGetIndex().documents).toHaveLength(1);
+    expect(getContent(safeGetIndex().documents[0].id)).toBe(null);
+  });
+
   it('SecurityError é classificado com code security e não corrompe', () => {
     installThrowingStorage('SecurityError');
     let caught;
@@ -345,6 +380,44 @@ function installIndexThrowingStorage(errorName) {
   });
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: proxy });
 }
+/**
+ * M5: a escrita do índice é a primeira e precisa dar certo; a do conteúdo
+ * falha; e a reversão do índice (2ª escrita de índice) falha também — o único
+ * caminho em que `atomicWrite` não pode prometer "alteração revertida".
+ */
+function installFailingRollbackStorage(errorName) {
+  const real = globalThis.localStorage;
+  originalStorage = real;
+  let indexWrites = 0;
+  const failure = () => {
+    const e = new Error(errorName);
+    e.name = errorName;
+    return e;
+  };
+  const proxy = new Proxy(real, {
+    get(target, prop) {
+      if (prop === 'setItem') {
+        return (key, value) => {
+          const full = String(key);
+          if (full.includes(`${CONTENT_KEY}.`)) {
+            throw failure();
+          }
+          if (full.endsWith(INDEX_KEY)) {
+            indexWrites += 1;
+            if (indexWrites > 1) {
+              throw failure();
+            }
+          }
+          return target.setItem(key, value);
+        };
+      }
+      const v = target[prop];
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: proxy });
+}
+
 function restoreStorage() {
   if (originalStorage) {
     Object.defineProperty(globalThis, 'localStorage', {

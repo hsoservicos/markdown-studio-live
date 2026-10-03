@@ -112,4 +112,96 @@ describe('pauseMermaidScheduling / resumeMermaidScheduling', () => {
     // O lazy-load do mermaid resolve em microtask após o timer disparar.
     await vi.waitFor(() => expect(mermaidState.render).toHaveBeenCalledTimes(1));
   });
+
+  it('M7: agendamento feito enquanto pausado é reposto no resume', async () => {
+    pauseMermaidScheduling();
+    scheduleMermaidRender(10);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(mermaidState.render).not.toHaveBeenCalled();
+
+    resumeMermaidScheduling();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(mermaidState.render).toHaveBeenCalledTimes(1);
+  });
+
+  it('M7: render que o pause cancela também é reposto no resume', async () => {
+    scheduleMermaidRender(10);
+    pauseMermaidScheduling();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(mermaidState.render).not.toHaveBeenCalled();
+
+    resumeMermaidScheduling();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(mermaidState.render).toHaveBeenCalledTimes(1);
+  });
+
+  it('M7: resume sem pedido pendente não renderiza à toa', async () => {
+    pauseMermaidScheduling();
+    resumeMermaidScheduling();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(mermaidState.render).not.toHaveBeenCalled();
+  });
+});
+
+describe('guards de corrida e isolamento de falha (M12)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('falha em um diagrama não aborta os demais da mesma passagem', async () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<div class="mermaid">quebrado</div><div class="mermaid">saudavel</div>';
+    mermaidState.render
+      .mockRejectedValueOnce(new Error('Parse error on line 1'))
+      .mockResolvedValueOnce({ svg: '<svg>ok</svg>', bindFunctions: undefined });
+
+    await renderMermaidDiagramsIn(root);
+
+    const [bad, good] = root.querySelectorAll('.mermaid');
+    expect(bad.classList.contains('mermaid-error')).toBe(true);
+    expect(bad.textContent).toContain('Parse error on line 1');
+    expect(good.classList.contains('mermaid-error')).toBe(false);
+    expect(good.innerHTML).toBe('<svg>ok</svg>');
+  });
+
+  it('um erro que escapa do loop não prende o single-flight (sem deadlock)', async () => {
+    mermaidState.initialize.mockImplementationOnce(() => {
+      throw new Error('initialize falhou');
+    });
+    const root = mermaidRoot();
+
+    await expect(renderMermaidDiagramsIn(root)).rejects.toThrow('initialize falhou');
+
+    mermaidState.render.mockResolvedValueOnce({
+      svg: '<svg>depois</svg>',
+      bindFunctions: undefined,
+    });
+    await renderMermaidDiagramsIn(root);
+
+    expect(root.querySelector('.mermaid').innerHTML).toBe('<svg>depois</svg>');
+  });
+
+  it('chamadas concorrentes após uma falha compartilham o mesmo lock novo', async () => {
+    mermaidState.initialize.mockImplementationOnce(() => {
+      throw new Error('primeira falha');
+    });
+    const root = mermaidRoot();
+    await expect(renderMermaidDiagramsIn(root)).rejects.toThrow('primeira falha');
+
+    mermaidState.render.mockResolvedValue({ svg: '<svg>final</svg>', bindFunctions: undefined });
+    await Promise.all([renderMermaidDiagramsIn(root), renderMermaidDiagramsIn(root)]);
+
+    expect(root.querySelector('.mermaid').innerHTML).toBe('<svg>final</svg>');
+  });
+
+  it('bindFunctions é aplicado quando o mermaid devolve a função de ligação', async () => {
+    const root = mermaidRoot();
+    const bindFunctions = vi.fn();
+    mermaidState.render.mockResolvedValueOnce({ svg: '<svg>ligado</svg>', bindFunctions });
+
+    await renderMermaidDiagramsIn(root);
+
+    expect(bindFunctions).toHaveBeenCalledTimes(1);
+    expect(bindFunctions).toHaveBeenCalledWith(root.querySelector('.mermaid'));
+  });
 });

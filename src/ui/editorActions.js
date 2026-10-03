@@ -32,7 +32,14 @@ export function resolveDocumentBootInput({
   if (docContent != null && !isUntouchedTemplate(docContent)) {
     return docContent;
   }
-  return draft ?? defaultInput;
+  // M6: a guarda do legado de documento único está só na linha acima, mas o
+  // `draft` chegava aqui para qualquer contagem de documentos. `persistDraft`
+  // não grava template não editado, então `last_state` mantém o texto do
+  // documento anterior ao trocar para um doc de template — e o boot injetava
+  // esse texto no documento errado, de onde o autosave o persistia.
+  // Com mais de um documento o rascunho não tem como ser atribuído ao ativo;
+  // o template é a resposta que não contamina nada.
+  return documentCount === 1 ? (draft ?? defaultInput) : defaultInput;
 }
 
 /**

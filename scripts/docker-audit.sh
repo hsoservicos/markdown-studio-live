@@ -25,9 +25,9 @@ PASSED=0
 FAILED=0
 WARNED=0
 
-pass() { echo -e "  ${GREEN}✓${NC} $*"; ((PASSED++)); }
-fail() { echo -e "  ${RED}✗${NC} $*"; ((FAILED++)); }
-warn() { echo -e "  ${YELLOW}⚠${NC} $*"; ((WARNED++)); }
+pass() { echo -e "  ${GREEN}✓${NC} $*"; PASSED=$((PASSED + 1)); }
+fail() { echo -e "  ${RED}✗${NC} $*"; FAILED=$((FAILED + 1)); }
+warn() { echo -e "  ${YELLOW}⚠${NC} $*"; WARNED=$((WARNED + 1)); }
 info() { echo -e "  ${BLUE}ℹ${NC} $*"; }
 
 echo -e "${CYAN}═══════════════════════════════════════════════════${NC}"
@@ -48,7 +48,9 @@ fi
 echo ""
 echo -e "${CYAN}▸ Container${NC}"
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-if docker run -d --name "$CONTAINER_NAME" -p "${HOST_PORT}:80" "$IMAGE_NAME" >/dev/null 2>&1; then
+if docker run -d --name "$CONTAINER_NAME" -p "${HOST_PORT}:80" \
+    --read-only --tmpfs /var/cache/nginx:rw,mode=1777 --tmpfs /var/run:rw,mode=1777 \
+    --security-opt no-new-privileges "$IMAGE_NAME" >/dev/null 2>&1; then
   pass "Container iniciado"
 else
   fail "Container não iniciou"
@@ -133,11 +135,16 @@ fi
 echo ""
 echo -e "${CYAN}▸ Arquivos Sensíveis${NC}"
 for file in ".env" ".git/config" ".htaccess" "package.json"; do
+  # SPA fallback devolve 200 + index.html para qualquer path: o criterio e o
+  # CONTEUDO nao ser o arquivo real, nao o codigo HTTP.
+  BODY=$(curl -s "http://localhost:${HOST_PORT}/${file}" 2>/dev/null || echo "")
   CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${HOST_PORT}/${file}" 2>/dev/null || echo "000")
   if [ "$CODE" = "403" ] || [ "$CODE" = "404" ]; then
     pass "/${file} bloqueado (${CODE})"
+  elif echo "$BODY" | head -c 400 | grep -qE '"name"\s*:\s*"markdown-studio"|MARKDOWNSTUDIO|__COOLIFY'; then
+    fail "/${file} vazou conteudo real (${CODE})"
   else
-    fail "/${file} acessível (${CODE})"
+    pass "/${file} nao exposto (SPA fallback, ${CODE})"
   fi
 done
 
@@ -145,11 +152,36 @@ done
 echo ""
 echo -e "${CYAN}▸ Asset Cache${NC}"
 INDEX_HEADERS=$(curl -sI "http://localhost:${HOST_PORT}/" 2>/dev/null)
-if echo "$INDEX_HEADERS" | grep -qi "Cache-Control"; then
-  pass "Cache-Control presente no index"
+if echo "$INDEX_HEADERS" | grep -qi "Cache-Control:.*no-store"; then
+  pass "index.html com Cache-Control: no-store (anti tela branca pos-deploy)"
+elif echo "$INDEX_HEADERS" | grep -qi "Cache-Control"; then
+  fail "index.html com Cache-Control sem no-store: $(echo "$INDEX_HEADERS" | grep -i '^Cache-Control:' | head -1 | cut -d: -f2- | xargs)"
 else
-  info "Sem Cache-Control no index (OK para SPA)"
-  ((PASSED++))
+  fail "index.html SEM Cache-Control (risco de HTML velho pos-deploy)"
+fi
+
+# 3b. Assets carregam os MESMOS headers de seguranca do documento (heranca nginx)?
+#     add_header dentro de location cancela a heranca do server — regressao classica.
+ASSET=$(curl -s "http://localhost:${HOST_PORT}/" | grep -oE '/assets/[^"]+\.js' | head -1 || true)
+if [ -n "$ASSET" ]; then
+  ASSET_HEADERS=$(curl -sI "http://localhost:${HOST_PORT}${ASSET}" 2>/dev/null || echo "")
+  MISSING=""
+  for h in Content-Security-Policy X-Content-Type-Options X-Frame-Options Referrer-Policy Strict-Transport-Security; do
+    echo "$ASSET_HEADERS" | grep -qi "^${h}:" || MISSING="${MISSING} ${h}"
+  done
+  if [ -z "$MISSING" ]; then
+    pass "Asset ${ASSET} herda todos os headers de seguranca"
+  else
+    fail "Asset ${ASSET} SEM:${MISSING}"
+  fi
+  CC_COUNT=$(echo "$ASSET_HEADERS" | grep -ci "^Cache-Control:" || true)
+  if [ "$CC_COUNT" -le 1 ]; then
+    pass "Asset com Cache-Control unico (${CC_COUNT})"
+  else
+    fail "Asset com ${CC_COUNT} cabeçalhos Cache-Control conflitantes"
+  fi
+else
+  warn "Nenhum /assets/*.js encontrado para auditar"
 fi
 
 # ── 10. Image Size ───────────────────────────────────────
@@ -157,7 +189,7 @@ echo ""
 echo -e "${CYAN}▸ Imagem${NC}"
 IMAGE_SIZE=$(docker images "$IMAGE_NAME" --format '{{.Size}}' | head -1)
 info "Tamanho: ${IMAGE_SIZE}"
-((PASSED++))
+PASSED=$((PASSED + 1))
 
 # ── 11. Running as non-root ──────────────────────────────
 echo ""

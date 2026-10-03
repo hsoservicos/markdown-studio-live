@@ -86,6 +86,18 @@ describe('Keyboard Shortcuts', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }));
     expect(clickSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('registrar de novo sem chamar a limpeza não duplica a ação', () => {
+    // `init()` chamava `setupKeyboardShortcuts()` e descartava o retorno. Sem a
+    // autorlimpeza, um segundo boot (ou um teste que esquecesse o `dispose`)
+    // acumulava o listener e a mesma tecla clicava duas vezes.
+    setupKeyboardShortcuts();
+
+    const saveBtn = document.querySelector('[data-sidebar-action="save"]');
+    const clickSpy = vi.spyOn(saveBtn, 'click');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }));
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('resolveShortcutAction', () => {

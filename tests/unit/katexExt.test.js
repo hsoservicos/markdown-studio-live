@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   renderInlineMath,
   renderBlockMath,
+  katexHtmlToDataUrl,
   createMathExtensions,
 } from '../../src/render/katexExt.js';
 
@@ -60,5 +61,21 @@ describe('createMathExtensions', () => {
     expect(block.start('x $$ y')).toBe(2);
     expect(inline.start('x $ y')).toBe(2);
     expect(inline.start('sem cifra')).toBe(-1);
+  });
+});
+
+describe('katexHtmlToDataUrl', () => {
+  const countOrphans = () =>
+    [...document.body.querySelectorAll('div')].filter((el) =>
+      (el.getAttribute('style') || '').includes('-9999px'),
+    ).length;
+
+  it('não deixa o container invisível preso em document.body quando o rasterizador falha', async () => {
+    expect(countOrphans()).toBe(0);
+    // jsdom não tem canvas: o caminho real aqui é o `catch` — e era ali que o
+    // `removeChild` ficava de fora, deixando um nó órfão por fórmula que falhasse.
+    const result = await katexHtmlToDataUrl('<span class="katex">x</span>');
+    expect(result === null || result.startsWith('data:image/png')).toBe(true);
+    expect(countOrphans()).toBe(0);
   });
 });

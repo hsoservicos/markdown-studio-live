@@ -80,18 +80,20 @@ Script de validação completa com 11 testes:
 ### O que é testado
 
 1. **Build** — imagem compila sem erros
-2. **Container** — inicia corretamente
+2. **Container** — sobe com `--read-only`, tmpfs `mode=1777` e `no-new-privileges`
 3. **Healthcheck** — fica healthy em ≤30s
 4. **HTTP** — retorna 200 em /
 5. **SPA Fallback** — rotas profundas funcionam
 6. **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP
 7. **Server Tokens** — versão nginx não exposta
-8. **Arquivos Sensíveis** — .env, .git/config bloqueados
-9. **Asset Cache** — Cache-Control presente
+8. **Arquivos Sensíveis** — .env, .git/config, .htaccess bloqueados (por conteúdo, não por nome)
+9. **Asset Cache** — `index.html` em `no-store`; asset herda todos os headers de segurança; um único `Cache-Control` por resposta
 10. **Tamanho da Imagem** — reportado
-11. **Non-Root** — container não roda como root
+11. **Segurança do Container** — non-root (UID 1001) e root filesystem read-only
 
 ### Exemplo de saída
+
+Saída real (21 verificações, 0 avisos, 0 falhas — `EXIT 0`):
 
 ```
 ═══════════════════════════════════════════════════
@@ -116,21 +118,26 @@ Script de validação completa com 11 testes:
 ▸ Security Headers
   ✓ X-Content-Type-Options: nosniff
   ✓ X-Frame-Options: SAMEORIGIN
-  ✓ X-XSS-Protection: 1; mode=block
+  ✓ X-XSS-Protection: 0
   ✓ Referrer-Policy: strict-origin-when-cross-origin
-  ✓ Content-Security-Policy: default-src 'self'...
+  ✓ Content-Security-Policy: default-src self; base-uri self; ...
 
 ▸ Server Tokens
   ✓ Server header não expõe versão
 
 ▸ Arquivos Sensíveis
-  ✓ /env bloqueado (404)
-  ✓ /git/config bloqueado (404)
-  ✓ /.htaccess bloqueado (404)
-  ✓ /package.json bloqueado (404)
+  ✓ /.env bloqueado (403)
+  ✓ /.git/config bloqueado (403)
+  ✓ /.htaccess bloqueado (403)
+  ✓ /package.json nao exposto (SPA fallback, 200)
+
+▸ Asset Cache
+  ✓ index.html com Cache-Control: no-store (anti tela branca pos-deploy)
+  ✓ Asset /assets/index-*.js herda todos os headers de seguranca
+  ✓ Asset com Cache-Control unico (1)
 
 ▸ Imagem
-  ℹ Tamanho: 45.2MB
+  ℹ Tamanho: 157MB
 
 ▸ Segurança do Container
   ✓ Rodando como non-root (UID: 1001)
@@ -139,7 +146,7 @@ Script de validação completa com 11 testes:
 ═══════════════════════════════════════════════════
   Resultado
 ═══════════════════════════════════════════════════
-  ✓ Passou: 17
+  ✓ Passou: 21
   ⚠ Avisos: 0
   ✗ Falhou: 0
 
@@ -162,28 +169,40 @@ Remove:
 
 ## Segurança
 
-| Recurso                         | Status |
-| ------------------------------- | ------ |
-| USER non-root (app:1001)        | ✅     |
-| read_only: true                 | ✅     |
-| no-new-privileges               | ✅     |
-| tmpfs para /var/cache/nginx     | ✅     |
-| CSP header                      | ✅     |
-| X-Content-Type-Options          | ✅     |
-| X-Frame-Options                 | ✅     |
-| X-XSS-Protection                | ✅     |
-| server_tokens off               | ✅     |
-| Resource limits (128MB/0.5 CPU) | ✅     |
-| Arquivos sensíveis bloqueados   | ✅     |
+| Recurso                                  | Status |
+| ---------------------------------------- | ------ |
+| USER non-root (app:1001)                 | ✅     |
+| read_only: true                          | ✅     |
+| no-new-privileges                        | ✅     |
+| tmpfs para /var/cache/nginx (1777)       | ✅     |
+| CSP header                               | ✅     |
+| X-Content-Type-Options                   | ✅     |
+| X-Frame-Options                          | ✅     |
+| X-XSS-Protection (`0`)                   | ✅     |
+| `index.html` em `no-store, no-transform` | ✅     |
+| Um único `Cache-Control` por resposta    | ✅     |
+| server_tokens off                        | ✅     |
+| Resource limits (128MB/0.5 CPU)          | ✅     |
+| Arquivos sensíveis bloqueados            | ✅     |
+
+> O `nginx.conf` declara os headers de segurança **duas vezes**: no nível `server` e dentro de
+> `location /`. Um `add_header` em `location` cancela toda a herança do nível server, então a
+> cópia é intencional. `location /assets/` e a regex de imagens usam **só `expires`** — como
+> `expires` não é `add_header`, elas herdam o bloco completo e não duplicam `Cache-Control`.
+> Os testes em `tests/unit/csp.test.js` travam as duas cópias para não divergirem.
 
 ## CI/CD
 
 ### Docker Build (`.github/workflows/docker.yml`)
 
 - **Trigger**: push/PR quando Dockerfile ou src mudam
+- **Gate**: espera o check `quality` do **mesmo commit** ficar `success` antes de publicar
+  (`head_sha`, até 10 min) — build da imagem não sai com o código vermelho
 - **Build**: Docker Buildx + cache GHA
 - **Teste**: health check após build
-- **Push**: GHCR no main branch (latest + SHA)
+- **Push**: GHCR no main branch (`latest` + SHA). **Não há tag de versão**: o `package.json`
+  só avança no próximo release, e uma tag `:X.Y.Z` reescrita sobrescreveria o artefato
+  publicado pelo release.
 
 ### Dependabot (`.github/dependabot.yml`)
 

@@ -38,12 +38,20 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Builds concorrentes no mesmo SHA brigariam pelo cache do Buildx e dois pushes
+# simultâneos disputariam a tag `:latest`. Espera, nunca cancela no meio.
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      # Consulta o run do workflow Quality para só publicar o que passou no gate.
+      actions: read
 
     steps:
       - uses: actions/checkout@v7
@@ -69,11 +77,38 @@ jobs:
           docker stop test-container
           docker rm test-container
 
-      - name: Read version
-        id: version
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      # F7: o push ao GHCR era independente do gate — um commit que falhasse no
+      # Quality (admin bypass, branch reescrita) ainda publicaria `:latest`.
+      # Não existe `needs:` entre workflows, então o gate é este poll por SHA.
+      - name: Wait for Quality gate on this commit
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ github.sha }}"
+          RUNS_API="repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA&per_page=50"
+          for i in $(seq 1 60); do
+            DONE=$(gh api "$RUNS_API" --jq '[.workflow_runs[] | select(.name == "Quality" and .status == "completed")] | length')
+            echo "attempt $i: Quality completed=$DONE (sha=$SHA)"
+            if [ "$DONE" -gt 0 ]; then
+              CONCLUSION=$(gh api "$RUNS_API" --jq '[.workflow_runs[] | select(.name == "Quality" and .status == "completed")][0].conclusion')
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "Quality: success"
+                exit 0
+              fi
+              echo "::error::Quality concluiu com '$CONCLUSION' — publicação abortada"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "::error::nenhum run do Quality concluiu para $SHA após 60 tentativas"
+          exit 1
 
+      # F8: a tag de versão NÃO é publicada daqui. `package.json` só é
+      # incrementado no release, então esta etapa re-publicaria
+      # `ghcr.io/<repo>:<versão atual>` em TODO push de `main` — sobrescrevendo a
+      # imagem exata que o release acabou de promover para a mesma tag. A tag
+      # semântica é exclusividade do `release.yml`; o main publica `latest` + SHA.
       - name: Log in to GHCR (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: docker/login-action@v4
@@ -90,7 +125,6 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

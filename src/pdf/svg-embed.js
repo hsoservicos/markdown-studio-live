@@ -25,33 +25,3 @@ export function captureMermaidSvgs(root) {
   }
   return svgMap;
 }
-
-export function svgToPngDataUrl(svgString, scale = 2) {
-  if (typeof document === 'undefined') {
-    return null;
-  }
-  return new Promise((resolve) => {
-    try {
-      const img = new window.Image();
-      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve(null);
-      };
-      img.src = url;
-    } catch {
-      resolve(null);
-    }
-  });
-}

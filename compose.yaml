@@ -22,6 +22,9 @@ services:
     security_opt:
       - no-new-privileges:true
     read_only: true
+    # mode=1777 e obrigatorio: sem ele o tmpfs nasce root-owned e o nginx
+    # (USER app, uid 1001) nao consegue criar /var/cache/nginx/client_temp ->
+    # crash-loop "mkdir() failed (13: Permission denied)".
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
+      - /var/cache/nginx:rw,mode=1777
+      - /var/run:rw,mode=1777
