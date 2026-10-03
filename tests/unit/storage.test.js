@@ -270,3 +270,21 @@ describe('gravação com storage falhando (M13)', () => {
     expect(storageFailureMessage(error)).toBe(t('storageDisabled'));
   });
 });
+
+describe('B5 — envelope corrompido', () => {
+  it('envelope JSON sem o campo value é corrupção: devolve null, não a string crua', () => {
+    localStorage.setItem(
+      'com.markdownstudio.chave',
+      JSON.stringify({ expiresAt: Date.now() + 1e12 }),
+    );
+    expect(getItem('com.markdownstudio', 'chave')).toBeNull();
+    expect(
+      safeGet('com.markdownstudio', 'chave', { type: 'string', defaultValue: null }),
+    ).toBeNull();
+  });
+
+  it('valor legado não-envelope (JSON primitivo ou texto cru) continua legível', () => {
+    localStorage.setItem('com.markdownstudio.legado', 'texto cru sem envelope');
+    expect(getItem('com.markdownstudio', 'legado')).toBe('texto cru sem envelope');
+  });
+});

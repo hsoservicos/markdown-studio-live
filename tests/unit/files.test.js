@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   isMarkdownPath,
   toMarkdownName,
+  sanitizeDownloadName,
   readFileAsText,
   supportsOpenPicker,
   supportsWriteOn,
@@ -44,6 +45,43 @@ describe('files helpers', () => {
       expect(toMarkdownName('nota')).toBe('nota.md');
       expect(toMarkdownName('')).toBe('untitled.md');
       expect(toMarkdownName()).toBe('untitled.md');
+    });
+  });
+
+  describe('sanitizeDownloadName (AC-P2-10-3)', () => {
+    it('remove extensão antiga e acrescenta a extensão pedida', () => {
+      expect(sanitizeDownloadName('notas.md', '.pdf')).toBe('notas.pdf');
+      expect(sanitizeDownloadName('relatorio.html', '.html')).toBe('relatorio.html');
+      expect(sanitizeDownloadName('sem extensao', '.pdf')).toBe('sem extensao.pdf');
+    });
+
+    it('remove caracteres inválidos de arquivo e colapsa espaços', () => {
+      expect(sanitizeDownloadName('a/b\\c:d*e?f"g<h>i|j', '.pdf')).toBe('a b c d e f g h i j.pdf');
+      expect(sanitizeDownloadName('  nome   com\tquebras  ', '.pdf')).toBe('nome com quebras.pdf');
+    });
+
+    it('remove caracteres de controle', () => {
+      expect(sanitizeDownloadName('no\u0000me\u001fok', '.pdf')).toBe('nomeok.pdf');
+    });
+
+    it('corta em 80 caracteres e não termina em ponto/espaço', () => {
+      const longo = 'x'.repeat(200);
+      expect(sanitizeDownloadName(longo, '.pdf')).toBe('x'.repeat(80) + '.pdf');
+      expect(sanitizeDownloadName('nome...', '.pdf')).toBe('nome.pdf');
+    });
+
+    it('cai no fallback quando o nome fica vazio', () => {
+      expect(sanitizeDownloadName('', '.pdf')).toBe('markdown-preview.pdf');
+      expect(sanitizeDownloadName('   ', '.pdf')).toBe('markdown-preview.pdf');
+      expect(sanitizeDownloadName(undefined, '.pdf')).toBe('markdown-preview.pdf');
+      expect(sanitizeDownloadName('...', '.html', 'document')).toBe('document.html');
+    });
+
+    it('cai no fallback para nomes reservados do Windows (case-insensitive)', () => {
+      expect(sanitizeDownloadName('CON', '.pdf')).toBe('markdown-preview.pdf');
+      expect(sanitizeDownloadName('nul.md', '.pdf')).toBe('markdown-preview.pdf');
+      expect(sanitizeDownloadName('com1.txt', '.html', 'document')).toBe('document.html');
+      expect(sanitizeDownloadName('console.md', '.pdf')).toBe('console.pdf');
     });
   });
 

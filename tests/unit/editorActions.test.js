@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   resetMarkdownEditor,
-  newMarkdownEditor,
   resolveBootInput,
   resolveDocumentBootInput,
   persistDraft,
@@ -122,8 +121,10 @@ describe('resolveDocumentBootInput', () => {
   const resolve = (overrides = {}) =>
     resolveDocumentBootInput({ defaultInput, isUntouchedTemplate, documentCount: 1, ...overrides });
 
-  it('P0: rascunho mais recente vence o conteúdo congelado do único documento', () => {
-    expect(resolve({ lastContent: '# Sessão 2', docContent: '# Sessão 1' })).toBe('# Sessão 2');
+  it('B1: conteúdo do documento vence o rascunho de last_state (fonte da verdade)', () => {
+    // O cenário que isto protege: editar B, voltar para A (template), fechar B
+    // — `last_state` guarda o texto de B e não pode contaminar A.
+    expect(resolve({ lastContent: '# Sessão 2', docContent: '# Sessão 1' })).toBe('# Sessão 1');
   });
 
   it('com mais de um documento, o conteúdo do doc ativo vence o rascunho legado', () => {
@@ -162,12 +163,14 @@ describe('resolveDocumentBootInput', () => {
     );
   });
 
-  it('M6: com 1 doc o legado de documento único continua prevalecendo', () => {
+  it('M6/B1: com 1 doc, o rascunho legado só entra sem conteúdo persistido', () => {
     expect(resolve({ lastContent: '# sessão', docContent: null, documentCount: 1 })).toBe(
       '# sessão',
     );
+    // Com conteúdo persistido (mesmo template), o rascunho não pode vencer —
+    // é exatamente a janela da contaminação entre documentos.
     expect(resolve({ lastContent: '# sessão', docContent: 'PT', documentCount: 1 })).toBe(
-      '# sessão',
+      defaultInput,
     );
   });
 });
@@ -220,45 +223,5 @@ describe('persistDraft', () => {
     expect(persisted).toBe(false);
     expect(setDraft).not.toHaveBeenCalled();
     expect(saveDocContent).not.toHaveBeenCalled();
-  });
-});
-
-describe('newMarkdownEditor', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  afterEach(() => {
-    localStorage.clear();
-  });
-
-  it('limpa o editor e volta ao topo', () => {
-    const editor = makeEditor('# Conteúdo');
-    const scrollTop = vi.fn();
-
-    const ok = newMarkdownEditor({
-      editor,
-      hasEdited: true,
-      confirm: () => true,
-      scrollTop,
-    });
-
-    expect(ok).toBe(true);
-    expect(editor.getValue()).toBe('');
-    expect(editor.focus).toHaveBeenCalled();
-    expect(scrollTop).toHaveBeenCalled();
-  });
-
-  it('mantém o conteúdo quando o usuário cancela', () => {
-    const editor = makeEditor('# Conteúdo');
-
-    const ok = newMarkdownEditor({
-      editor,
-      hasEdited: true,
-      confirm: () => false,
-    });
-
-    expect(ok).toBe(false);
-    expect(editor.getValue()).toBe('# Conteúdo');
   });
 });

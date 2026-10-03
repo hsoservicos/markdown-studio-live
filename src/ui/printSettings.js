@@ -70,15 +70,24 @@ function resolvePageNumber(text, pageNumber) {
  * na primeira página e subscrevemos `addPage` para todas as seguintes.
  */
 export function stampPageHeaderFooter(pdf, settings = DEFAULT_PRINT_SETTINGS) {
-  if (!pdf || typeof pdf.text !== 'function') {
-    return;
-  }
   const { headerText, footerText } = normalizePrintSettings(settings);
   if (!headerText && !footerText) {
     return;
   }
+  if (!pdf || typeof pdf.text !== 'function') {
+    // D6: `worker.get('pdf')` sem devolver jsPDF — o carimbo de cabeçalho/
+    // rodapé era perdido em silêncio e o usuário só via no PDF gerado.
+    console.warn('[pdf] jsPDF indisponível; cabeçalho/rodapé omitidos do export');
+    return;
+  }
   const pageWidth =
     typeof pdf.internal?.pageSize?.getWidth === 'function' ? pdf.internal.pageSize.getWidth() : 210;
+  // D5: a altura da página é do papel do export — fixo em 287mm (A4) fazia o
+  // rodapé sair do papel em Letter/paisagem.
+  const pageHeight =
+    typeof pdf.internal?.pageSize?.getHeight === 'function'
+      ? pdf.internal.pageSize.getHeight()
+      : 297;
   const font = typeof pdf.setFontSize === 'function' ? () => pdf.setFontSize(8) : () => {};
   const write = () => {
     font();
@@ -88,7 +97,9 @@ export function stampPageHeaderFooter(pdf, settings = DEFAULT_PRINT_SETTINGS) {
       pdf.text(resolvePageNumber(headerText, page), pageWidth / 2, 5, { align: 'center' });
     }
     if (footerText) {
-      pdf.text(resolvePageNumber(footerText, page), pageWidth / 2, 287, { align: 'center' });
+      pdf.text(resolvePageNumber(footerText, page), pageWidth / 2, pageHeight - 10, {
+        align: 'center',
+      });
     }
   };
   write();
@@ -99,7 +110,13 @@ export function stampPageHeaderFooter(pdf, settings = DEFAULT_PRINT_SETTINGS) {
 
 /**
  * Folha de estilo injetada no clone do PDF e no @media print do documento:
- * @page (papel/margem), quebras conscientes e cabeçalho/rodapé fixos.
+ * @page (papel/margem) e quebras conscientes.
+ *
+ * Cabeçalho/rodapé com `{page}` NÃO saem aqui: em impressão via browser não
+ * existe conteúdo fixo por página em CSS (o `{page}` é do diálogo de impressão
+ * do navegador) — eles são carimbados apenas nos caminhos de PDF
+ * (`stampPageHeaderFooter` no raster, `header`/`footer` no docDefinition do
+ * pdfmake). A chrome do app é escondida pelo `@media print` do `style.css`.
  */
 export function getPrintStylesheetCss(settings = DEFAULT_PRINT_SETTINGS) {
   const { margin, paperSize, orientation } = normalizePrintSettings(settings);
@@ -124,19 +141,6 @@ export function getPrintStylesheetCss(settings = DEFAULT_PRINT_SETTINGS) {
     break-after: avoid;
     page-break-after: avoid;
   }
-  .print-page-header,
-  .print-page-footer {
-    display: block;
-    position: fixed;
-    left: 0;
-    width: 100%;
-    text-align: center;
-    font-size: 10px;
-    line-height: 1;
-    color: #6e7781;
-  }
-  .print-page-header { top: 0; }
-  .print-page-footer { bottom: 0; }
 }
 `;
 }
@@ -157,9 +161,4 @@ export function applyPrintSettingsCss(settings, doc = globalThis.document) {
   }
   style.textContent = getPrintStylesheetCss(settings);
   return style;
-}
-
-export function hasHeadersOrFooter(settings) {
-  const { headerText, footerText } = normalizePrintSettings(settings);
-  return Boolean(headerText || footerText);
 }

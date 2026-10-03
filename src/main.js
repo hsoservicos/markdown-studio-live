@@ -1,6 +1,6 @@
 import { NAMESPACE, KEYS } from './i18n/index.js';
 import { t, getDefaultTemplate, DEFAULT_TEMPLATE_PT, DEFAULT_TEMPLATE_EN } from './i18n/index.js';
-import { getItem, setItem } from './storage.js';
+import { setItem, safeGet } from './storage.js';
 import { convert } from './render/convert.js';
 import { scheduleMermaidRender, renderMermaidDiagrams } from './render/mermaid.js';
 import { setupDivider } from './ui/divider.js';
@@ -11,7 +11,6 @@ import { scrollPreviewTo } from './ui/scrollSync.js';
 import { exportPreviewToPdf } from './ui/exportPdf.js';
 import {
   resetMarkdownEditor,
-  newMarkdownEditor,
   resolveBootInput,
   resolveDocumentBootInput,
   persistDraft,
@@ -29,9 +28,9 @@ import { guardStorage as guardStorageCall } from './ui/storageFeedback.js';
 import { getLocaleCode } from './i18n/index.js';
 import {
   getActiveDocument,
-  safeGetIndex,
+  safeGetIndexDetailed,
   createDocument,
-  getContent,
+  getContentDetailed,
   setContent,
 } from './documents.js';
 // P0-5: estilos do KaTeX (bundled via npm, sem CDN).
@@ -73,12 +72,23 @@ export function resolveShortcutAction(event) {
     altKey = false,
     shiftKey = false,
     repeat = false,
+    target = null,
   } = event;
   if (!ctrlKey && !metaKey) {
     return null;
   }
   if (altKey || shiftKey || repeat) {
     return null;
+  }
+  // C1: campos de formulário (diálogos, contenteditable) têm comportamento
+  // nativo para Ctrl+B/E etc. — não sequestrar a digitação. O editor Monaco
+  // (textarea escondida dentro de `.monaco-editor`) continua de fora da guarda:
+  // salvar/exportar DE enquanto se escreve é o caso de uso principal.
+  if (target && typeof target.closest === 'function') {
+    const inField = target.closest('input, textarea, select, [contenteditable="true"]');
+    if (inField && !target.closest('.monaco-editor')) {
+      return null;
+    }
   }
   if (typeof key !== 'string' || key.length !== 1) {
     return null;
@@ -119,6 +129,7 @@ const init = () => {
   let hasEdited = false;
   let scrollBarSync = false;
   let statusBar = null;
+  let documentManager = null;
 
   const defaultInput = getDefaultTemplate();
 
@@ -137,14 +148,8 @@ const init = () => {
     });
 
   // M4: leitura tipada na fronteira do storage — fragmento corrompido não
-  // restaura em silêncio; o boot cai no padrão via fallback null.
-  function safeGet(namespace, key, type) {
-    try {
-      return getItem(namespace, key, { type });
-    } catch {
-      return null;
-    }
-  }
+  // restaura em silêncio; o boot cai no padrão via fallback null. E3: é o
+  // `safeGet` do `storage.js` (havia um segundo local com contrato divergente).
 
   applyI18n();
 
@@ -173,7 +178,9 @@ const init = () => {
       // O documento é capturado no momento da edição: o timer do debounce pode
       // disparar depois de uma troca de documento e não deve gravar no doc novo.
       scheduleSave(value, getActiveDocument()?.id ?? null);
-      statusBar?.update();
+      // D12: a contagem (palavras/chars/linhas) não precisa recalcular em toda
+      // tecla — debounce próprio, sem atrasar o autosave.
+      scheduleStatusUpdate();
     });
 
     editor.onDidScrollChange((e) => {
@@ -221,11 +228,25 @@ const init = () => {
     }, delay);
   }
 
+  // D12: contagem de estatísticas com debounce — a contagem completa em toda
+  // tecla era trabalho desperdiçado (o resultado só é visível um instante depois).
+  let statusTimer = null;
+  function scheduleStatusUpdate(delay = 300) {
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+    }
+    statusTimer = setTimeout(() => {
+      statusTimer = null;
+      statusBar?.update();
+    }, delay);
+  }
+
   let saveTimer = null;
   const isUntouchedTemplate = (value) =>
     value === DEFAULT_TEMPLATE_PT || value === DEFAULT_TEMPLATE_EN;
 
   let lastAutoSnapshotTs = 0;
+  let snapshotQuotaNotified = false;
 
   // Última edição ainda não persistida. Vive aqui porque o `pagehide` precisa
   // alcançar o que o debounce de 300ms ainda não conseguiu gravar.
@@ -252,6 +273,15 @@ const init = () => {
           docId,
         });
         lastAutoSnapshotTs = result.lastAutoTs;
+        // D4: recusa por quota é anunciada uma única vez por sessão — o loop
+        // automático repetiria a mensagem a cada minuto de edição.
+        if (result.reason === 'quota' && !snapshotQuotaNotified) {
+          snapshotQuotaNotified = true;
+          const status = document.querySelector('#sidebar-status');
+          if (status) {
+            status.textContent = t('snapshotQuota');
+          }
+        }
       }
     });
   }
@@ -319,16 +349,14 @@ const init = () => {
     }
   }
 
+  // D3: "Novo arquivo" segue o modelo multi-documento — cria uma nova entrada
+  // isolada (mesmo fluxo de `#doc-new-btn`) em vez de limpar o documento ativo,
+  // que o autosave persistia como conteúdo vazio no mesmo título/índice.
+  // Não há confirmação: a criação não descarta nada (o conteúdo atual é salvo
+  // pelo `saveCurrentContent` do gerenciador antes de trocar).
   function newFile() {
-    const ok = newMarkdownEditor({
-      editor,
-      hasEdited,
-      confirm: () => window.confirm(t('newFileConfirm')),
-      scrollTop,
-    });
-    if (ok) {
-      hasEdited = false;
-    }
+    documentManager?.create();
+    hasEdited = false;
   }
 
   function initScrollBarSync(settings) {
@@ -381,9 +409,12 @@ const init = () => {
       // storage indisponível — anti-FOUC assume o padrão na próxima carga
     }
 
-    import('./ui/workers/monacoSetup.js').then(({ monaco }) => {
-      monaco.editor.setTheme(settings ? 'vs-dark' : 'vs');
-    });
+    import('./ui/workers/monacoSetup.js')
+      .then(({ monaco }) => {
+        monaco.editor.setTheme(settings ? 'vs-dark' : 'vs');
+      })
+      // D3: chunk do Monaco indisponível não pode virar unhandled rejection.
+      .catch(() => {});
 
     checkbox.addEventListener('change', (event) => {
       const checked = event.currentTarget.checked;
@@ -398,9 +429,11 @@ const init = () => {
         // storage indisponível — anti-FOUC assume o padrão na próxima carga
       }
       setPreviewCss(checked);
-      import('./ui/workers/monacoSetup.js').then(({ monaco }) => {
-        monaco.editor.setTheme(checked ? 'vs-dark' : 'vs');
-      });
+      import('./ui/workers/monacoSetup.js')
+        .then(({ monaco }) => {
+          monaco.editor.setTheme(checked ? 'vs-dark' : 'vs');
+        })
+        .catch(() => {});
       renderMermaidDiagrams();
     });
   }
@@ -434,7 +467,7 @@ const init = () => {
         hasEdited = true;
       },
     });
-    setupDocumentManager({
+    documentManager = setupDocumentManager({
       container: document,
       editor,
       getEditorContent: () => editor.getValue(),
@@ -451,7 +484,9 @@ const init = () => {
           await navigator.clipboard.writeText(value);
           report(t('copied'));
         } catch {
-          // nada a fazer — clipboard negado
+          // D11: a mesma falha de clipboard que `copyHtml` reporta — em
+          // silêncio o clique "parecia não ter feito nada".
+          report(t('copyError'));
         }
       },
       copyHtml: async ({ report: statusReport }) => {
@@ -470,9 +505,12 @@ const init = () => {
           const active = getActiveDocument();
           const name = await exportStandaloneHtml({
             getHtml: () => document.querySelector('#output')?.innerHTML ?? '',
-            filename: (active?.title || getCurrentFileName() || 'document') + '.html',
+            filename: active?.title || getCurrentFileName() || 'document',
             title: active?.title || getCurrentFileName() || t('appTitle'),
             lang: getLocaleCode(),
+            // D7: o export acompanha o tema ativo (o CSS é empacotado no build).
+            theme:
+              document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
           });
           statusReport(t('htmlExported').replace('{name}', name));
         } catch {
@@ -481,11 +519,17 @@ const init = () => {
       },
       exportPdf: ({ report }) =>
         exportPreviewToPdf(
-          { onStatus: report, getMarkdown: () => editor.getValue() },
+          {
+            onStatus: report,
+            getMarkdown: () => editor.getValue(),
+            getDocName: () => getActiveDocument()?.title || getCurrentFileName() || '',
+          },
           loadPrintSettings(),
         ),
-      printSettings: () => printDialog.open(),
-      toc: () => tocDialog.open(),
+      // D8: diálogos podem não montar (elemento ausente) — sem `?.` o clique
+      // virava TypeError e o botão parecia morto.
+      printSettings: () => printDialog?.open(),
+      toc: () => tocDialog?.open(),
       snapshots: () => snapshotsDialog?.open(),
     };
 
@@ -493,6 +537,9 @@ const init = () => {
       container: document,
       editor,
       getContent: () => editor.getValue(),
+      // C2: abrir arquivo com edição não salva pede confirmação (como Reset).
+      confirm: (message) => window.confirm(message),
+      isDirty: () => hasEdited,
       // M9: o handle de arquivo aberto precisa ser associado a um documento —
       // sem isto o Ctrl+S gravava o documento ativo por cima de outro arquivo.
       getActiveDoc: () => {
@@ -518,15 +565,24 @@ const init = () => {
     .then((ed) => {
       editor = ed;
 
-      const lastContent = safeGet(NAMESPACE, KEYS.lastState, 'string');
-      const index = safeGetIndex();
+      const lastContent = safeGet(NAMESPACE, KEYS.lastState, { type: 'string' });
+      // B5 (AC-P2-10-4): o boot recolhe avisos de restauração — id ativo órfão,
+      // índice limpo (dedup) e conteúdo corrompido — e os anuncia uma vez.
+      const { index, warnings: indexWarnings } = safeGetIndexDetailed();
+      const bootWarnings = [...indexWarnings];
 
       let bootInput;
       if (index.documents.length > 0) {
         const active = getActiveDocument();
+        const { value: activeContent, corrupt } = active
+          ? getContentDetailed(active.id)
+          : { value: null, corrupt: false };
+        if (corrupt) {
+          bootWarnings.push('corruptContent');
+        }
         bootInput = resolveDocumentBootInput({
           lastContent,
-          docContent: active ? getContent(active.id) : null,
+          docContent: activeContent,
           documentCount: index.documents.length,
           defaultInput,
           isUntouchedTemplate,
@@ -550,10 +606,27 @@ const init = () => {
       editor.setValue(bootInput);
       editor.revealPosition({ lineNumber: 1, column: 1 });
 
-      const scrollSettings = safeGet(NAMESPACE, KEYS.scrollBar, 'boolean') === true;
+      // B5: uma única mensagem com os avisos de restauração do boot.
+      if (bootWarnings.length > 0) {
+        const messages = {
+          activeIdFallback: t('bootWarnActiveId'),
+          indexCleaned: t('bootWarnIndexCleaned'),
+          indexVersion: t('bootWarnIndexVersion'),
+          corruptContent: t('bootWarnCorruptContent'),
+        };
+        const statusEl = document.querySelector('#sidebar-status');
+        if (statusEl) {
+          statusEl.textContent = bootWarnings
+            .map((w) => messages[w])
+            .filter(Boolean)
+            .join(' ');
+        }
+      }
+
+      const scrollSettings = safeGet(NAMESPACE, KEYS.scrollBar, { type: 'boolean' }) === true;
       initScrollBarSync(scrollSettings);
 
-      const dark = safeGet(NAMESPACE, KEYS.theme, 'boolean') === true;
+      const dark = safeGet(NAMESPACE, KEYS.theme, { type: 'boolean' }) === true;
       initThemeToggle(dark);
 
       applyPrintSettingsCss(loadPrintSettings());

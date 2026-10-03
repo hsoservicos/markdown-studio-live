@@ -156,10 +156,12 @@ describe('Accessibility — index.html real', () => {
       });
     });
 
-    it('a lista de documentos expõe role de grupo com rótulo', () => {
+    it('a lista de documentos é uma lista real (ul) com rótulo', () => {
       const list = document.getElementById('document-list');
       expect(list).toBeTruthy();
-      expect(list.getAttribute('role')).toBe('group');
+      // C6: `ul` com papel implícito de lista — antes era `div[role=group]`
+      // recebendo `li` soltos.
+      expect(list.tagName).toBe('UL');
       expect(list.getAttribute('aria-label')).toBeTruthy();
     });
 
@@ -172,9 +174,23 @@ describe('Accessibility — index.html real', () => {
 
   describe('navegação por teclado', () => {
     it('todos os botões e controles de formulário são focusable', () => {
+      const skipTarget = document.querySelector('.skip-link')?.getAttribute('href')?.slice(1);
       document.querySelectorAll('button, input, select, [tabindex]').forEach((el) => {
+        // C7: alvo de skip-link usa tabindex="-1" por design — focável via
+        // script (o clique do link move o foco), fora da ordem de tabulação.
+        if (el.id === skipTarget && el.tabIndex === -1) {
+          return;
+        }
         expect(el.tabIndex, `${el.tagName}#${el.id}`).toBeGreaterThanOrEqual(0);
       });
+    });
+
+    it('C7: o alvo do skip-link é focável e o editor é multiline', () => {
+      const skipLink = document.querySelector('.skip-link');
+      const target = document.getElementById(skipLink.getAttribute('href').slice(1));
+      expect(target).toBeTruthy();
+      expect(target.tabIndex).toBe(-1);
+      expect(document.getElementById('editor').getAttribute('aria-multiline')).toBe('true');
     });
   });
 

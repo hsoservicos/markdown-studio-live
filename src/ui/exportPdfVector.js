@@ -8,16 +8,58 @@ import {
   markdownToPdfmake,
   buildPdfDocDefinition,
   resolveKatexPlaceholders,
+  collectImageSrcs,
 } from '../pdf/markdown-to-pdfmake.js';
 import { captureMermaidSvgs } from '../pdf/svg-embed.js';
 import { katexHtmlToDataUrl } from '../render/katexExt.js';
+import { sanitizeDownloadName } from './files.js';
 
 // Re-exportados aqui para manter a API pública que `exportPdf.js` e os testes
 // já consomem; a definição é única em `pdfVectorFlag.js`.
 export { PDF_VECTOR_FLAG, isVectorPdfEnabled, setVectorPdfEnabled } from './pdfVectorFlag.js';
 
+/**
+ * A3: resolve imagens relativas (mesma origem) para data URL PNG/JPEG via
+ * fetch, para o pdfmake conseguir embutir. O que não for decodificável
+ * (SVG, tipo desconhecido, fetch falho) simplesmente não entra no mapa e o
+ * conversor degrada para o alt.
+ * @param {string[]} srcs
+ * @param {typeof fetch} [fetchImpl]
+ * @returns {Promise<Map<string, string>>}
+ */
+export async function resolveImageDataUrls(srcs, fetchImpl = globalThis.fetch) {
+  const map = new Map();
+  if (typeof fetchImpl !== 'function') {
+    return map;
+  }
+  for (const src of srcs ?? []) {
+    try {
+      const res = await fetchImpl(src);
+      if (!res?.ok) {
+        continue;
+      }
+      const blob = await res.blob();
+      if (!/^image\/(?:png|jpe?g)$/i.test(blob.type)) {
+        continue;
+      }
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+      if (dataUrl.startsWith('data:image/')) {
+        map.set(src, dataUrl);
+      }
+    } catch {
+      // imagem indisponível degrada para alt no conversor
+    }
+  }
+  return map;
+}
+
 export async function exportPdfVector(
-  { onStatus, getMarkdown } = {},
+  { onStatus, getMarkdown, getDocName } = {},
   printSettings = DEFAULT_PRINT_SETTINGS,
 ) {
   if (!getMarkdown) {
@@ -50,7 +92,9 @@ export async function exportPdfVector(
     const outputElement = document.querySelector('#output');
     const mermaidSvgs = captureMermaidSvgs(outputElement);
 
-    const { content: rawContent } = markdownToPdfmake(markdown, { mermaidSvgs });
+    // A3: imagens relativas viram data URL PNG/JPEG quando buscáveis.
+    const imageDataUrls = await resolveImageDataUrls(collectImageSrcs(markdown));
+    const { content: rawContent } = markdownToPdfmake(markdown, { mermaidSvgs, imageDataUrls });
     const content = await resolveKatexPlaceholders(rawContent, katexHtmlToDataUrl);
     const settings = normalizePrintSettings(printSettings);
     const docDefinition = buildPdfDocDefinition(content, settings);
@@ -60,7 +104,9 @@ export async function exportPdfVector(
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'markdown-preview.pdf';
+    // AC-P2-10-3: nome do documento ativo, sanitizado; fallback legado
+    // `markdown-preview.pdf` quando não há título utilizável.
+    anchor.download = sanitizeDownloadName(getDocName?.(), '.pdf', 'markdown-preview');
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

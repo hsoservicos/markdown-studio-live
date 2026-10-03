@@ -3,6 +3,7 @@
  */
 import { listSnapshots, removeSnapshot, getSnapshot } from './snapshots.js';
 import { t } from '../i18n/index.js';
+import { guardStorage as guardStorageCall } from './storageFeedback.js';
 
 function formatTs(ts, locale = 'pt-BR') {
   try {
@@ -131,8 +132,20 @@ export function setupSnapshotsDialog({
         close();
       }
     } else if (action === 'remove') {
-      if (removeSnapshot(id)) {
+      // D7: a StorageError da remoção (quota/storage bloqueado) escapava do
+      // handler em silêncio. O guard reporta; o booleano evita anunciar
+      // "removido" para uma entrada que já não estava no anel.
+      let removed = false;
+      const ok = guardStorageCall(
+        () => {
+          removed = removeSnapshot(id);
+        },
+        { onFail: (message) => onStatus?.(message) },
+      );
+      if (ok && removed) {
         onStatus?.(t('snapshotRemoved'));
+      }
+      if (ok) {
         render();
       }
     }

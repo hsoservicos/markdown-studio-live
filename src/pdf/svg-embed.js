@@ -1,15 +1,8 @@
-export function svgToDataUrl(svgString) {
-  if (!svgString || typeof svgString !== 'string') {
-    return null;
-  }
-  const cleaned = svgString.trim();
-  if (!cleaned.startsWith('<svg')) {
-    return null;
-  }
-  const encoded = encodeURIComponent(cleaned).replace(/'/g, '%27').replace(/"/g, '%22');
-  return `data:image/svg+xml,${encoded}`;
-}
-
+/**
+ * Coleta os SVGs dos diagramas mermaid já renderizados no preview.
+ * O pdfmake recebe a STRING do SVG no content type `svg` (A2: `image` só
+ * decodifica JPEG/PNG — data-URL de SVG abortava o export).
+ */
 export function captureMermaidSvgs(root) {
   if (!root || typeof root.querySelectorAll !== 'function') {
     return new Map();

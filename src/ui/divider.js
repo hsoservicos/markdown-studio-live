@@ -39,6 +39,10 @@ export function setupDivider() {
 
   const applySizes = (offset, axisMax, dividerSize, isRatio) => {
     if (isStacked()) {
+      // D10: limpa o eixo anterior — os inline sizes da orientação passada
+      // ficavam presos depois de cruzar o breakpoint de 720px.
+      leftPane.style.width = '';
+      rightPane.style.width = '';
       const topHeight = clampAxis(axisMax, offset);
       leftPane.style.height = `${topHeight}px`;
       rightPane.style.height = `${axisMax - topHeight - dividerSize}px`;
@@ -50,6 +54,8 @@ export function setupDivider() {
         String(Math.round((topHeight / Math.max(axisMax - dividerSize, 1)) * 100)),
       );
     } else {
+      leftPane.style.height = '';
+      rightPane.style.height = '';
       const leftWidth = clampAxis(axisMax, offset);
       leftPane.style.width = `${leftWidth}px`;
       rightPane.style.width = `${axisMax - leftWidth - dividerSize}px`;
@@ -138,7 +144,9 @@ export function setupDivider() {
     }
   });
 
-  window.addEventListener('resize', () => {
+  // D10: o listener de resize era registrado sem limpeza — um segundo setup
+  // (ou um teste) acumulava handlers. O dispose devolve a limpeza.
+  const onResize = () => {
     const containerRect = container.getBoundingClientRect();
     syncAriaOrientation();
     if (isStacked()) {
@@ -148,7 +156,12 @@ export function setupDivider() {
       const availableWidth = containerRect.width - divider.offsetWidth;
       applySizes(availableWidth * lastLeftRatio, containerRect.width, divider.offsetWidth, false);
     }
-  });
+  };
+  window.addEventListener('resize', onResize);
 
   syncAriaOrientation();
+
+  return function dispose() {
+    window.removeEventListener('resize', onResize);
+  };
 }

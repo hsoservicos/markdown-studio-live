@@ -68,8 +68,12 @@ export function getItem(namespace, key, { type } = {}) {
         return null;
       }
       value = entry.value;
+    } else if (entry && typeof entry === 'object') {
+      // B5: envelope JSON sem o campo `value` é corrupção, não valor legado —
+      // devolver a string crua restauraria lixo no editor (AC-P2-10-4).
+      return null;
     } else {
-      // valor legado não-JSON → devolve como está
+      // JSON válido mas primitivo (escrita crua legada) → devolve como está
       value = raw;
     }
   } catch {

@@ -39,12 +39,19 @@ Expiração padrão (wrapper): **2099-02-01** (padrão herdado do upstream).
 ### Regras de leitura
 
 - O wrapper serializa como `{ value, expiresAt }`; leituras de **valores legados não-JSON**
-  são devolvidas cruas (compatibilidade com o upstream).
+  são devolvidas cruas (compatibilidade com o upstream). Envelope JSON **sem o campo `value`**
+  é corrupção (B5): devolve `null` — devolver a string crua restauraria lixo no editor.
 - `getItem(..., { type: 'boolean' })` normaliza legado `true/false/1/0`; `{ type: 'object' }`
   valida objeto não-nulo/não-array; fragmentos com schema inesperado lançam `StorageError`
   em vez de restaurar silenciosamente.
 - No boot e em camadas tolerantes, `safeGet` envolve a leitura e degrada para `null`
   (ou `defaultValue`) se o storage lançar, sem propagar `StorageError`.
+- O índice de documentos tem leitura **memoizada pela string crua** (D12): `getActiveDocument`
+  roda em toda tecla (captura do doc no autosave) e o `JSON.parse` do índice inteiro era o
+  custo dominante. Mudanças — inclusive de outra aba — invalidam naturalmente, porque a
+  comparação é pelo valor bruto.
+- Schema versionado (E1): `raw.version` maior que `INDEX_VERSION` degrada para índice vazio
+  com o aviso `indexVersion` — interpretar campos de um app mais novo é chute.
 - `getRaw`/`setRaw` **não têm chamador em produção**. O script de boot do tema lê
   `localStorage` direto (ele roda no `<head>`, antes de qualquer módulo existir) e os demais
   módulos de chave crua (`locale`, `print_settings`, `sidebar_collapsed`, `pdf.vector`) usam
@@ -63,6 +70,15 @@ Expiração padrão (wrapper): **2099-02-01** (padrão herdado do upstream).
   é _best-effort_ e pode falhar junto (quota já cheia): `err.reverted` diz o que aconteceu, e
   a mensagem distingue `"…alteração revertida."` de `"…e a reversão do índice também
 falhou."` — antes, a UI declarava a reversão incondicionalmente e escondia o caso pior.
+- `setContent` segue o mesmo contrato (B2, AC-P2-10-1): índice + conteúdo é atômico — falha
+  no índice reverte o conteúdo ao valor anterior (best-effort) e expõe `err.reverted`.
+- Os avisos de restauração do boot (B5, AC-P2-10-4) saem de `safeGetIndexDetailed`/
+  `getContentDetailed` (`activeIdFallback`, `indexCleaned`, `indexVersion`, `corruptContent`)
+  e são anunciados uma vez em `#sidebar-status`.
+- Snapshots (`com.markdownstudio.backup`): o anel de `MAX_SNAPSHOTS` tem guarda de quota (D4)
+  — o snapshot é backup e recusa a escrita antes de comer a margem do rascunho primário; os
+  legados sem `docId` migram para o documento ativo e os de um documento fechado migram para
+  o ativo seguinte (B6, AC-P2-10-3).
 
 ## Uso recomendado
 

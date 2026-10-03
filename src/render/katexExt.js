@@ -24,7 +24,11 @@ export async function katexHtmlToDataUrl(html) {
   document.body.appendChild(container);
   try {
     const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(container, { scale: 2, backgroundColor: null });
+    // Contrato do PDF vetorial (AC-P2-9-2): raster de ALTA RESOLUÇÃO em 3×.
+    // O KaTeX não tem saída SVG (o enum de `output` é htmlAndMathml|html|mathml
+    // — a menção a `output:'svg'` no ADR era uma premissa falsa), então a rota
+    // vetorial embute PNG 3× como limite de fidelidade. Ver architecture.md.
+    const canvas = await html2canvas(container, { scale: 3, backgroundColor: null });
     return canvas.toDataURL('image/png');
   } catch {
     return null;
@@ -84,4 +88,17 @@ export function createMathExtensions() {
       renderer: (token) => renderInlineMath(token.text),
     },
   ];
+}
+
+// G1: o `marked.use()` em dois módulos (convert e markdown-to-pdfmake)
+// registrava as mesmas extensões DUAS vezes no marked global. O registro é
+// idempotente por instância.
+const registeredInstances = new WeakSet();
+
+export function registerMathExtensions(markedInstance) {
+  if (!markedInstance || registeredInstances.has(markedInstance)) {
+    return;
+  }
+  registeredInstances.add(markedInstance);
+  markedInstance.use({ extensions: createMathExtensions() });
 }

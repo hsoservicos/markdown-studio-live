@@ -1,14 +1,36 @@
 /**
- * Exporta o preview renderizado como um .html standalone offline.
- * CSS do github-markdown (light) é embutido via fetch no momento da exportação.
+ * Exporta o preview renderizado como .html standalone offline.
+ *
+ * D7: o CSS do github-markdown é **empacotado no build** via `?inline` (as duas
+ * variantes que o app usa — espelhando `setPreviewCss` do `main.js`) em vez de
+ * buscado em runtime: elimina a classe inteira de falha (404, deploy em
+ * subpath, `file://`, offline) e o export acompanha o tema ativo.
  */
-import { downloadBlob, toMarkdownName } from './files.js';
+import { downloadBlob, sanitizeDownloadName } from './files.js';
 import { escapeHtml } from '../render/convert.js';
+import cssLight from '../../public/css/github-markdown-light.css?inline';
+import cssDarkDimmed from '../../public/css/github-markdown-dark_dimmed.css?inline';
 
-const DEFAULT_CSS_URLS = ['/css/github-markdown-light.css'];
+/** Variantes embutidas no bundle (mesma escolha do `setPreviewCss` no main.js). */
+export const GITHUB_MARKDOWN_CSS = {
+  light: cssLight,
+  dark_dimmed: cssDarkDimmed,
+};
 
-const BASE_BODY_CSS = `
-html, body { margin: 0; padding: 0; background: #fff; color: #24292f; }
+/**
+ * Resolve a folha do github-markdown para o tema informado.
+ * `dark` usa `dark_dimmed` (variante de preview do app).
+ * @param {'light'|'dark'} [theme='light']
+ * @param {Record<string, string>} [cssByTheme=GITHUB_MARKDOWN_CSS]
+ */
+export function resolveGithubMarkdownCss(theme = 'light', cssByTheme = GITHUB_MARKDOWN_CSS) {
+  return (theme === 'dark' ? cssByTheme.dark_dimmed : cssByTheme.light) ?? '';
+}
+
+function buildBaseBodyCss(theme = 'light') {
+  const dark = theme === 'dark';
+  return `
+html, body { margin: 0; padding: 0; background: ${dark ? '#0d1117' : '#fff'}; color: ${dark ? '#e6edf3' : '#24292f'}; }
 .markdown-body {
   box-sizing: border-box;
   min-width: 200px;
@@ -28,6 +50,7 @@ html, body { margin: 0; padding: 0; background: #fff; color: #24292f; }
   .markdown-body { max-width: none; padding: 0; }
 }
 `.trim();
+}
 
 // M2: o arquivo exportado é HTML estático sem nenhum script próprio, mas era
 // aberto sem política nenhuma — qualquer resto que escapasse do DOMPurify
@@ -55,16 +78,16 @@ const STANDALONE_CSP = [
 /**
  * Monta o documento HTML completo (puro, testável).
  * @param {string} bodyHtml
- * @param {{ title?: string, cssText?: string, lang?: string, csp?: string|null }} [opts]
+ * @param {{ title?: string, cssText?: string, lang?: string, theme?: 'light'|'dark', csp?: string|null }} [opts]
  */
 export function buildStandaloneHtml(
   bodyHtml,
-  { title = 'Markdown', cssText = '', lang = 'pt-BR', csp = STANDALONE_CSP } = {},
+  { title = 'Markdown', cssText = '', lang = 'pt-BR', theme = 'light', csp = STANDALONE_CSP } = {},
 ) {
   // Mesmo helper usado pelo pipeline de preview — um único escape no projeto.
   const safeTitle = escapeHtml(title);
   const safeLang = escapeHtml(lang || 'pt-BR');
-  const styles = [cssText, BASE_BODY_CSS].filter(Boolean).join('\n');
+  const styles = [cssText, buildBaseBodyCss(theme)].filter(Boolean).join('\n');
   const cspMeta = csp
     ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}" />\n`
     : '';
@@ -88,49 +111,25 @@ ${bodyHtml || ''}
 }
 
 /**
- * Carrega folhas de estilo locais e concatena o texto.
- * @param {string[]} urls
- * @param {typeof fetch} [fetchImpl]
- */
-export async function loadCssText(urls = DEFAULT_CSS_URLS, fetchImpl = globalThis.fetch) {
-  if (typeof fetchImpl !== 'function') {
-    return '';
-  }
-  const parts = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        const res = await fetchImpl(url);
-        if (!res || !res.ok) {
-          return '';
-        }
-        return await res.text();
-      } catch {
-        return '';
-      }
-    }),
-  );
-  return parts.filter(Boolean).join('\n');
-}
-
-/**
  * Exporta o HTML do preview como arquivo .html offline.
- * @param {{ getHtml: () => string, filename?: string, title?: string, lang?: string, cssUrls?: string[], fetchImpl?: typeof fetch, download?: typeof downloadBlob, onStatus?: (msg: string) => void }} opts
+ * @param {{ getHtml: () => string, filename?: string, title?: string, lang?: string, theme?: 'light'|'dark', cssByTheme?: Record<string, string>, download?: typeof downloadBlob, onStatus?: (msg: string) => void }} opts
  */
 export async function exportStandaloneHtml({
   getHtml,
   filename = 'document.html',
   title = 'Markdown',
   lang = 'pt-BR',
-  cssUrls = DEFAULT_CSS_URLS,
-  fetchImpl = globalThis.fetch,
+  theme = 'light',
+  cssByTheme = GITHUB_MARKDOWN_CSS,
   download = downloadBlob,
   onStatus,
 } = {}) {
   const bodyHtml = String(getHtml?.() ?? '');
-  const cssText = await loadCssText(cssUrls, fetchImpl);
-  const html = buildStandaloneHtml(bodyHtml, { title, cssText, lang });
-  const name = toMarkdownName(filename, '.html').replace(/\.md$/i, '.html');
-  const finalName = /\.html$/i.test(name) ? name : `${name}.html`;
+  const cssText = resolveGithubMarkdownCss(theme, cssByTheme);
+  const html = buildStandaloneHtml(bodyHtml, { title, cssText, lang, theme });
+  // AC-P2-10-3: nome vem do documento ativo e é sanitizado (caracteres
+  // inválidos de arquivo, extensão antiga, nomes reservados do Windows).
+  const finalName = sanitizeDownloadName(filename, '.html', 'document');
   download(finalName, html, 'text/html;charset=utf-8');
   onStatus?.(finalName);
   return finalName;

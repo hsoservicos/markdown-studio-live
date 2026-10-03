@@ -194,3 +194,38 @@ describe('setupDivider', () => {
     });
   });
 });
+
+describe('D10 — ciclo de vida e eixos do divisor', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    globalThis.matchMedia = undefined;
+  });
+
+  it('limpa o inline size do eixo anterior ao cruzar o breakpoint', () => {
+    // desktop: aplica width
+    let layout = buildLayout({ width: 800, height: 600, dividerSize: 10, stacked: false });
+    setupDivider();
+    layout.divider.dispatchEvent(pointerEvent('dblclick'));
+    expect(layout.leftPane.style.width).not.toBe('');
+    expect(layout.leftPane.style.height).toBe('');
+
+    // mobile: aplica height e não deixa width preso
+    document.body.innerHTML = '';
+    layout = buildLayout({ width: 400, height: 800, dividerSize: 10, stacked: true });
+    setupDivider();
+    layout.divider.dispatchEvent(pointerEvent('dblclick'));
+    expect(layout.leftPane.style.height).not.toBe('');
+    expect(layout.leftPane.style.width).toBe('');
+  });
+
+  it('dispose remove o listener de resize (não acumula entre setups)', () => {
+    buildLayout({ width: 800, height: 600, dividerSize: 10, stacked: false });
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+    const dispose = setupDivider();
+    const resizeAdds = addSpy.mock.calls.filter(([type]) => type === 'resize').length;
+    expect(resizeAdds).toBe(1);
+    dispose();
+    expect(removeSpy.mock.calls.filter(([type]) => type === 'resize').length).toBe(1);
+  });
+});

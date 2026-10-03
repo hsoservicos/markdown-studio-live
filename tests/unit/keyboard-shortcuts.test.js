@@ -133,3 +133,41 @@ describe('resolveShortcutAction', () => {
     expect(resolveShortcutAction({})).toBeNull();
   });
 });
+
+describe('C1 — guarda de foco (campos de formulário não são sequestrados)', () => {
+  function fakeTarget({ inField = false, inMonaco = false } = {}) {
+    return {
+      closest: (selector) => {
+        if (selector.includes('.monaco-editor')) {
+          return inMonaco ? {} : null;
+        }
+        return inField ? {} : null;
+      },
+    };
+  }
+
+  it('recusa o atalho quando o alvo é input/textarea/select/contenteditable', () => {
+    for (const inField of [true]) {
+      expect(
+        resolveShortcutAction({ key: 's', ctrlKey: true, target: fakeTarget({ inField }) }),
+      ).toBeNull();
+    }
+  });
+
+  it('continua ativo dentro do editor Monaco (salvar/exportar enquanto escreve)', () => {
+    expect(
+      resolveShortcutAction({
+        key: 's',
+        ctrlKey: true,
+        target: fakeTarget({ inField: true, inMonaco: true }),
+      }),
+    ).toBe('save');
+  });
+
+  it('fora de campos o atalho segue normal; sem target não quebra', () => {
+    expect(resolveShortcutAction({ key: 'e', ctrlKey: true, target: fakeTarget({}) })).toBe(
+      'exportHtml',
+    );
+    expect(resolveShortcutAction({ key: 'e', ctrlKey: true })).toBe('exportHtml');
+  });
+});

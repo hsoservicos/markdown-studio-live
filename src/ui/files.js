@@ -24,6 +24,67 @@ export function toMarkdownName(name = 'untitled', ext = '.md') {
   return base.replace(/\.[^.\\/]+$/, '') + ext;
 }
 
+// Nomes reservados do Windows: como nome de arquivo final eles não existem —
+// `CON.pdf` é impossível de gravar em qualquer Windows, inclusive via download.
+const RESERVED_BASENAMES = new Set([
+  'con',
+  'prn',
+  'aux',
+  'nul',
+  'com1',
+  'com2',
+  'com3',
+  'com4',
+  'com5',
+  'com6',
+  'com7',
+  'com8',
+  'com9',
+  'lpt1',
+  'lpt2',
+  'lpt3',
+  'lpt4',
+  'lpt5',
+  'lpt6',
+  'lpt7',
+  'lpt8',
+  'lpt9',
+]);
+
+/**
+ * Sanitiza o nome de um download (AC-P2-10-3): remove extensão antiga,
+ * caracteres inválidos em arquivos (`/\\:*?"<>|` e control), colapsa
+ * espaços, corta em 80 chars e evita nomes reservados do Windows.
+ *
+ * Devolve `fallback + ext` quando o nome limpo fica vazio ou reservado —
+ * é o que preserva o comportamento legado (`markdown-preview.pdf`) sem
+ * título de documento.
+ *
+ * @param {string} name título do documento ou nome de arquivo
+ * @param {string} [ext=''] extensão final (com ponto), ex. `.pdf`
+ * @param {string} [fallback='markdown-preview'] base usada quando o nome não serve
+ * @returns {string} nome final pronto para `anchor.download`
+ */
+export function sanitizeDownloadName(name, ext = '', fallback = 'markdown-preview') {
+  const raw = String(name ?? '');
+  const base = raw
+    .replace(/\.[^.\\/]+$/, '')
+    .replace(/[\t\n\r\f\v]/g, ' ')
+    // eslint-disable-next-line no-control-regex -- remoção deliberada de C0/C1 em nomes de arquivo
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[.\s]+/, '')
+    .slice(0, 80)
+    .replace(/[.\s]+$/, '');
+  const safe =
+    base && !RESERVED_BASENAMES.has(base.toLowerCase())
+      ? base
+      : String(fallback || 'markdown-preview');
+  return safe + ext;
+}
+
 export function readFileAsText(file) {
   if (file && typeof file.text === 'function') {
     return Promise.resolve(file.text());

@@ -204,16 +204,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # F3: push da imagem JÁ construída (e implicitamente validada) — um
+      # rebuild aqui poderia publicar um artefato diferente do que subiu em
+      # `docker build`/health checks anteriores.
       - name: Push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: |
+          docker push "ghcr.io/${GITHUB_REPOSITORY}:${VERSION}"
+          docker push "ghcr.io/${GITHUB_REPOSITORY}:latest"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3

@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setLocale } from '../../src/i18n/index.js';
 import { setupPrintSettingsDialog } from '../../src/ui/printSettingsDialog.js';
-import { PRINT_SETTINGS_KEY, savePrintSettings } from '../../src/ui/printSettings.js';
+import {
+  PRINT_SETTINGS_KEY,
+  savePrintSettings,
+  DEFAULT_PRINT_SETTINGS,
+} from '../../src/ui/printSettings.js';
 
 function buildDialog() {
   const element = document.createElement('div');
@@ -106,5 +110,41 @@ describe('setupPrintSettingsDialog', () => {
 
   it('retorna null sem diálogo no container', () => {
     expect(setupPrintSettingsDialog({ container: document.createElement('div') })).toBeNull();
+  });
+});
+
+describe('D4 — margem 0 é valor válido', () => {
+  let container;
+
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: fakeStorage(),
+      writable: true,
+      configurable: true,
+    });
+    setLocale('pt-BR');
+    container = buildDialog();
+  });
+
+  it('submeter margem 0 persiste 0 (não vira 10)', () => {
+    const onSaved = vi.fn();
+    const api = setupPrintSettingsDialog({ container, onSaved });
+    api.open();
+    const form = container.querySelector('#print-settings-form');
+    container.querySelector('#print-margin').value = '0';
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(localStorage.getItem(PRINT_SETTINGS_KEY)).margin).toBe(0);
+  });
+
+  it('margem vazia/não-numérica cai no default', () => {
+    const api = setupPrintSettingsDialog({ container, onSaved: vi.fn() });
+    api.open();
+    const form = container.querySelector('#print-settings-form');
+    container.querySelector('#print-margin').value = '';
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    expect(JSON.parse(localStorage.getItem(PRINT_SETTINGS_KEY)).margin).toBe(
+      DEFAULT_PRINT_SETTINGS.margin,
+    );
   });
 });

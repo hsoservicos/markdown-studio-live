@@ -1,10 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   renderInlineMath,
   renderBlockMath,
   katexHtmlToDataUrl,
   createMathExtensions,
 } from '../../src/render/katexExt.js';
+
+// Mock do rasterizador: o contrato de alta-resolução (PNG 3×) precisa ser
+// pinado observando as opções reais passadas ao `html2canvas` — o jsdom não
+// tem canvas, então o caminho real só exercitaria o `catch`.
+const html2canvasMock = vi.fn();
+vi.mock('html2canvas', () => ({ default: (...args) => html2canvasMock(...args) }));
 
 describe('renderInlineMath', () => {
   it('renderiza fórmula inline com classe katex', () => {
@@ -70,12 +76,30 @@ describe('katexHtmlToDataUrl', () => {
       (el.getAttribute('style') || '').includes('-9999px'),
     ).length;
 
+  beforeEach(() => {
+    html2canvasMock.mockReset();
+  });
+
   it('não deixa o container invisível preso em document.body quando o rasterizador falha', async () => {
     expect(countOrphans()).toBe(0);
     // jsdom não tem canvas: o caminho real aqui é o `catch` — e era ali que o
     // `removeChild` ficava de fora, deixando um nó órfão por fórmula que falhasse.
+    html2canvasMock.mockRejectedValue(new Error('canvas indisponível'));
     const result = await katexHtmlToDataUrl('<span class="katex">x</span>');
-    expect(result === null || result.startsWith('data:image/png')).toBe(true);
+    expect(result).toBeNull();
+    expect(countOrphans()).toBe(0);
+  });
+
+  it('rasteriza em PNG 3× com fundo transparente (contrato AC-P2-9-2) e limpa o container', async () => {
+    html2canvasMock.mockResolvedValue({ toDataURL: () => 'data:image/png;base64,AAA' });
+    const result = await katexHtmlToDataUrl('<span class="katex">x</span>');
+    expect(result).toBe('data:image/png;base64,AAA');
+    // O KaTeX não tem saída `svg` (enum htmlAndMathml|html|mathml): a rota
+    // vetorial fixa raster de alta resolução em scale 3.
+    expect(html2canvasMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ scale: 3, backgroundColor: null }),
+    );
     expect(countOrphans()).toBe(0);
   });
 });

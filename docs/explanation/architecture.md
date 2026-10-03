@@ -188,8 +188,9 @@ de texto real, 100% client-side, offline, sem CDN.
 **Mermaid e KaTeX:**
 
 - pdfmake: aceita imagens via `image` content type. SVG do mermaid pode ser convertido para
-  PNG (canvas → dataURL) e embutido. KaTeX pode ser re-renderizado com `output: 'svg'` e
-  embutido como imagem.
+  PNG (canvas → dataURL) e embutido. Para KaTeX, a premissa original de re-render com
+  `output: 'svg'` era falsa — o enum do KaTeX é `htmlAndMathml|html|mathml`, sem saída SVG;
+  a rota embute raster de alta resolução (PNG 3×).
 - jsPDF: similar — imagens via `addImage`. SVG requer conversão prévia.
 - pdf-lib: similar.
 
@@ -223,17 +224,17 @@ Justificativa:
 
 ### Formato suportado por tipo de conteúdo
 
-| Tipo de conteúdo                    | Formato no PDF vetorial                      | Conversão                                                   |
-| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
-| Texto (headings, paragraphs, links) | Texto vetorial nativo pdfmake                | AST → docDefinition content[] (schemes não seguros → texto) |
-| Imagens                             | Bloco `image` (data URL ou http(s)/relativa) | AST → pdfmake image (origem não segura → alt)               |
-| Listas (ul/ol)                      | `ol`/`ul` content type pdfmake               | AST → list items                                            |
-| Tabelas                             | `table` content type pdfmake                 | AST → table body[]                                          |
-| Código (fenced/inline)              | Texto vetorial com fonte monospace           | AST → text com style                                        |
-| Blockquotes                         | Texto com indentação/border                  | AST → columns ou text com margin                            |
-| Mermaid                             | Imagem (SVG→PNG via canvas)                  | `mermaid.render()` → canvas → dataURL → pdfmake image       |
-| KaTeX inline/bloco                  | SVG embutido (re-render com `output: 'svg'`) | KaTeX `renderToString({output:'svg'})` → pdfmake image      |
-| Page break (`<!-- page-break -->`)  | `pageBreak: 'before'` no próximo content     | AST page-break marker → pageBreak property                  |
+| Tipo de conteúdo                    | Formato no PDF vetorial                      | Conversão                                                               |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
+| Texto (headings, paragraphs, links) | Texto vetorial nativo pdfmake                | AST → docDefinition content[] (schemes não seguros → texto)             |
+| Imagens                             | Bloco `image` (só data URL PNG/JPEG base64)  | AST → pdfmake image (relativa/http(s)/SVG data-URL → alt)               |
+| Listas (ul/ol)                      | `ol`/`ul` content type pdfmake               | AST → list items                                                        |
+| Tabelas                             | `table` content type pdfmake                 | AST → table body[]                                                      |
+| Código (fenced/inline)              | Texto vetorial com fonte monospace           | AST → text com style                                                    |
+| Blockquotes                         | Texto com indentação/border                  | AST → columns ou text com margin                                        |
+| Mermaid                             | Content type `svg` (string do SVG capturado) | `captureMermaidSvgs` → pdfmake `{svg}` (A2: `image` não decodifica SVG) |
+| KaTeX inline/bloco                  | Imagem raster alta-resolução (PNG 3×)        | KaTeX HTML → `html2canvas({scale:3})` → dataURL → pdfmake image         |
+| Page break (`<!-- page-break -->`)  | `pageBreak: 'before'` no próximo content     | AST page-break marker → pageBreak property                              |
 
 > A linha **KaTeX** passa por `resolveKatexPlaceholders` (`src/pdf/markdown-to-pdfmake.js`),
 > que troca os placeholders `__KATEX_HTML__:…__END__` por nós `{image, fit}`:

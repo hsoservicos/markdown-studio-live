@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   DEFAULT_PRINT_SETTINGS,
   PRINT_SETTINGS_KEY,
@@ -9,7 +11,6 @@ import {
   getPrintStylesheetCss,
   applyPrintSettingsCss,
   PRINT_STYLE_ID,
-  hasHeadersOrFooter,
 } from '../../src/ui/printSettings.js';
 
 function fakeStorage(initial = {}) {
@@ -134,7 +135,22 @@ describe('stampPageHeaderFooter', () => {
     const pdf = fakePdf();
     stampPageHeaderFooter(pdf, { headerText: 'Relatório', footerText: 'Página {page}' });
     expect(pdf.text).toHaveBeenCalledWith('Relatório', 105, 5, { align: 'center' });
+    // fallback A4 (297mm) quando o jsPDF não expõe getHeight
     expect(pdf.text).toHaveBeenCalledWith('Página 1', 105, 287, { align: 'center' });
+  });
+
+  it('D5: rodapé é posicionado pela altura real da página (Letter pisa fora em 287 fixo)', () => {
+    const pdf = fakePdf();
+    pdf.internal.pageSize.getHeight = () => 279;
+    stampPageHeaderFooter(pdf, { footerText: 'F' });
+    expect(pdf.text).toHaveBeenCalledWith('F', 105, 269, { align: 'center' });
+  });
+
+  it('D6: sem jsPDF avisa em vez de perder o carimbo em silêncio', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stampPageHeaderFooter({}, { headerText: 'Cabeçalho', footerText: '' });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('jsPDF indisponível'));
+    warn.mockRestore();
   });
 
   it('repete em páginas novas via addPage', () => {
@@ -156,7 +172,48 @@ describe('getPrintStylesheetCss', () => {
     expect(css).toContain('.page-break { break-after: page; page-break-after: always; }');
     expect(css).toContain('break-inside: avoid');
     expect(css).toContain('.markdown-body table');
-    expect(css).toContain('.print-page-header');
+    // D9: header/footer com {page} são exclusivos do PDF — as regras CSS
+    // `.print-page-header/.print-page-footer` eram mortas (nenhum código cria
+    // esses elementos) e prometiam o que o browser não entrega.
+    expect(css).not.toContain('.print-page-header');
+    expect(css).not.toContain('.print-page-footer');
+  });
+});
+
+describe('contrato @media print do app (style.css real)', () => {
+  const styleCss = readFileSync(resolve(process.cwd(), 'public/css/style.css'), 'utf8');
+  const printBlock = styleCss.slice(styleCss.indexOf('@media print'));
+
+  it('esconde a chrome do app na impressão e imprime só o documento', () => {
+    expect(printBlock).toContain('@media print');
+    const hideGroup = printBlock.slice(0, printBlock.indexOf('display: none'));
+    // Cada seletor precisa existir como item da lista (linha própria), não como
+    // substring — `.manual-dialog` não satisfaz `dialog`.
+    const emLinhaPropria = (grupo, sel) =>
+      grupo.includes(`\n  ${sel},`) || grupo.includes(`\n  ${sel} {`);
+    for (const seletor of [
+      'header',
+      'footer',
+      '#sidebar',
+      '.split-divider',
+      '.editor-pane',
+      '.manual-dialog',
+      '.skip-link',
+      'dialog',
+    ]) {
+      expect(
+        emLinhaPropria(hideGroup, seletor),
+        `seletor ${seletor} ausente no grupo escondido`,
+      ).toBe(true);
+    }
+  });
+
+  it('libera o preview em largura total e força texto legível no papel', () => {
+    expect(printBlock).toContain('#preview-wrapper');
+    expect(printBlock).toContain('#container');
+    expect(printBlock).toContain('width: 100%');
+    expect(printBlock).toContain('color: #1f2328');
+    expect(printBlock).toContain('background-color: #ffffff');
   });
 });
 
@@ -174,13 +231,5 @@ describe('applyPrintSettingsCss', () => {
     expect(document.querySelectorAll(`#${PRINT_STYLE_ID}`)).toHaveLength(1);
     expect(first).toBe(second);
     expect(second.textContent).toContain('margin: 30mm');
-  });
-});
-
-describe('hasHeadersOrFooter', () => {
-  it('detecta presença de cabeçalho/rodapé', () => {
-    expect(hasHeadersOrFooter({ headerText: 'x', footerText: '' })).toBe(true);
-    expect(hasHeadersOrFooter({ footerText: '{page}' })).toBe(true);
-    expect(hasHeadersOrFooter({})).toBe(false);
   });
 });

@@ -29,6 +29,7 @@ const ptBR = {
   snapshotRestored: 'Snapshot restaurado!',
   snapshotRemoved: 'Snapshot removido.',
   snapshotUntitled: '(sem título)',
+  snapshotQuota: 'Espaço cheio: snapshot automático pausado — exporte ou remova snapshots antigos.',
   exportPdf: 'Exportar PDF',
   syncScroll: 'Sincronizar rolagem',
   darkMode: 'Modo escuro',
@@ -42,8 +43,14 @@ const ptBR = {
   saveFailed: 'Não foi possível salvar a alteração. Tente novamente.',
   bootFailed: 'Não foi possível iniciar o editor. Recarregue a página.',
   renderFailed: 'Falha ao renderizar a pré-visualização. A versão anterior foi mantida.',
-  docOpRefused:
-    'A operação não foi concluída. O documento pode ter sido alterado em outra aba — recarregue a lista.',
+  docOpRefused: 'Operação recusada: o documento não está mais no índice.',
+  bootWarnActiveId:
+    'Aviso: o documento ativo da última sessão não está mais no índice — aberto o primeiro da lista.',
+  bootWarnIndexCleaned: 'Aviso: o índice de documentos tinha entradas inválidas e foi limpo.',
+  bootWarnIndexVersion:
+    'Aviso: o índice de documentos é de uma versão mais nova do app — iniciado vazio.',
+  bootWarnCorruptContent:
+    'Aviso: o conteúdo do documento estava corrompido — carregado o template.',
   mermaidError: 'Erro do Mermaid: ',
   mermaidRenderFailed: 'Falha ao renderizar o diagrama.',
   editorLabel: 'Editor de Markdown',
@@ -58,8 +65,8 @@ const ptBR = {
   dividerLabel: 'Divisor de painéis',
   openManual: 'Manual do Markdown',
   openFile: 'Abrir arquivo',
+  openFileConfirm: 'Abrir um arquivo substitui o conteúdo atual. Continuar?',
   newFile: 'Novo arquivo',
-  newFileConfirm: 'Tem certeza que deseja criar um novo arquivo? O conteúdo atual será perdido.',
   saveFile: 'Salvar arquivo',
   print: 'Imprimir',
   closeDialog: 'Fechar',
@@ -67,6 +74,7 @@ const ptBR = {
   languageLabel: 'Idioma',
   filePickerFallback: 'Usando seletor de arquivos padrão do navegador.',
   fileOpened: 'Arquivo aberto: {name}',
+  docCreated: 'Documento criado: {name}',
   fileSaved: 'Arquivo salvo: {name}',
   fileSaveDenied: 'Salvamento cancelado.',
   fileError: 'Não foi possível abrir o arquivo.',
@@ -75,13 +83,16 @@ const ptBR = {
   printSettings: 'Configurar impressão',
   printSettingsTitle: 'Configurar impressão',
   printSettingsSaved: 'Configurações de impressão salvas!',
-  printMarginLabel: 'Margem (mm)',
+  printMarginLabel: 'Margem',
   printPaperLabel: 'Papel',
   printOrientationLabel: 'Orientação',
   printPortrait: 'Retrato',
   printLandscape: 'Paisagem',
-  printHeaderLabel: 'Cabeçalho ({page} = nº)',
-  printFooterLabel: 'Rodapé ({page} = nº)',
+  printHeaderLabel: 'Cabeçalho',
+  printFooterLabel: 'Rodapé',
+  printHintPage: '{page} = nº da página',
+  printHeaderPlaceholder: 'Ex: Documento confidencial',
+  printFooterPlaceholder: 'Ex: Página {page}',
   printSave: 'Salvar',
   words: '{n} palavras',
   chars: '{n} caracteres',
@@ -128,6 +139,7 @@ const enUS = {
   snapshotRestored: 'Snapshot restored!',
   snapshotRemoved: 'Snapshot removed.',
   snapshotUntitled: '(untitled)',
+  snapshotQuota: 'Storage full: automatic snapshots paused — export or remove old snapshots.',
   exportPdf: 'Export PDF',
   syncScroll: 'Sync scroll',
   darkMode: 'Dark mode',
@@ -141,8 +153,12 @@ const enUS = {
   saveFailed: 'Could not save the change. Please try again.',
   bootFailed: 'Could not start the editor. Reload the page.',
   renderFailed: 'Failed to render the preview. The previous version was kept.',
-  docOpRefused:
-    'The operation was not completed. The document may have changed in another tab — reload the list.',
+  docOpRefused: 'Operation refused: the document is no longer in the index.',
+  bootWarnActiveId:
+    'Warning: last session active document is no longer in the index — opened the first one.',
+  bootWarnIndexCleaned: 'Warning: the document index had invalid entries and was cleaned.',
+  bootWarnIndexVersion: 'Warning: the document index is from a newer app version — started empty.',
+  bootWarnCorruptContent: 'Warning: the document content was corrupt — the template was loaded.',
   mermaidError: 'Mermaid error: ',
   mermaidRenderFailed: 'Failed to render the diagram.',
   editorLabel: 'Markdown editor',
@@ -156,8 +172,8 @@ const enUS = {
   dividerLabel: 'Pane divider',
   openManual: 'Markdown manual',
   openFile: 'Open file',
+  openFileConfirm: 'Opening a file replaces the current content. Continue?',
   newFile: 'New file',
-  newFileConfirm: 'Are you sure you want to create a new file? Current content will be lost.',
   saveFile: 'Save file',
   print: 'Print',
   closeDialog: 'Close',
@@ -165,6 +181,7 @@ const enUS = {
   languageLabel: 'Language',
   filePickerFallback: 'Using the standard browser file picker.',
   fileOpened: 'Opened file: {name}',
+  docCreated: 'Document created: {name}',
   fileSaved: 'Saved file: {name}',
   fileSaveDenied: 'Save cancelled.',
   fileError: 'Could not open the file.',
@@ -173,13 +190,16 @@ const enUS = {
   printSettings: 'Print settings',
   printSettingsTitle: 'Print settings',
   printSettingsSaved: 'Print settings saved!',
-  printMarginLabel: 'Margin (mm)',
+  printMarginLabel: 'Margin',
   printPaperLabel: 'Paper',
   printOrientationLabel: 'Orientation',
   printPortrait: 'Portrait',
   printLandscape: 'Landscape',
-  printHeaderLabel: 'Header ({page} = page no.)',
-  printFooterLabel: 'Footer ({page} = page no.)',
+  printHeaderLabel: 'Header',
+  printFooterLabel: 'Footer',
+  printHintPage: '{page} = page number',
+  printHeaderPlaceholder: 'Ex: Confidential document',
+  printFooterPlaceholder: 'Ex: Page {page}',
   printSave: 'Save',
   words: '{n} words',
   chars: '{n} characters',
@@ -220,7 +240,9 @@ export function getLocaleCode() {
 }
 
 export function t(key) {
-  return current[key] ?? key;
+  // C5: chave ausente no idioma corrente cai no pt-BR antes de expor a chave
+  // crua para o usuário.
+  return current[key] ?? ptBR[key] ?? key;
 }
 
 export const DEFAULT_TEMPLATE_PT = `# Guia de sintaxe Markdown

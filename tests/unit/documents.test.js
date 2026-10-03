@@ -2,11 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   createId,
   safeGetIndex,
+  safeGetIndexDetailed,
   freshIndex,
   listDocuments,
   getActiveDocument,
   getDocumentById,
   getContent,
+  getContentDetailed,
   createDocument,
   updateTitle,
   setActive,
@@ -427,3 +429,96 @@ function restoreStorage() {
     originalStorage = undefined;
   }
 }
+
+describe('B2/B5 — atomicidade de setContent e avisos de boot', () => {
+  it('B2: falha no índice reverte o conteúdo ao valor anterior e expõe err.reverted', () => {
+    const doc = createDocument({ title: 'A', initialContent: 'v1' });
+    installIndexThrowingStorage('QuotaExceededError');
+    let err = null;
+    try {
+      setContent(doc.id, 'v2');
+    } catch (e) {
+      err = e;
+    } finally {
+      restoreStorage();
+    }
+    expect(err).not.toBeNull();
+    expect(err.code).toBe('quota');
+    expect(err.reverted).toBe(true);
+    expect(getContent(doc.id)).toBe('v1');
+  });
+
+  it('B2: sem conteúdo anterior, a falha no índice remove a chave (sem estado parcial)', () => {
+    const doc = createDocument({ title: 'A', initialContent: 'v1' });
+    removeItem(NAMESPACE, `${CONTENT_KEY}.${doc.id}`);
+    installIndexThrowingStorage('QuotaExceededError');
+    try {
+      setContent(doc.id, 'v2');
+    } catch {
+      // esperado
+    } finally {
+      restoreStorage();
+    }
+    expect(getContent(doc.id)).toBeNull();
+  });
+
+  it('B5: safeGetIndexDetailed avisa limpeza de ids e fallback do ativo', () => {
+    setItem(NAMESPACE, INDEX_KEY, {
+      version: 1,
+      activeId: 'fantasma',
+      documents: [
+        { id: 'a', title: 'A1', updatedAt: 1 },
+        { id: 'a', title: 'A2', updatedAt: 2 },
+        { id: 'b', title: 'B', updatedAt: 1 },
+      ],
+    });
+    const { index, warnings } = safeGetIndexDetailed();
+    expect(warnings).toContain('indexCleaned');
+    expect(warnings).toContain('activeIdFallback');
+    expect(index.documents).toHaveLength(2);
+    expect(index.documents.find((d) => d.id === 'a').title).toBe('A2');
+    expect(index.activeId).toBe('a');
+  });
+
+  it('B5: índice saudável não gera avisos; getContentDetailed detecta corrupção', () => {
+    const doc = createDocument({ title: 'A', initialContent: 'ok' });
+    expect(safeGetIndexDetailed().warnings).toEqual([]);
+    expect(getContentDetailed(doc.id)).toEqual({ value: 'ok', corrupt: false });
+
+    store().setItem(
+      `${NAMESPACE}.${CONTENT_KEY}.${doc.id}`,
+      JSON.stringify({ expiresAt: Date.now() + 1e12 }),
+    );
+    expect(getContentDetailed(doc.id)).toEqual({ value: null, corrupt: true });
+  });
+});
+
+describe('E1/E2 — versão do schema e título do documento', () => {
+  it('E1: índice de versão mais nova degrada para vazio com aviso', () => {
+    setItem(NAMESPACE, INDEX_KEY, {
+      version: INDEX_VERSION + 1,
+      activeId: 'a',
+      documents: [{ id: 'a', title: 'X', updatedAt: 1 }],
+    });
+    const { index, warnings } = safeGetIndexDetailed();
+    expect(warnings).toContain('indexVersion');
+    expect(index.documents).toEqual([]);
+    expect(index.activeId).toBeNull();
+  });
+
+  it('E1: versão conhecida/ausente segue lendo normalmente', () => {
+    setItem(NAMESPACE, INDEX_KEY, {
+      version: INDEX_VERSION,
+      activeId: null,
+      documents: [{ id: 'a', title: 'X', updatedAt: 1 }],
+    });
+    expect(safeGetIndexDetailed().warnings).toEqual([]);
+    expect(safeGetIndexDetailed().index.documents).toHaveLength(1);
+  });
+
+  it('E2: createDocument sem título não fixa o nome pt-BR "Documento"', () => {
+    const doc = createDocument({});
+    expect(doc.title).toBe('');
+    expect(listDocuments()[0].title).toBe('');
+  });
+});

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { extractTocFromHtml, extractTocFromMarkdown, buildTocHtml } from '../../src/render/toc.js';
+import { JSDOM } from 'jsdom';
+import { extractTocFromMarkdown, buildTocHtml } from '../../src/render/toc.js';
+import { convert, visibleHeadingText } from '../../src/render/convert.js';
 
 describe('extractTocFromMarkdown', () => {
   it('extrai headings com nível, texto, id e linha', () => {
@@ -29,20 +31,46 @@ describe('extractTocFromMarkdown', () => {
     expect(extractTocFromMarkdown('')).toEqual([]);
     expect(extractTocFromMarkdown(null)).toEqual([]);
   });
-});
 
-describe('extractTocFromHtml', () => {
-  it('extrai headings do HTML renderizado com ids', () => {
-    const html = '<h1 id="titulo">Título</h1><p>x</p><h2 id="s-1">Seção</h2>';
-    expect(extractTocFromHtml(html)).toEqual([
-      { level: 1, text: 'Título', id: 'titulo' },
-      { level: 2, text: 'Seção', id: 's-1' },
-    ]);
+  it('texto visível: imagem vira alt, link vira texto, ênfase sai (fonte dos ids — D8)', () => {
+    expect(visibleHeadingText('Veja [docs](https://ex.com)')).toBe('Veja docs');
+    expect(visibleHeadingText('Imagem ![alt](/x.png)')).toBe('Imagem alt');
+    expect(visibleHeadingText('**Negrito** e *itálico* e `código`')).toBe(
+      'Negrito e itálico e código',
+    );
+    expect(visibleHeadingText('Escapado \\*literal\\*')).toBe('Escapado *literal*');
+    expect(visibleHeadingText('Com <b>tag</b> inline')).toBe('Com tag inline');
   });
 
-  it('retorna vazio sem html', () => {
-    expect(extractTocFromHtml('')).toEqual([]);
-    expect(extractTocFromHtml(null)).toEqual([]);
+  it('contrato D8: ids do TOC e do preview são idênticos para o mesmo documento', () => {
+    const md = [
+      '# Veja [docs](https://ex.com)',
+      '',
+      '## Imagem ![alt](/x.png)',
+      '',
+      '## Tom & Jerry',
+      '',
+      '## Use `npm test`',
+      '',
+      '## **Negrito** no título',
+      '',
+      '### Repetido',
+      '',
+      '### Repetido',
+    ].join('\n');
+
+    const tocIds = extractTocFromMarkdown(md).map((i) => i.id);
+    const dom = new JSDOM(convert(md));
+    const renderedIds = [...dom.window.document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map(
+      (h) => h.id,
+    );
+    expect(tocIds).toEqual(renderedIds);
+    // os casos que divergiam antes da unificação
+    expect(tocIds[0]).toBe('veja-docs');
+    expect(tocIds[1]).toBe('imagem-alt');
+    expect(tocIds[2]).toBe('tom-jerry');
+    expect(tocIds[5]).toBe('repetido');
+    expect(tocIds[6]).toBe('repetido-1');
   });
 });
 
@@ -67,5 +95,26 @@ describe('buildTocHtml', () => {
   it('retorna vazio para lista vazia', () => {
     expect(buildTocHtml([])).toBe('');
     expect(buildTocHtml(null)).toBe('');
+  });
+});
+
+describe('D9 — bordas do extrator de TOC', () => {
+  it('fence de 4+ crases não fecha com linha de 3 crases dentro', () => {
+    const md = '````\n```\n# falso heading\n```\n````\n\n# real';
+    expect(extractTocFromMarkdown(md).map((i) => i.id)).toEqual(['real']);
+  });
+
+  it('setext vira heading h1/h2', () => {
+    const md = 'Título\n===\n\nSeção\n---\n';
+    const items = extractTocFromMarkdown(md);
+    expect(items.map((i) => [i.level, i.id])).toEqual([
+      [1, 'titulo'],
+      [2, 'secao'],
+    ]);
+  });
+
+  it('heading sem texto visível não vira âncora quebrada', () => {
+    expect(extractTocFromMarkdown('## ***')).toEqual([]);
+    expect(extractTocFromMarkdown('# ok\n\n## ***').map((i) => i.id)).toEqual(['ok']);
   });
 });

@@ -1,9 +1,9 @@
 import { marked } from 'marked';
-import { svgToDataUrl } from './svg-embed.js';
-import { renderBlockMath, renderInlineMath, createMathExtensions } from '../render/katexExt.js';
-import { isSafeImageSrc, isSafeLinkHref } from '../render/urlPolicy.js';
+import { renderBlockMath, renderInlineMath, registerMathExtensions } from '../render/katexExt.js';
+import { isSafeLinkHref } from '../render/urlPolicy.js';
 
-marked.use({ extensions: createMathExtensions() });
+// G1: idempotente — não duplica as extensões já registradas pelo convert.js.
+registerMathExtensions(marked);
 
 const HEADING_SIZES = { 1: 22, 2: 18, 3: 15, 4: 13, 5: 11, 6: 10 };
 
@@ -24,7 +24,10 @@ function convertInlineTokens(tokens = []) {
         result.push({ text: convertInlineTokens(token.tokens), italics: true });
         break;
       case 'codespan':
-        result.push({ text: token.text, font: 'Courier', background: '#f0f0f0' });
+        // A1: o vfs do pdfmake só tem Roboto — a fonte `Courier` apontava para
+        // TTFs inexistentes e abortava o export. Código preserva o destaque
+        // visual pelo fundo, na fonte base.
+        result.push({ text: token.text, background: '#f0f0f0' });
         break;
       case 'link':
         // Mesma allowlist de schemes do preview (urlPolicy.js): href não seguro
@@ -49,6 +52,13 @@ function convertInlineTokens(tokens = []) {
       case 'escape':
         result.push(token.text);
         break;
+      case 'del':
+        // A6: tildes não podem vazar como markdown cru.
+        result.push({
+          text: convertInlineTokens(token.tokens ?? [{ type: 'text', text: token.text }]),
+          decoration: 'lineThrough',
+        });
+        break;
       case 'math-inline': {
         const html = renderInlineMath(token.text);
         result.push({ text: `${KATEX_PLACEHOLDER_PREFIX}${html}${KATEX_PLACEHOLDER_SUFFIX}` });
@@ -63,29 +73,38 @@ function convertInlineTokens(tokens = []) {
 }
 
 function convertListItem(item) {
+  // A6: o nó do item pode carregar lista aninhada (`ul`/`ol`) — antes o token
+  // `list` caía no default e o markdown cru vazava para o PDF.
+  const node = { text: [] };
   const textTokens = item.tokens?.length ? item.tokens : [{ type: 'text', text: item.text }];
-  const converted = [];
   for (const t of textTokens) {
-    if (t.type === 'text' && t.tokens) {
-      converted.push(...convertInlineTokens(t.tokens));
+    if (t.type === 'list') {
+      const key = t.ordered ? 'ol' : 'ul';
+      node[key] = t.items.map((li) => convertListItem(li));
+    } else if (t.type === 'text' && t.tokens) {
+      node.text.push(...convertInlineTokens(t.tokens));
     } else if (t.type === 'paragraph') {
-      converted.push(...convertInlineTokens(t.tokens));
+      node.text.push(...convertInlineTokens(t.tokens));
     } else {
-      converted.push(...convertInlineTokens([t]));
+      node.text.push(...convertInlineTokens([t]));
     }
   }
-  return converted;
+  return node;
 }
 
 function convertTable(token) {
+  // A5: `cell.text` é markdown cru — bold/links/math impressos como sintaxe.
+  // O marked v18 traz `tokens` por célula; sem tokens, cai no texto puro.
+  const cellText = (cell) =>
+    convertInlineTokens(cell.tokens?.length ? cell.tokens : [{ type: 'text', text: cell.text }]);
   const headerRow = token.header.map((cell) => ({
-    text: cell.text,
+    text: cellText(cell),
     bold: true,
     fillColor: '#e8e8e8',
   }));
   const bodyRows = token.rows.map((row) =>
     row.map((cell) => ({
-      text: cell.text,
+      text: cellText(cell),
     })),
   );
   return {
@@ -103,10 +122,12 @@ function convertCodeBlock(token, options = {}) {
   const lang = (token.lang || '').toLowerCase();
   if (lang === 'mermaid' && options.mermaidSvgs?.has(token.text)) {
     const svg = options.mermaidSvgs.get(token.text);
-    const dataUrl = svgToDataUrl(svg);
-    if (dataUrl) {
+    // A2: o pdfmake só decodifica JPEG/PNG no content type `image` —
+    // `data:image/svg+xml` abortava o export com "Invalid image". SVG é o
+    // content type próprio (`svg`), com a STRING do SVG.
+    if (typeof svg === 'string' && svg.trim().startsWith('<svg')) {
       return {
-        image: dataUrl,
+        svg,
         fit: [450, 300],
         margin: [0, 5, 0, 5],
       };
@@ -116,7 +137,6 @@ function convertCodeBlock(token, options = {}) {
   return {
     text: lines.map((line) => ({
       text: line + '\n',
-      font: 'Courier',
       fontSize: 9,
     })),
     margin: [10, 5, 10, 5],
@@ -163,16 +183,27 @@ function convertHeading(token) {
   };
 }
 
-function convertBlockImage(token) {
-  const src = token.href ?? '';
-  if (isSafeImageSrc(src)) {
+function convertBlockImage(token, options = {}) {
+  const src = String(token.href ?? '').trim();
+  // A3: imagens relativas podem ter sido resolvidas para data URL pelo
+  // exportador (fetch de mesma origem → PNG/JPEG). O mapa é injetado aqui —
+  // `markdownToPdfmake` continua síncrono e puro.
+  const resolved = options.imageDataUrls?.get?.(src);
+  const embeddable = (url) => /^data:image\/(?:png|jpe?g);base64,/i.test(url);
+  let finalSrc = null;
+  if (embeddable(src)) {
+    finalSrc = src;
+  } else if (resolved && embeddable(resolved)) {
+    finalSrc = resolved;
+  }
+  if (finalSrc) {
     return {
-      image: src,
+      image: finalSrc,
       fit: [450, 300],
       margin: [0, 5, 0, 5],
     };
   }
-  // Fonte bloqueada: cai para o texto alternativo (nunca o markdown cru).
+  // Fonte não embutível: cai para o texto alternativo (nunca o markdown cru).
   return { text: token.text ?? '', margin: [0, 3, 0, 3] };
 }
 
@@ -182,11 +213,13 @@ function isImageOnlyParagraph(token) {
   return meaningful.length > 0 && meaningful.every((t) => t.type === 'image');
 }
 
-function convertParagraph(token) {
+function convertParagraph(token, options = {}) {
   // `![alt](url)` sozinho no parágrafo é uma imagem de bloco: o pdfmake só
   // aceita imagens fora de `text`, então monta o item diretamente.
   if (isImageOnlyParagraph(token)) {
-    const images = token.tokens.filter((t) => t.type === 'image').map(convertBlockImage);
+    const images = token.tokens
+      .filter((t) => t.type === 'image')
+      .map((t) => convertBlockImage(t, options));
     return images.length === 1 ? images[0] : { stack: images };
   }
   const text = convertInlineTokens(token.tokens);
@@ -224,9 +257,7 @@ function convertTokens(tokens = [], options = {}) {
         break;
       case 'list':
         item = {
-          [token.ordered ? 'ol' : 'ul']: token.items.map((li) => ({
-            text: convertListItem(li),
-          })),
+          [token.ordered ? 'ol' : 'ul']: token.items.map((li) => convertListItem(li)),
           margin: [0, 3, 0, 3],
         };
         break;
@@ -281,6 +312,33 @@ export function markdownToPdfmake(markdown, options = {}) {
   };
 }
 
+/**
+ * Coleta os `src` de imagens de bloco buscáveis (caminhos relativos de mesma
+ * origem) para o exportador resolver via fetch → data URL (A3). Origens de
+ * rede não são buscadas (D6: CSP/`img-src` e offline).
+ * @returns {string[]}
+ */
+export function collectImageSrcs(markdown) {
+  const tokens = marked.lexer(String(markdown ?? ''));
+  const srcs = new Set();
+  const walk = (list) => {
+    for (const t of list ?? []) {
+      if (t.type === 'image' && typeof t.href === 'string') {
+        const src = t.href.trim();
+        if (src && !/^(?:data:|blob:|\/\/|[a-z][a-z0-9+.-]*:)/i.test(src)) {
+          srcs.add(src);
+        }
+      }
+      walk(t.tokens);
+      walk(t.items);
+      for (const cell of t.header ?? []) walk(cell.tokens);
+      for (const row of t.rows ?? []) for (const cell of row) walk(cell.tokens);
+    }
+  };
+  walk(tokens);
+  return [...srcs];
+}
+
 function isKatexRun(run) {
   return (
     run != null &&
@@ -302,9 +360,23 @@ function hasKatexPlaceholder(item) {
     return item.text.includes(KATEX_PLACEHOLDER_PREFIX);
   }
   if (Array.isArray(item.text)) {
-    return item.text.some((run) =>
-      typeof run === 'string' ? run.includes(KATEX_PLACEHOLDER_PREFIX) : isKatexRun(run),
-    );
+    return item.text.some((run) => {
+      if (typeof run === 'string') return run.includes(KATEX_PLACEHOLDER_PREFIX);
+      if (isKatexRun(run)) return true;
+      // A7: run aninhado (strong/em devolve `{text: runs[]}`) também pode
+      // carregar o placeholder.
+      return Array.isArray(run?.text) && hasKatexPlaceholder(run);
+    });
+  }
+  // A7: blockquote (columns) e listas (ul/ol) carregam placeholders aninhados.
+  if (Array.isArray(item.columns)) {
+    return item.columns.some(hasKatexPlaceholder);
+  }
+  if (Array.isArray(item.ul)) {
+    return item.ul.some(hasKatexPlaceholder);
+  }
+  if (Array.isArray(item.ol)) {
+    return item.ol.some(hasKatexPlaceholder);
   }
   return false;
 }
@@ -358,33 +430,74 @@ export async function resolveKatexPlaceholders(content, katexHtmlToDataUrl) {
       if (!image) return run;
       return { ...omitText(run), ...image };
     }
+    // A7: run aninhado (strong/em devolve `{text: runs[]}`) — resolve os filhos.
+    if (Array.isArray(run?.text)) {
+      const inner = [];
+      for (const r of run.text) {
+        inner.push(await resolveRun(r));
+      }
+      return { ...run, text: inner };
+    }
     return run;
   }
 
-  const resolved = [];
-  for (const item of content) {
-    if (!hasKatexPlaceholder(item)) {
-      resolved.push(item);
-      continue;
-    }
-    const runs = Array.isArray(item.text) ? item.text : [item.text];
+  async function resolveRuns(runs) {
     const next = [];
     for (const run of runs) {
       next.push(await resolveRun(run));
     }
+    return next;
+  }
 
-    const only = next.length === 1 ? next[0] : null;
-    if (only && typeof only === 'object' && only.image) {
-      resolved.push({ ...omitText(item), ...only });
-      continue;
+  async function resolveList(items) {
+    const next = [];
+    for (const li of items) {
+      next.push(await resolveItem(li));
     }
-    resolved.push({ ...item, text: next.length === 1 ? next[0] : next });
+    return next;
+  }
+
+  async function resolveItem(item) {
+    if (!hasKatexPlaceholder(item)) {
+      return item;
+    }
+    let out = item;
+    if (typeof out.text === 'string' || Array.isArray(out.text)) {
+      const runs = Array.isArray(out.text) ? out.text : [out.text];
+      const next = await resolveRuns(runs);
+      const only = next.length === 1 ? next[0] : null;
+      if (only && typeof only === 'object' && only.image) {
+        out = { ...omitText(out), ...only };
+      } else {
+        out = { ...out, text: next.length === 1 ? next[0] : next };
+      }
+    }
+    // A7: blockquote (columns) e listas (ul/ol) carregam filhos com placeholders.
+    if (Array.isArray(out.columns)) {
+      const cols = [];
+      for (const col of out.columns) {
+        cols.push(await resolveItem(col));
+      }
+      out = { ...out, columns: cols };
+    }
+    if (Array.isArray(out.ul)) {
+      out = { ...out, ul: await resolveList(out.ul) };
+    }
+    if (Array.isArray(out.ol)) {
+      out = { ...out, ol: await resolveList(out.ol) };
+    }
+    return out;
+  }
+
+  const resolved = [];
+  for (const item of content) {
+    resolved.push(await resolveItem(item));
   }
   return resolved;
 }
 
 export function buildPdfDocDefinition(content, settings = {}) {
-  const { margin = 10, headerText = '', footerText = '' } = settings;
+  const { margin = 10, headerText = '', footerText = '', paperSize, orientation } = settings;
 
   const pageMargins = [margin, margin + 10, margin, margin + 10];
 
@@ -396,6 +509,15 @@ export function buildPdfDocDefinition(content, settings = {}) {
       lineHeight: 1.3,
     },
   };
+
+  // A4: Letter/paisagem do diálogo de impressão precisam chegar ao pdfmake —
+  // sem isto a rota vetorial sempre saía em A4 retrato (AC-P2-9-1).
+  const PAGE_SIZES = { a4: 'A4', letter: 'LETTER' };
+  const pageSize = PAGE_SIZES[paperSize] ?? 'A4';
+  docDefinition.pageSize = pageSize;
+  if (orientation === 'landscape' || orientation === 'portrait') {
+    docDefinition.pageOrientation = orientation;
+  }
 
   if (headerText || footerText) {
     docDefinition.header = (currentPage, _pageCount) => {

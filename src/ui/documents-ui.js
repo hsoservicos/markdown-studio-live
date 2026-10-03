@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, getDefaultTemplate } from '../i18n/index.js';
 import {
   listDocuments,
   getActiveDocument,
@@ -13,6 +13,7 @@ import {
   // atual do editor em vez do conteúdo do documento alvo.
   getContent as getDocumentContent,
 } from '../documents.js';
+import { reassignDocSnapshots, migrateLegacySnapshots } from './snapshots.js';
 import { guardStorage as guardStorageCall } from './storageFeedback.js';
 
 /**
@@ -80,12 +81,20 @@ export function setupDocumentManager({
       });
     });
   }
+  // B6 (AC-P2-10-3): snapshots legados sem origem (pré-P2) são atribuídos ao
+  // documento ativo na migração — nunca ficam pendurados.
+  if (currentDoc) {
+    guardStorage(() => migrateLegacySnapshots(currentDoc.id));
+  }
 
   function renderList() {
     const docs = listDocuments();
     const active = getActiveDocument();
     listEl.innerHTML = '';
     for (const doc of docs) {
+      // C6: `ul`/`li` reais (o container era `div` com `li` soltos) e sem
+      // `role="button"` no `li` — botões dentro de role=button são controle
+      // interativo aninhado. O nome vira botão (ação: trocar de documento).
       const li = document.createElement('li');
       li.className = 'doc-item';
       if (doc.id === active?.id) {
@@ -93,13 +102,24 @@ export function setupDocumentManager({
         li.classList.add('doc-active');
       }
       li.setAttribute('tabindex', '0');
-      li.setAttribute('role', 'button');
       li.dataset.docId = doc.id;
 
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'doc-name';
-      nameSpan.textContent = doc.title || t('docUntitled');
-      li.appendChild(nameSpan);
+      const nameBtn = document.createElement('button');
+      nameBtn.type = 'button';
+      nameBtn.className = 'doc-name';
+      nameBtn.textContent = doc.title || t('docUntitled');
+      li.appendChild(nameBtn);
+
+      // B3 (AC-P2-10-2): renomear precisa existir na UI — antes `handleRename`
+      // só vivia no retorno do setup, que ninguém consumia.
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'doc-rename-btn';
+      renameBtn.type = 'button';
+      renameBtn.textContent = '✎';
+      renameBtn.title = t('docRename');
+      renameBtn.setAttribute('aria-label', t('docRename'));
+      renameBtn.dataset.docRename = doc.id;
+      li.appendChild(renameBtn);
 
       const closeBtn = document.createElement('button');
       closeBtn.className = 'doc-close-btn';
@@ -113,6 +133,8 @@ export function setupDocumentManager({
       li.addEventListener('click', (e) => {
         if (e.target.dataset.docClose) {
           handleClose(doc.id);
+        } else if (e.target.dataset.docRename) {
+          handleRename(doc.id);
         } else {
           handleSwitch(doc.id);
         }
@@ -123,6 +145,8 @@ export function setupDocumentManager({
           e.preventDefault();
           if (e.target.dataset.docClose) {
             handleClose(doc.id);
+          } else if (e.target.dataset.docRename) {
+            handleRename(doc.id);
           } else {
             handleSwitch(doc.id);
           }
@@ -181,9 +205,6 @@ export function setupDocumentManager({
 
   function handleClose(id) {
     const docs = listDocuments();
-    if (docs.length <= 1) {
-      return;
-    }
     const doc = docs.find((d) => d.id === id);
     if (!doc) return;
 
@@ -193,7 +214,26 @@ export function setupDocumentManager({
     }
 
     if (!saveCurrentContent()) return;
-    if (!guardStorage(() => deleteDocument(id))) return;
+
+    // B7: `deleteDocument` devolve false quando o documento sumiu do índice
+    // (outra aba mexeu) — sem capturar o booleano a UI anunciava sucesso para
+    // um fechamento que não aconteceu.
+    let deleted = false;
+    if (
+      !guardStorage(() => {
+        deleted = deleteDocument(id);
+      }) ||
+      !deleted
+    ) {
+      onStatus?.(t('docOpRefused'));
+      renderList();
+      return;
+    }
+
+    // B6 (AC-P2-10-3): snapshots do documento fechado migram para o ativo
+    // seguinte — sem origem pendurada.
+    reassignDocSnapshots(id, getActiveDocument()?.id ?? null);
+
     if (currentDoc?.id === id) {
       currentDoc = null;
     }
@@ -209,11 +249,14 @@ export function setupDocumentManager({
       // `revealPosition(1,1)` jogaria o viewport para o topo, sem ganho algum.
       renderList();
     } else if (remaining.length === 0) {
-      // Último documento apagado: precisa repor um, senão o gerenciador fica
-      // sem documento ativo. Se a reposição falhar, `currentDoc` fica null —
-      // `handleCreate` é o caminho de recuperação e a mensagem já saiu.
+      // B4 (AC-P2-10-2): a lista esvaziou — abre o template do idioma
+      // corrente. Antes o guard `docs.length <= 1` recusava em silêncio o
+      // fechamento do último documento e este ramo era inalcançável.
       guardStorage(() => {
-        currentDoc = createDocument({ title: t('docDefaultName') });
+        currentDoc = createDocument({
+          title: t('docDefaultName'),
+          initialContent: getDefaultTemplate(),
+        });
       });
       if (currentDoc) {
         loadDocument(currentDoc);
@@ -238,7 +281,8 @@ export function setupDocumentManager({
       return;
     }
     loadDocument(doc);
-    onStatus?.(t('fileOpened').replace('{name}', title));
+    // C3: "Arquivo aberto" era a mensagem para um documento RECÉM-CRIADO.
+    onStatus?.(t('docCreated').replace('{name}', title));
   }
 
   function handleRename(id) {

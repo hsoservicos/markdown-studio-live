@@ -18,8 +18,21 @@ export function setupTocDialog({
   const listEl = container.querySelector('#toc-list');
   const closeButton = container.querySelector('#toc-close');
 
+  // G4: a extração era refeita a cada clique no preview (O(documento) por
+  // clique). Memoização pela string do conteúdo — mudou, refaz; igual, reusa.
+  let cachedContent = null;
+  let cachedItems = [];
+  function currentItems() {
+    const content = getContent();
+    if (content !== cachedContent) {
+      cachedContent = content;
+      cachedItems = extractTocFromMarkdown(content);
+    }
+    return cachedItems;
+  }
+
   function open() {
-    const items = extractTocFromMarkdown(getContent());
+    const items = currentItems();
     if (items.length === 0) {
       onEmpty?.();
       return;
@@ -67,7 +80,7 @@ export function setupTocDialog({
       if (!heading || !heading.id) {
         return;
       }
-      const items = extractTocFromMarkdown(getContent());
+      const items = currentItems();
       const item = items.find((i) => i.id === heading.id);
       if (item && editor) {
         editor.revealPosition({ lineNumber: item.line, column: 1 });

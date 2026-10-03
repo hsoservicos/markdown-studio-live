@@ -2,12 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   listSnapshots,
   pushSnapshot,
+  pushSnapshotDetailed,
+  snapshotQuotaCheck,
+  SNAPSHOT_QUOTA_MARGIN_BYTES,
   getSnapshot,
   removeSnapshot,
   clearSnapshots,
   saveSnapshots,
   normalizeSnapshot,
   maybeAutoSnapshot,
+  migrateLegacySnapshots,
+  reassignDocSnapshots,
   MAX_SNAPSHOTS,
   AUTO_SNAPSHOT_MIN_INTERVAL,
   BACKUP_KEY,
@@ -110,5 +115,136 @@ describe('snapshots', () => {
       JSON.stringify({ value: 'nao-array', expiresAt: Date.now() + 1e12 }),
     );
     expect(listSnapshots()).toEqual([]);
+  });
+});
+
+describe('guarda de quota dos snapshots (D4)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('snapshotQuotaCheck aprova quando o anel cabe no orçamento menos a margem', () => {
+    const check = snapshotQuotaCheck(1000, {
+      usedBytes: 4_000_000,
+      quotaBytes: 5_000_000,
+      marginBytes: 256 * 1024,
+    });
+    expect(check.ok).toBe(true);
+  });
+
+  it('snapshotQuotaCheck recusa quando sobra menos que a margem', () => {
+    const check = snapshotQuotaCheck(1000, {
+      usedBytes: 5_000_000 - 100_000,
+      quotaBytes: 5_000_000,
+      marginBytes: 256 * 1024,
+    });
+    expect(check.ok).toBe(false);
+  });
+
+  it('pushSnapshot recusa sem escrever e sem derrubar o anel existente (sem evicção silenciosa)', () => {
+    const primeiro = pushSnapshot('# original', { ts: 1, usedBytes: 0 });
+    expect(primeiro).not.toBeNull();
+
+    const recusado = pushSnapshot('# gigante', {
+      ts: 2,
+      usedBytes: 5_000_000 - 10_000,
+      quotaBytes: 5_000_000,
+    });
+    expect(recusado).toBeNull();
+
+    const list = listSnapshots();
+    expect(list).toHaveLength(1);
+    expect(list[0].content).toBe('# original');
+  });
+
+  it('pushSnapshotDetailed expõe o motivo da recusa', () => {
+    expect(pushSnapshotDetailed('').reason).toBe('empty');
+    pushSnapshot('# topo', { ts: 1, usedBytes: 0 });
+    expect(pushSnapshotDetailed('# topo', { ts: 2 }).reason).toBe('dedup');
+    expect(pushSnapshotDetailed('# novo', { ts: 3, usedBytes: 0 }).reason).toBe('stored');
+    expect(
+      pushSnapshotDetailed('# sem espaço', {
+        ts: 4,
+        usedBytes: 5_000_000 - 10_000,
+        quotaBytes: 5_000_000,
+      }).reason,
+    ).toBe('quota');
+  });
+
+  it('maybeAutoSnapshot repassa o motivo para o chamador anunciar', () => {
+    const t0 = 1_000_000;
+    expect(maybeAutoSnapshot('v1', { lastAutoTs: 0, now: t0, usedBytes: 0 }).reason).toBe('stored');
+    expect(maybeAutoSnapshot('v1', { lastAutoTs: t0, now: t0 + 1 }).reason).toBe('throttled');
+    // quota cheia: v2 é recusado e o topo continua v1
+    expect(
+      maybeAutoSnapshot('v2', {
+        lastAutoTs: t0,
+        now: t0 + AUTO_SNAPSHOT_MIN_INTERVAL,
+        usedBytes: 5_000_000 - 10_000,
+        quotaBytes: 5_000_000,
+      }).reason,
+    ).toBe('quota');
+    // dedup: v1 continua no topo
+    expect(
+      maybeAutoSnapshot('v1', { lastAutoTs: t0, now: t0 + AUTO_SNAPSHOT_MIN_INTERVAL * 2 }).reason,
+    ).toBe('dedup');
+    expect(
+      maybeAutoSnapshot('', { lastAutoTs: 0, now: t0 + AUTO_SNAPSHOT_MIN_INTERVAL * 3 }).reason,
+    ).toBe('empty');
+  });
+
+  it('a margem protege o rascunho primário (snapshot nunca come a última fatia)', () => {
+    expect(SNAPSHOT_QUOTA_MARGIN_BYTES).toBeGreaterThan(0);
+    // Cabe o snapshot sozinho, mas não com a margem reservada.
+    const semMargem = snapshotQuotaCheck(300_000, {
+      usedBytes: 5_000_000 - 350_000,
+      quotaBytes: 5_000_000,
+      marginBytes: 0,
+    });
+    const comMargem = snapshotQuotaCheck(300_000, {
+      usedBytes: 5_000_000 - 350_000,
+      quotaBytes: 5_000_000,
+    });
+    expect(semMargem.ok).toBe(true);
+    expect(comMargem.ok).toBe(false);
+  });
+});
+
+describe('B6 — snapshots sem origem pendurada (AC-P2-10-3)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('migrateLegacySnapshots atribui os órfãos ao documento ativo', () => {
+    pushSnapshot('# legado 1', { ts: 1 });
+    pushSnapshot('# com origem', { ts: 2, docId: 'doc-x' });
+
+    expect(migrateLegacySnapshots('doc-ativo')).toBe(1);
+    const list = listSnapshots();
+    expect(list.find((s) => s.content === '# legado 1').docId).toBe('doc-ativo');
+    expect(list.find((s) => s.content === '# com origem').docId).toBe('doc-x');
+  });
+
+  it('reassignDocSnapshots migra os do documento fechado para o ativo seguinte', () => {
+    pushSnapshot('# do doc fechado', { ts: 1, docId: 'doc-fechado' });
+    pushSnapshot('# de outro', { ts: 2, docId: 'doc-outro' });
+
+    expect(reassignDocSnapshots('doc-fechado', 'doc-novo')).toBe(1);
+    const list = listSnapshots();
+    expect(list.find((s) => s.content === '# do doc fechado').docId).toBe('doc-novo');
+    expect(list.find((s) => s.content === '# de outro').docId).toBe('doc-outro');
+  });
+
+  it('sem documento ativo seguinte, os snapshots vão para a raiz legado (docId removido)', () => {
+    pushSnapshot('# órfão', { ts: 1, docId: 'doc-fechado' });
+    expect(reassignDocSnapshots('doc-fechado', null)).toBe(1);
+    expect(listSnapshots()[0].docId).toBeUndefined();
   });
 });

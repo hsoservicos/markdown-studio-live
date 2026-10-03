@@ -50,9 +50,11 @@ deps npm sem CDN, pt-BR primeiro, design "The Quiet Studio", quality gate verde.
 - **Given** documento com blocos `mermaid` e fórmulas KaTeX `$…$`/`$$…$$`
 - **When** o PDF vetorial é gerado
 - **Then** os diagramas aparecem como SVG embutido (reutilizando o SVG do mermaid já
-  renderizado no preview) e as fórmulas KaTeX — hoje renderizadas com `output: 'html'` —
-  são re-renderizadas com `output: 'svg'` na rota vetorial ou embutidas em alta resolução
-  quando a conversão não for suportada
+  renderizado no preview) e as fórmulas KaTeX são embutidas como rasterização de **alta
+  resolução** (PNG 3× via `html2canvas`, contrato de 2026-10-03: o KaTeX não oferece saída
+  `svg` — o enum é `htmlAndMathml|html|mathml` — então a rota vetorial usa raster 3× como
+  limite de fidelidade; migração a MathJax/SVG só se pesquisabilidade de fórmulas virar
+  requisito)
 - **And** quebras de página conscientes (P0-2) permanecem respeitadas
 - **And** o formato suportado por tipo de conteúdo (texto/SVG/imagem) fica registrado no
   mapeamento da rota (Story 1.1 → ADR)
@@ -163,3 +165,87 @@ deps npm sem CDN, pt-BR primeiro, design "The Quiet Studio", quality gate verde.
 - Epics/stories: `_bmad-output/planning-artifacts/epics-p2.md`
 - Propostas: `_bmad-output/verifications/features-proposals.md`
 - PRD: `specs/prd.md`
+
+## Review Findings (code review 2026-10-03)
+
+Auditoria adversarial da base completa (main @ 2fbc349) — camadas Blind Hunter, Edge Case
+Hunter, Verification Gap e Acceptance Auditor (vs ACs v2). Achados normalizados e triados.
+
+<!-- markdownlint-disable MD052 -- bullets usam o formato [Review][Tipo] do fluxo de review -->
+
+### Decision
+
+- [x] [Review][Decision] KaTeX no PDF vetorial — RESOLVIDO (b): raster 3× é contrato (KaTeX não tem saída `svg`); ADR/AC corrigidos, `katexHtmlToDataUrl` em `scale: 3` [src/render/katexExt.js:3, docs/explanation/architecture.md]
+- [x] [Review][Decision] Nome do PDF exportado — RESOLVIDO (c): nome do documento sanitizado + fallback `markdown-preview.pdf` (v2 vence, v1 vira fallback) [src/ui/files.js (sanitizeDownloadName)]
+- [x] [Review][Decision] "Novo arquivo" da sidebar — RESOLVIDO (a): cria novo documento (alias de `#doc-new-btn`); `newMarkdownEditor`/`newFileConfirm` removidos [src/main.js (newFile)]
+- [x] [Review][Decision] Snapshots sem cap — RESOLVIDO (b)+: guarda de quota explícita (recusa com mensagem `snapshotQuota`, margem de 256KB para o rascunho primário); ring `MAX_SNAPSHOTS` permanece; sem evicção oculta [src/ui/snapshots.js]
+- [x] [Review][Decision] CSP `connect-src 'self'` × imagens remotas — RESOLVIDO (a)+: CSP intacta; remota degrada para `img-unavailable`/alt no preview e alt no PDF; documentado em README/api-convert [src/render/convert.js, src/pdf/markdown-to-pdfmake.js]
+- [x] [Review][Decision] HTML exportado tema/path — RESOLVIDO (a): CSS `?inline` no build (light+dark_dimmed) + export segue o tema ativo [src/ui/exportHtml.js]
+- [x] [Review][Decision] Monaco entry — RESOLVIDO (b): manter pacote completo (lazy + highlighting de fenced blocks); decisão e trade-offs documentados em `monacoSetup.js` [src/ui/workers/monacoSetup.js]
+- [x] [Review][Decision] Escopo do `Imprimir` — RESOLVIDO (b): chrome já era escondida pelo `@media print` do style.css (premissa do achado estava errada); CSS morto de header/footer removido, gap de `.skip-link`/`dialog` fechado, contrato travado por teste; `{page}` documentado como exclusivo do PDF [src/ui/printSettings.js, public/css/style.css]
+- [x] [Review][Decision] Contrato de heading-id — RESOLVIDO (c): `visibleHeadingText` + `slugify` compartilhados entre `convert.js` e `toc.js` (fonte única = texto visível do markdown); teste cruzado pina a igualdade dos ids [src/render/convert.js, src/render/toc.js]
+
+### Patch
+
+- [x] [Review][Patch] Fonte `Courier` do pdfmake aponta para TTFs inexistentes no vfs (só há Roboto) — codespan/code block aborta o export vetorial com erro [src/pdf/pdfmake-adapter.js:19]
+- [x] [Review][Patch] Mermaid é emitido como `image: data:image/svg+xml` — pdfmake só decodifica JPEG/PNG em `image` (SVG é o content type `svg`); teste unitário consolida o formato errado [src/pdf/markdown-to-pdfmake.js:106]
+- [x] [Review][Patch] Imagem de bloco emite href cru (relativa/http) que o pdfmake recusa; virar data-URL ou bloco de texto/alt [src/pdf/markdown-to-pdfmake.js:168]
+- [x] [Review][Patch] `buildPdfDocDefinition` ignora `paperSize`/`orientation` do print settings (AC-P2-9-1) — Letter/paisagem caem no default A4 [src/pdf/markdown-to-pdfmake.js:386]
+- [x] [Review][Patch] Tabela no PDF usa `cell.text` cru — bold/link/math impressos como markdown literal [src/pdf/markdown-to-pdfmake.js:81]
+- [x] [Review][Patch] Listas aninhadas/del/inline desconhecido caem em `token.raw` no PDF [src/pdf/markdown-to-pdfmake.js:57]
+- [x] [Review][Patch] `resolveKatexPlaceholders` só olha `item.text` top-level — math em blockquote/listas aninhadas vaza como `__KATEX_HTML__` [src/pdf/markdown-to-pdfmake.js:299]
+- [x] [Review][Patch] Regressão P0 de dados: `resolveDocumentBootInput` devolve `last_state` quando `documentCount === 1` mesmo com `documents.content` válido — rascunho de doc fechado contamina o remanescente (P2-10-1) [src/ui/editorActions.js:29]
+- [x] [Review][Patch] `setContent` não é atômica (conteúdo primeiro, índice depois; falha no índice deixa estado parcial) — viola a atomicidade de AC-P2-10-1 [src/documents.js:193]
+- [x] [Review][Patch] Renomear documento não existe na UI: `handleRename` só vive no retorno descartado de `setupDocumentManager` (AC-P2-10-2) [src/ui/documents-ui.js:296]
+- [x] [Review][Patch] Fechar o último documento é recusado sem mensagem e o ramo `remaining.length === 0` é inalcançável; AC-P2-10-2 prevê abrir o template quando a lista esvazia [src/ui/documents-ui.js:184]
+- [x] [Review][Patch] Boot silencioso: sem avisos i18n para activeId órfão, dedup de ids e conteúdo corrompido (AC-P2-10-4); envelope de conteúdo corrompido restaura a string crua em vez de ignorar [src/documents.js:19, src/storage.js:72]
+- [x] [Review][Patch] `deleteDocument` tolera conteúdo órfão sem GC de `documents.content.*` e não migra snapshots do doc deletado (AC-P2-10-3); migração de snapshots/backup legados inexiste [src/documents.js:185, src/ui/snapshots.js:38]
+- [x] [Review][Patch] Downloads PDF/HTML não usam o nome do documento ativo nem sanitizam caracteres inválidos de arquivo [src/ui/exportPdfVector.js:63, src/main.js:473, src/ui/files.js:19]
+- [x] [Review][Patch] `handleClose` ignora `deleteDocument() === false` (doc removido em outra aba) e reporta sucesso [src/ui/documents-ui.js:196]
+- [x] [Review][Patch] Mensagem `docOpRefused` pede "recarregar a lista" sem affordance de reload (multi-aba é fora de escopo, mas a mensagem engana) [src/ui/documents-ui.js]
+- [x] [Review][Patch] Atalhos globais Ctrl+P/E/B/S sequestram digitação em inputs de diálogo sem guarda de foco [src/main.js:65]
+- [x] [Review][Patch] "Abrir arquivo" substitui buffer sujo sem confirmação (Reset/Novo confirmam) [src/ui/sidebar.js]
+- [x] [Review][Patch] `handleCreate` reporta `fileOpened` para documento novo; `handleClose` do último documento é silencioso [src/ui/documents-ui.js]
+- [x] [Review][Patch] Print form: hints duplicados (label já embute o texto do `.print-form-hint`) e placeholders/hints sem `data-i18n` — pt vaza na UI en [index.html, src/i18n/index.js]
+- [x] [Review][Patch] `renderList` monta `<li>` dentro de `div` sem `<ul>` e aninha `<button>` em `role="button"` [src/ui/documents-ui.js]
+- [x] [Review][Patch] Skip-link aponta para `#container` sem `tabindex`; `#editor` tem `role="textbox"` sem `aria-multiline` [index.html]
+- [x] [Review][Patch] `mermaidLoading` não limpa após rejeição do import dinâmico — diagramas mortos até o reload [src/render/mermaid.js:17]
+- [x] [Review][Patch] `renderMermaidDiagramsNow` rejeitada dentro do timer vira unhandled rejection [src/render/mermaid.js:116]
+- [x] [Review][Patch] Import dinâmico do Monaco no toggle de tema sem `.catch` [src/main.js:384]
+- [x] [Review][Patch] Margem de impressão `0` vira `10` (`Number(x) || DEFAULT`) [src/ui/printSettingsDialog.js:61]
+- [x] [Review][Patch] `stampPageHeaderFooter` fixa rodapé em y=287mm/cabeçalho em 5mm — sai da página em Letter/paisagem; no-op silencioso se `get('pdf')` não devolve jsPDF [src/ui/printSettings.js:91]
+- [x] [Review][Patch] `removeSnapshot` sem `guardStorage` — StorageError escapa do handler [src/ui/snapshotsDialog.js:133]
+- [x] [Review][Patch] `setupPrintSettingsDialog`/`setupTocDialog` nulos causam TypeError no handler do sidebar [src/main.js:487]
+- [x] [Review][Patch] TOC: fences com 4+ crases, headings setext e slug vazio sem guarda [src/render/toc.js:27]
+- [x] [Review][Patch] Unificar slug de heading entre `convert.js` e `toc.js` e pinar o contrato com teste cruzado [src/render/convert.js:71, src/render/toc.js:59]
+- [x] [Review][Patch] `divider.js` deixa inline sizes do eixo anterior ao cruzar 720px e registra resize listener sem dispose [src/ui/divider.js]
+- [x] [Review][Patch] `handlers.copy` engole erro de clipboard enquanto `copyHtml` reporta [src/main.js]
+- [x] [Review][Patch] Trabalho por tecla sem debounce: `getActiveDocument()` (JSON.parse do índice) + `statusBar.update()` em cada keystroke [src/main.js:175]
+- [x] [Review][Patch] `INDEX_VERSION` é gravado mas nunca lido — sem guarda de migração de schema [src/documents.js]
+- [x] [Review][Patch] `createDocument` fixa título `'Documento'` em vez de `t('docDefaultName')` [src/documents.js]
+- [x] [Review][Patch] Segundo `safeGet` local em `main.js` com contrato divergente do `storage.js` — unificar [src/main.js]
+- [x] [Review][Patch] `/css/*` cai no `no-store` do `location /` (fora de `/assets/` e da regex de imagens) — stylesheet rebaixado a cada load [nginx.conf:93]
+- [x] [Review][Patch] Falta `Permissions-Policy`/`Cross-Origin-Opener-Policy`/`Cross-Origin-Resource-Policy` no bloco de headers [nginx.conf]
+- [x] [Review][Patch] `docker.yml` health-testa `:test` e publica um rebuild não testado em `:latest`/`:sha`; `release.yml` idem [workflows/docker.yml, workflows/release.yml]
+- [x] [Review][Patch] `deploy-audit.sh`: IDs de infra hardcoded e aborta sem `docker` apesar do contrato warn-and-skip [scripts/deploy-audit.sh:183]
+- [x] [Review][Patch] `bump-version.js`: `git add` incondicional de CHANGELOG e patch não-numérico gera tag `vNaN` [scripts/bump-version.js:18]
+- [x] [Review][Patch] `marked.use()` registrada duas vezes no `marked` global (convert.js + markdown-to-pdfmake.js) [src/render/convert.js]
+- [x] [Review][Patch] Lógica de escape duplicada com cobertura divergente (`escapeHtml` vs `escapeTocText`) [src/render/toc.js]
+- [x] [Review][Patch] Export mortos: `isPdfMakeAvailable`, `hasHeadersOrFooter`, `extractTocFromHtml` (e CSS morto de print) — remover ou dar chamador [src/]
+- [x] [Review][Patch] Sidebar semeia `currentName = 'documento.md'` — nome fantasma na status bar [src/ui/sidebar.js]
+- [x] [Review][Patch] Teste: wiring real de `persistDraft` no `main.js` nunca observado (regressão P0 passaria verde) [tests/unit/main-boot.test.js]
+- [x] [Review][Patch] Teste: `dataset.mermaidSource` (handoff preview→PDF) sem assert no writer [tests/unit/mermaid.test.js]
+- [x] [Review][Patch] Teste: dispatch vetorial/fallback raster de `exportPreviewToPdf` sem cobertura [tests/unit/exportPdf.test.js]
+- [x] [Review][Patch] Teste: composição de chunks (mermaid lazy) sem guarda pós-build — regressão documentada no vite.config.js voltaria verde [scripts/, vite.config.js]
+- [x] [Review][Patch] Teste: contrato tema boot (index.html ↔ `KEYS.themeBoot`/variantes CSS) pinado só como bytes do hash [tests/unit/csp.test.js]
+- [x] [Review][Patch] Teste: aviso de quota no boot (`storageQuotaWarning`) sem teste de consumidor [tests/unit/main-boot.test.js]
+- [x] [Review][Patch] Teste: braço AbortError/SecurityError do `saveFileDialog` sem assert da mensagem `fileSaveDenied` [tests/unit/sidebar.test.js]
+- [x] [Review][Patch] Teste: submissão do print dialog com margem `0` [tests/unit/printSettingsDialog.test.js]
+
+### Defer
+
+- [x] [Review][Defer] KaTeX inline sem heurística de moeda ("custo $5 … total $10" vira math) [src/render/katexExt.js] — deferred, pre-existing
+- [x] [Review][Defer] i18n sem paridade de chaves, plural ou negociação de `navigator.language` na primeira carga [src/i18n/index.js] — deferred, pre-existing
+- [x] [Review][Defer] Quota medida só no boot (sem rechecagem em sessão longa) [src/main.js:581] — deferred, pre-existing
+
+<!-- markdownlint-enable MD052 -->

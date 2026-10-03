@@ -1,4 +1,4 @@
-import { setItem, removeItem, safeGet, StorageError } from './storage.js';
+import { setItem, removeItem, safeGet, getRaw, StorageError } from './storage.js';
 import { NAMESPACE } from './i18n/index.js';
 
 export const INDEX_VERSION = 1;
@@ -33,17 +33,57 @@ export function freshIndex() {
   return { version: INDEX_VERSION, activeId: null, documents: [] };
 }
 
-export function safeGetIndex() {
+/**
+ * D12: memoização da leitura do índice pela string crua — `getActiveDocument`
+ * roda em TODA tecla (captura do doc no autosave) e o `JSON.parse` do índice
+ * inteiro era o custo dominante. A comparação é pela string crua, então
+ * mudanças (inclusive de outra aba) invalidam naturalmente.
+ */
+let indexMemo = { rawStr: undefined, result: null };
+
+export function safeGetIndexDetailed() {
+  let rawStr;
+  try {
+    rawStr = getRaw(`${NAMESPACE}.${INDEX_KEY}`);
+  } catch {
+    rawStr = null;
+  }
+  if (rawStr !== undefined && rawStr === indexMemo.rawStr) {
+    return indexMemo.result;
+  }
+  const result = computeIndexDetailed();
+  indexMemo = { rawStr, result };
+  return result;
+}
+
+function computeIndexDetailed() {
+  const warnings = [];
   const raw = safeGet(NAMESPACE, INDEX_KEY, { type: 'object', defaultValue: null });
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return freshIndex();
+    return { index: freshIndex(), warnings };
+  }
+  // E1: o schema é versionado — uma versão MAIOR que a conhecida é de um
+  // app mais novo; confiar na leitura poderia interpretar campos errado.
+  if (typeof raw.version === 'number' && raw.version > INDEX_VERSION) {
+    warnings.push('indexVersion');
+    return { index: freshIndex(), warnings };
   }
   const documents = normalizeDocuments(raw.documents);
+  // B5 (AC-P2-10-4): ids duplicados/entradas inválidas são limpos com aviso.
+  if (Array.isArray(raw.documents) && raw.documents.length !== documents.length) {
+    warnings.push('indexCleaned');
+  }
   let activeId = typeof raw.activeId === 'string' && raw.activeId ? raw.activeId : null;
   if (activeId && !documents.some((d) => d.id === activeId)) {
+    // B5 (AC-P2-10-4): id ativo ausente → fallback para o primeiro, com aviso.
+    warnings.push('activeIdFallback');
     activeId = documents.length ? documents[0].id : null;
   }
-  return { version: INDEX_VERSION, activeId, documents };
+  return { index: { version: INDEX_VERSION, activeId, documents }, warnings };
+}
+
+export function safeGetIndex() {
+  return safeGetIndexDetailed().index;
 }
 
 function saveIndex(index) {
@@ -74,6 +114,24 @@ export function getDocumentById(id) {
 
 export function getContent(id) {
   return safeGet(NAMESPACE, contentKeyFor(id), { type: 'string', defaultValue: null });
+}
+
+/**
+ * Leitura de boot do conteúdo individual, com detecção de corrupção
+ * (AC-P2-10-4): a chave existe mas o envelope não devolve valor válido →
+ * `corrupt: true`, para o boot ignorar o conteúdo com aviso i18n em vez de
+ * restaurar lixo.
+ * @returns {{ value: string|null, corrupt: boolean }}
+ */
+export function getContentDetailed(id) {
+  let raw = null;
+  try {
+    raw = getRaw(`${NAMESPACE}.${contentKeyFor(id)}`);
+  } catch {
+    // storage iletrável: `raw` segue null e a leitura devolve o fallback
+  }
+  const value = getContent(id);
+  return { value, corrupt: raw != null && value == null };
 }
 
 /**
@@ -136,7 +194,10 @@ function atomicWrite(previousIndexValue, nextIndexValue, key, nextValue) {
   }
 }
 
-export function createDocument({ title = 'Documento', initialContent = '' } = {}) {
+export function createDocument({ title = '', initialContent = '' } = {}) {
+  // E2: sem título fixo `'Documento'` — a camada pura não conhece i18n e o
+  // default divergia de `t('docDefaultName')` na UI. Quem cria passa o nome.
+  const finalTitle = title || '';
   const id = createId();
   const now = Date.now();
   const current = safeGetIndex();
@@ -144,10 +205,10 @@ export function createDocument({ title = 'Documento', initialContent = '' } = {}
   const next = {
     version: INDEX_VERSION,
     activeId: id,
-    documents: [...previousDocuments, { id, title: title || 'Documento', updatedAt: now }],
+    documents: [...previousDocuments, { id, title: finalTitle, updatedAt: now }],
   };
   atomicWrite(current, next, contentKeyFor(id), initialContent);
-  return { id, title: title || 'Documento', updatedAt: now };
+  return { id, title: finalTitle, updatedAt: now };
 }
 
 export function updateTitle(id, title) {
@@ -190,7 +251,12 @@ export function deleteDocument(id) {
 }
 
 export function setContent(id, value) {
-  setItem(NAMESPACE, contentKeyFor(id), value);
+  // B2 (AC-P2-10-1): índice + conteúdo é atômico — se a gravação do índice
+  // falhar, o conteúdo volta ao valor anterior (best-effort) e o erro expõe
+  // `reverted`, o mesmo contrato do `atomicWrite`.
+  const contentKey = contentKeyFor(id);
+  const previousContent = safeGet(NAMESPACE, contentKey, { type: 'string', defaultValue: null });
+  setItem(NAMESPACE, contentKey, value);
   const index = safeGetIndex();
   const next = {
     ...index,
@@ -199,11 +265,23 @@ export function setContent(id, value) {
   try {
     saveIndex(next);
   } catch (e) {
+    let reverted = false;
+    try {
+      if (previousContent == null) {
+        removeItem(NAMESPACE, contentKey);
+      } else {
+        setItem(NAMESPACE, contentKey, previousContent);
+      }
+      reverted = true;
+    } catch {
+      // a reversão falhou; o erro original abaixo prevalece
+    }
     const err =
       e instanceof StorageError
         ? e
         : new StorageError('Falha ao atualizar índice após conteúdo.', e);
     err.code = classifyError(e);
+    err.reverted = reverted;
     throw err;
   }
   return true;

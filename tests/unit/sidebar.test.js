@@ -49,6 +49,7 @@ describe('sidebar helpers', () => {
           <button type="button" class="sidebar-item" data-sidebar-action="reset"></button>
           <button type="button" class="sidebar-item" data-sidebar-action="copy"></button>
           <button type="button" class="sidebar-item" data-sidebar-action="exportPdf"></button>
+          <button type="button" class="sidebar-item" data-sidebar-action="open"></button>
           <button type="button" class="sidebar-item" data-sidebar-action="desconhecida"></button>
         </nav>
         <div id="sidebar-status"></div>
@@ -91,6 +92,52 @@ describe('sidebar helpers', () => {
         container.querySelector('[data-sidebar-action="desconhecida"]').click(),
       ).not.toThrow();
       expect(api).not.toBeNull();
+    });
+
+    it('C2: abrir arquivo com edição não salva pede confirmação e respeita o cancelamento', async () => {
+      const editor = { getValue: () => '# x', setValue: vi.fn() };
+      const confirm = vi.fn(() => false);
+      const showPicker = vi.fn();
+      Object.defineProperty(window, 'showOpenFilePicker', {
+        value: showPicker,
+        configurable: true,
+      });
+      Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+      setupSidebar({
+        container,
+        editor,
+        getContent: () => editor.getValue(),
+        handlers: {},
+        confirm,
+        isDirty: () => true,
+      });
+      container.querySelector('[data-sidebar-action="open"]').click();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(confirm).toHaveBeenCalledWith(t('openFileConfirm'));
+      expect(showPicker).not.toHaveBeenCalled();
+    });
+
+    it('C2: sem conteúdo sujo abre direto, sem confirmação', async () => {
+      const editor = { getValue: () => '# x', setValue: vi.fn() };
+      const confirm = vi.fn(() => true);
+      const showPicker = vi.fn().mockRejectedValue({ name: 'AbortError' });
+      Object.defineProperty(window, 'showOpenFilePicker', {
+        value: showPicker,
+        configurable: true,
+      });
+      Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+      setupSidebar({
+        container,
+        editor,
+        getContent: () => editor.getValue(),
+        handlers: {},
+        confirm,
+        isDirty: () => false,
+      });
+      container.querySelector('[data-sidebar-action="open"]').click();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(showPicker).toHaveBeenCalled();
     });
   });
 
@@ -391,16 +438,37 @@ describe('sidebar helpers', () => {
       expect(onSaved).toHaveBeenCalledWith('a.md');
     });
 
-    it('aborta (AbortError) sem erro', async () => {
+    it('aborta (AbortError) sem erro e reporta fileSaveDenied (H7)', async () => {
       const writable = { write: vi.fn().mockRejectedValue({ name: 'AbortError' }), close: vi.fn() };
       const handle = { name: 'a.md', createWritable: vi.fn().mockResolvedValue(writable) };
       const onSaved = vi.fn();
       const onError = vi.fn();
+      const onStatus = vi.fn();
       await saveFileDialog(
         'x',
         { currentHandle: handle, canWrite: () => true },
-        { onSaved, onError },
+        { onSaved, onError, onStatus },
       );
+      expect(onError).not.toHaveBeenCalled();
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(onStatus).toHaveBeenCalledWith(t('fileSaveDenied'));
+    });
+
+    it('SecurityError do handle cai no mesmo caminho (H7) e não vira download', async () => {
+      const writable = {
+        write: vi.fn().mockRejectedValue({ name: 'SecurityError' }),
+        close: vi.fn(),
+      };
+      const handle = { name: 'a.md', createWritable: vi.fn().mockResolvedValue(writable) };
+      const onSaved = vi.fn();
+      const onError = vi.fn();
+      const onStatus = vi.fn();
+      await saveFileDialog(
+        'x',
+        { currentHandle: handle, canWrite: () => true, openSavePicker: () => true },
+        { onSaved, onError, onStatus },
+      );
+      expect(onStatus).toHaveBeenCalledWith(t('fileSaveDenied'));
       expect(onError).not.toHaveBeenCalled();
       expect(onSaved).not.toHaveBeenCalled();
     });
@@ -720,7 +788,9 @@ describe('ações da sidebar ainda sem cobertura', () => {
     const api = setup();
     api.openManual();
     expect(container.querySelector('#manual-dialog').hasAttribute('open')).toBe(true);
-    expect(api.getCurrentName()).toBe('documento.md');
+    // E4: sem arquivo aberto não há nome — o seed fantasma `documento.md`
+    // fazia a status bar exibir um arquivo que nunca existiu.
+    expect(api.getCurrentName()).toBeNull();
     expect(api.getState()).toEqual({ collapsed: false });
     expect(api.getState().collapsed).toBe(false);
   });

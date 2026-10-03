@@ -420,6 +420,17 @@ footer {
   border-radius: var(--radius-md);
 }
 
+/* Imagem remota: a CSP (img-src 'self' data: blob:) não carrega origens de
+   rede — o alt vira placeholder explícito em vez de ícone quebrado. */
+.markdown-body .img-unavailable {
+  display: inline-block;
+  padding: var(--space-xxs) var(--space-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
 /* ---------- Sidebar ---------- */
 
 .sidebar {
@@ -701,6 +712,13 @@ footer {
 }
 
 .doc-name {
+  /* C6: o nome é botão (troca de documento) — reset de botão + ellipsis. */
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -708,7 +726,8 @@ footer {
   white-space: nowrap;
 }
 
-.doc-close-btn {
+.doc-close-btn,
+.doc-rename-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -734,7 +753,13 @@ footer {
   color: var(--color-error);
 }
 
-.doc-close-btn:focus-visible {
+.doc-rename-btn:hover {
+  background-color: var(--color-surface-tint);
+  color: var(--color-text-strong);
+}
+
+.doc-close-btn:focus-visible,
+.doc-rename-btn:focus-visible {
   outline: 2px solid var(--color-accent-focus);
   outline-offset: 2px;
 }
@@ -885,7 +910,9 @@ footer {
   footer,
   .split-divider,
   .editor-pane,
-  .manual-dialog {
+  .manual-dialog,
+  .skip-link,
+  dialog {
     display: none !important;
   }
 

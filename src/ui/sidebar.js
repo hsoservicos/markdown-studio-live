@@ -218,6 +218,8 @@ export function setupSidebar({
   onStatus,
   getActiveDoc,
   handlers = {},
+  confirm = null,
+  isDirty = null,
 } = {}) {
   if (!container) {
     return null;
@@ -242,7 +244,9 @@ export function setupSidebar({
     collapsed = false;
   }
   let currentHandle = null;
-  let currentName = 'documento.md';
+  // E4: sem nome fantasma — `documento.md` fazia a status bar exibir um
+  // arquivo que nunca foi aberto.
+  let currentName = '';
   // M9: o handle é do DISCO, não do app. Sem rastrear a qual documento ele foi
   // aberto, trocar de documento deixava o Ctrl+S gravando o conteúdo ativo por
   // cima do arquivo aberto — com "Arquivo salvo: X" no status.
@@ -310,6 +314,11 @@ export function setupSidebar({
       if (action === 'manual') {
         openManualDialog();
       } else if (action === 'open') {
+        // C2: abrir arquivo substitui o buffer — com edição não salva, o
+        // mesmo aviso dos caminhos de Reset/Novo.
+        if (isDirty?.() && confirm && !confirm(t('openFileConfirm'))) {
+          return;
+        }
         openFileDialog(
           {
             onHandle: (handle) => {
@@ -365,6 +374,6 @@ export function setupSidebar({
   return {
     getState: () => ({ collapsed: sidebar.classList.contains('is-collapsed') }),
     openManual: () => openManualDialog(),
-    getCurrentName: () => currentName,
+    getCurrentName: () => currentName || null,
   };
 }

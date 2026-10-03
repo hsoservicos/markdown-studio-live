@@ -34,7 +34,7 @@ export default [
     },
   },
   {
-    files: ['scripts/**/*.js', 'tools/**/*.js'],
+    files: ['scripts/**/*.{js,mjs}', 'tools/**/*.{js,mjs}'],
     languageOptions: {
       globals: {
         process: 'readonly',

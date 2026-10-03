@@ -23,8 +23,19 @@ NC='\033[0m'
 REPO="${GITHUB_REPOSITORY:-hsoservicos/markdown-studio-live}"
 PROD_URL="${PROD_URL:-https://mkdeditor.appservice.tec.br}"
 BRANCH="${BRANCH:-main}"
+# F4: identificadores do ambiente sao configuraveis — os defaults refletem a
+# instalacao atual e nao devem estar hardcoded no meio do script.
 HOOK_ID="${COOLIFY_WEBHOOK_ID:-689753727}"
 DB_CONTAINER="${COOLIFY_DB_CONTAINER:-coolify-db}"
+APP_ID="${COOLIFY_APP_ID:-4}"
+APP_CONTAINER="${COOLIFY_APP_CONTAINER:-fcvi93cp8n4nbydbjyvbnk92}"
+
+# F4: sem o binario docker o contrato e warn-and-skip — nao abortar no meio e
+# sumir com o resumo (as secoes de container/fila sao puladas).
+HAS_DOCKER=0
+if command -v docker >/dev/null 2>&1; then
+  HAS_DOCKER=1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -120,9 +131,11 @@ sect "Deploy (Coolify)"
 is_true() { [ "${1:-}" = "t" ] || [ "${1:-}" = "true" ]; }
 is_false() { [ "${1:-}" = "f" ] || [ "${1:-}" = "false" ]; }
 
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$DB_CONTAINER"; then
+if [ "$HAS_DOCKER" = "0" ]; then
+  warn "docker indisponivel — checks de fila/deploy no Coolify pulados"
+elif docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$DB_CONTAINER"; then
   QUEUE=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -F'|' -c \
-    "select id||'|'||status||'|'||is_webhook||'|'||substr(commit,1,7) from application_deployment_queues where application_id='4' order by id desc limit 1;" 2>/dev/null || echo "")
+    "select id||'|'||status||'|'||is_webhook||'|'||substr(commit,1,7) from application_deployment_queues where application_id='$APP_ID' order by id desc limit 1;" 2>/dev/null || echo "")
   if [ -n "$QUEUE" ]; then
     IFS='|' read -r DEP_ID DEP_STATUS DEP_WEBHOOK DEP_COMMIT <<<"$QUEUE"
     if is_true "$DEP_WEBHOOK"; then ORIGIN="webhook"; else ORIGIN="manual"; fi
@@ -135,12 +148,12 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$DB_CONTAINER"; then
       fail "deploy ($DEP_COMMIT) != HEAD ($(printf '%s' "$HEAD_REMOTE" | cut -c1-7)) — push sem deploy?"
     fi
     PENDING=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -c \
-      "select count(*) from application_deployment_queues where application_id='4' and status in ('queued','in_progress');" 2>/dev/null || echo 0)
+      "select count(*) from application_deployment_queues where application_id='$APP_ID' and status in ('queued','in_progress');" 2>/dev/null || echo 0)
     if [ "${PENDING:-0}" = "0" ]; then pass "nenhum deploy preso na fila"; else warn "$PENDING deploy(s) em fila"; fi
     # Historico de falhas: o audit ja falha se o ULTIMO deploy falhou (acima);
     # aqui apenas expoe falhas antigas, que continuam registradas para sempre.
     HIST_FAIL=$(docker exec "$DB_CONTAINER" psql -U coolify -d coolify -t -A -c \
-      "select count(*) from application_deployment_queues where application_id='4' and status='failed';" 2>/dev/null || echo 0)
+      "select count(*) from application_deployment_queues where application_id='$APP_ID' and status='failed';" 2>/dev/null || echo 0)
     if [ "${HIST_FAIL:-0}" = "0" ]; then
       pass "historico de deploys sem falhas"
     else
@@ -180,8 +193,15 @@ fi
 
 # ── 5. Container da aplicação ─────────────────────────────
 sect "Container de produção"
-APP_CT=$(docker ps --filter "name=fcvi93cp8n4nbydbjyvbnk92" --format '{{.Names}}' 2>/dev/null | head -1)
-if [ -n "$APP_CT" ]; then
+# F4: `set -e` + pipefail abortava o script aqui quando o docker faltava (a
+# substituição falhava e o resumo nunca saía). Contrato: warn-and-skip.
+APP_CT=""
+if [ "$HAS_DOCKER" = "1" ]; then
+  APP_CT=$(docker ps --filter "name=$APP_CONTAINER" --format '{{.Names}}' 2>/dev/null | head -1 || true)
+fi
+if [ "$HAS_DOCKER" = "0" ]; then
+  warn "docker indisponível — checks de container pulados"
+elif [ -n "$APP_CT" ]; then
   STATUS=$(docker inspect --format '{{.State.Status}}' "$APP_CT" 2>/dev/null || echo "?")
   HEALTH=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}sem-healthcheck{{end}}' "$APP_CT" 2>/dev/null || echo "?")
   if [ "$STATUS" = "running" ]; then pass "container running ($APP_CT)"; else fail "container status=$STATUS"; fi
