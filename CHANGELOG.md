@@ -7,6 +7,20 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [1.4.0] — 2026-10-03
+
+### Added
+
 - **Avisos de restauração no boot (AC-P2-10-4)**: id ativo órfão, índice com ids duplicados,
   schema de versão mais nova e conteúdo corrompido agora degradam com aviso i18n (`bootWarn*`)
   em `#sidebar-status` — antes o fallback acontecia em silêncio e o envelope corrompido
