@@ -29,25 +29,51 @@ html, body { margin: 0; padding: 0; background: #fff; color: #24292f; }
 }
 `.trim();
 
+// M2: o arquivo exportado é HTML estático sem nenhum script próprio, mas era
+// aberto sem política nenhuma — qualquer resto que escapasse do DOMPurify
+// (ou um `<svg><style>` remanescente) executaria sem restrição. Um
+// `<meta http-equiv>` é o único lugar onde dá para declarar CSP num arquivo
+// offline. `style-src 'unsafe-inline'` é obrigatório: o CSS embutido, os
+// `style` do KaTeX e o `<style>` interno dos SVGs do mermaid são inline.
+// `frame-ancestors` é ignorado em meta (só vale em header) e por isso não
+// aparece aqui.
+const STANDALONE_CSP = [
+  "default-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "script-src 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "worker-src 'none'",
+  "connect-src 'none'",
+  "style-src 'unsafe-inline'",
+  'img-src * data: blob:',
+  'font-src * data:',
+  'media-src * data: blob:',
+].join('; ');
+
 /**
  * Monta o documento HTML completo (puro, testável).
  * @param {string} bodyHtml
- * @param {{ title?: string, cssText?: string, lang?: string }} [opts]
+ * @param {{ title?: string, cssText?: string, lang?: string, csp?: string|null }} [opts]
  */
 export function buildStandaloneHtml(
   bodyHtml,
-  { title = 'Markdown', cssText = '', lang = 'pt-BR' } = {},
+  { title = 'Markdown', cssText = '', lang = 'pt-BR', csp = STANDALONE_CSP } = {},
 ) {
   // Mesmo helper usado pelo pipeline de preview — um único escape no projeto.
   const safeTitle = escapeHtml(title);
   const safeLang = escapeHtml(lang || 'pt-BR');
   const styles = [cssText, BASE_BODY_CSS].filter(Boolean).join('\n');
+  const cspMeta = csp
+    ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}" />\n`
+    : '';
   return `<!DOCTYPE html>
 <html lang="${safeLang}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${safeTitle}</title>
+${cspMeta}<title>${safeTitle}</title>
 <style>
 ${styles}
 </style>

@@ -216,6 +216,7 @@ export function setupSidebar({
   getContent,
   editor,
   onStatus,
+  getActiveDoc,
   handlers = {},
 } = {}) {
   if (!container) {
@@ -242,6 +243,12 @@ export function setupSidebar({
   }
   let currentHandle = null;
   let currentName = 'documento.md';
+  // M9: o handle é do DISCO, não do app. Sem rastrear a qual documento ele foi
+  // aberto, trocar de documento deixava o Ctrl+S gravando o conteúdo ativo por
+  // cima do arquivo aberto — com "Arquivo salvo: X" no status.
+  let currentHandleDocId = null;
+
+  const activeDoc = () => (typeof getActiveDoc === 'function' ? getActiveDoc() : null);
 
   function applyState(open) {
     sidebar.classList.toggle('is-collapsed', !open);
@@ -308,6 +315,9 @@ export function setupSidebar({
             onHandle: (handle) => {
               currentHandle = handle;
               currentName = handle.name;
+              // O conteúdo abre no documento ativo AGORA: é ele que o handle
+              // passa a representar.
+              currentHandleDocId = activeDoc()?.id ?? null;
             },
           },
           {
@@ -321,12 +331,23 @@ export function setupSidebar({
           },
         );
       } else if (action === 'save') {
+        const doc = activeDoc();
+        // M9: só há sobrescrita automática quando o handle foi aberto no
+        // documento que está ativo agora. Sem isso, abrir `notas.md`, trocar de
+        // documento e dar Ctrl+S gravava o conteúdo novo por cima do arquivo
+        // aberto e ainda reportava "Arquivo salvo: notas.md".
+        const handleMatches = !!currentHandle && (!doc || currentHandleDocId === doc.id);
         saveFileDialog(
           String(getContent?.() ?? editor.getValue()),
-          { currentHandle, suggestedName: currentName },
+          {
+            currentHandle: handleMatches ? currentHandle : null,
+            suggestedName: handleMatches ? currentName : (doc?.title ?? currentName),
+          },
           {
             onSaved: (name) => {
-              currentName = name;
+              if (handleMatches) {
+                currentName = name;
+              }
               report(t('fileSaved').replace('{name}', name));
             },
             onError: () => report(t('saveError')),

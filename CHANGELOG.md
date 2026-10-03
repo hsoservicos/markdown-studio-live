@@ -18,12 +18,37 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   com assinatura `X-Hub-Signature-256`, e o guia de deploy deixa de descrever um workflow de
   deploy inexistente (o `docker.yml` só publica no GHCR) e documenta o mecanismo real.
 - **Dispatch manual no Docker Build**: `.github/workflows/docker.yml` ganha `workflow_dispatch`
-  para republicar a imagem GHCR sob demanda, e o push em `main` publica também a tag `:<versão>`
-  lida de `package.json` (antes apenas `latest` e `<sha>`).
+  para republicar a imagem GHCR sob demanda.
+- **Teste de boot do aplicativo**: `tests/unit/main-boot.test.js` dispara o `load` real e valida
+  `init()` — editor alimentado, preview renderizado, barra de status montada, sidebar ligada,
+  restauração de `last_state` e tema anti-FOUC. Era o único caminho de boot sem cobertura.
+- **Testes de KaTeX no PDF, dos guards do mermaid e da quota na escrita**: `resolveKatexPlaceholders`
+  é exercitado de verdade (antes só era mockado), o single-flight do mermaid ganha casos de
+  isolamento de falha e de liberação de lock, e a costura `storage → classifyError → i18n` ganha
+  casos de `QuotaExceededError`/`SecurityError`.
+- **Auditoria Docker com 21 verificações**: `scripts/docker-audit.sh` passa a validar herança de
+  headers no asset, `Cache-Control` único, `no-store` no `index.html` e root filesystem read-only.
 - **Dependabot para imagens Docker**: ecossistema `docker` semanal — `nginx:1.27-alpine` e
   `node:22-alpine` ficariam congelados para sempre (o Dependabot cobria só npm e Actions).
   `node` tem `ignore` para major: a tag `22-alpine` já flutua dentro de 22.x (patch entra no
   build) e o salto 22 → 26 exige alinhar `.nvmrc`, CI e `engines` juntos — decisão humana.
+- **Cobertura da segunda auditoria**: 24 casos novos para o hardening de boot (catch da
+  cadeia do Monaco, guard da quota no primeiro boot, `pagehide` do autosave, timeout do
+  pdfmake), para o sanitizador de CSS e a CSP do export, para o rollback do `atomicWrite`,
+  para o dirty flag do mermaid e para o handle de arquivo amarrado ao documento ativo.
+  Cada caso de regressão foi validado por mutação: falha quando a correção é removida.
+- **Gaps de cobertura fechados**: `main.js` sobe de 71% para 90% com os handlers de
+  `setupSidebarActions` (reset, new, copy, copyHtml, exportHtml, printSettings/toc/snapshots e a
+  propagação do scroll ligado/desligado); a sidebar ganha casos para `print` (sucesso e
+  exceção), o diálogo `manual` (render e falha do fetch), o `saveError` do picker e os retornos
+  nulos de `setupSidebar`; `monacoSetup.js` sai de 0% verificando o `getWorker` no-op sem
+  importar o Monaco de verdade. Todos os casos novos foram validados por mutação.
+- **Auditoria a11y automatizada com axe-core**: `tests/unit/a11y-axe.test.js` roda o axe sobre o
+  `index.html` real com o CSS real injetado (o jsdom não busca `<link href>`) em três estados da
+  UI — shell inicial, diálogos abertos e sidebar recolhida — e quebra o gate em qualquer
+  violação nova, listando regra, impacto e seletores. `color-contrast` fica fora do contrato por
+  limitação do jsdom (só alcança "incomplete"); qualquer outra regra "incomplete" sinaliza
+  perda de cobertura do setup. Validado por mutação (`<img>` sem `alt` reprova).
 
 ### Changed
 
@@ -44,6 +69,20 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   (`form-urlencoded`) não bate com a config do hook (`application/json`) e a validação
   passa mesmo assim; e notificação de falha habilitada **sem transporte configurado** não
   envia — dois casos que enganam quem confia na superfície.
+- **Gate único no CI e no local**: `quality.yml` roda `npm run quality` em vez de cinco steps
+  soltos, e `quality.yml`/`release.yml` leem `node-version-file: .nvmrc` (antes fixavam `22`
+  e podiam divergir do `.nvmrc`).
+- **Prettier e lint-staged cobrem YAML**: globs de `format:check`/`format:fix` ganham
+  `*.yml`/`*.yaml`, e o `dependabot.yml` passa a ser formatado como os demais arquivos.
+- **`npm run docker:audit` documentado** em `AGENTS.md`, `README.md` e no guia Docker, junto
+  com a saída real (21 verificações) e a razão de os headers serem declarados duas vezes.
+- **Docs de referência alcançaram o código**: `api-convert.md` não citava `FORBID_TAGS`,
+  a remoção de `style` perigoso, o `katexHtmlToDataUrl` nem o dirty flag do `resume` do
+  mermaid; `storage-contract.md` não listava a chave do PDF vetorial, descrevia
+  `getRaw`/`setRaw` como "usado pelo script de boot" (ele lê `localStorage` direto — os
+  helpers não têm chamador em produção), falava da reversão do `atomicWrite` como
+  incondicional e não dizia que `guardStorage` reflete a **exceção** de `fn`, não o valor que
+  `fn` devolveu. Ganha o exemplo do capture em `handleSwitch`/`handleRename`.
 
 ### Deprecated
 
@@ -52,6 +91,13 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **`firebase.json` removido**: nunca houve projeto vinculado (sem `.firebaserc`, sem
   `firebase-tools`, nenhum workflow de deploy em todo o histórico) — era o último
   resquício de um segundo caminho de hosting ao lado do Coolify.
+- **Código morto**: `svgToPngDataUrl` (nunca chamado), `getDefaultTheme` (idêntico a
+  `getMermaidTheme` e citado só num doc), `getLocale` (só `getLocaleCode` era importado) e as
+  chaves de i18n `previewLabel`/`tocHeading` (nenhuma `data-i18n` nem `t('…')` as referenciava;
+  o rótulo de snapshot é uma função local em `snapshotsDialog.js`). `PDF_VECTOR_FLAG` deixou de
+  estar declarada em dois arquivos: a definição é única em `src/ui/pdfVectorFlag.js`, e
+  `exportPdfVector.js` re-exporta para manter a API pública. `api-convert.md` perde a linha do
+  `getDefaultTheme`.
 
 ### Fixed
 
@@ -70,6 +116,89 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   em `main` ignorava alterações no workflow (sem autorregeneração).
 - **Referências a `master` e Firebase removidas dos guias**: `coolify-deploy.md` pedia
   `git pull origin master` e descrevia um fluxo de deploy errado.
+- **`docker:up` quebrado desde o `read_only`**: o `compose.yaml` subia o nginx sem tmpfs
+  `mode=1777`, e o worker `app` (UID 1001) morria com
+  `mkdir() "/var/cache/nginx/client_temp" (13: Permission denied)` e `exit=1`. Ganha tmpfs
+  explícitos para `/var/cache/nginx` e `/var/run`, idem no `docker-audit.sh`.
+- **`docker-audit.sh` saía com 1 resultado em vez de 22**: os contadores usavam `((VAR++))`,
+  que em `set -e` aborta quando a expressão avalia a 0. Agora `VAR=$((VAR + 1))` e a auditoria
+  roda todas as 11 seções.
+- **`release.yml` publicava a tag no SHA errado**: a tag saía da ponta de `main`, não do
+  merge commit do PR. Ganha `head_sha` validado contra o `headRefOid` do PR e a tag vai para
+  o `merge_commit` real.
+- **`docker.yml` publicava sem o gate verde**: um commit com o `quality` vermelho ainda ia
+  para o GHCR. Passa a esperar o check do **mesmo commit** (poll de `head_sha`, até 10 min)
+  e a usar `concurrency` que não cancela build no meio.
+- **`docker.yml` re-publicava a tag de versão a todo push**: `package.json` só avança no
+  release, então todo push em `main` sobrescrevia `ghcr.io/...:<versão>` — a imagem exata que
+  o release acabou de promover (`1.3.0` → `d9eded766` contra `v1.3.0` → `fcebe42c`). A tag
+  semântica volta a ser exclusividade do `release.yml`; o `main` publica `latest` + SHA.
+- **Falha de gravação no `localStorage` era silenciosa**: quota estourada ou storage bloqueado
+  dentro do timer do autosave virava erro no console e a perda só aparecia no próximo reload.
+  `guardStorage` (`src/ui/storageFeedback.js`) transforma em mensagem i18n no `#sidebar-status`,
+  e as ações de documento abortam a operação seguinte em vez de descartar o conteúdo do editor.
+- **`resolveKatexPlaceholders` ignorava math-inline e emitia nó inválido**: o placeholder de
+  `$…$` fica aninhado em `{text}` dentro de `text[]`, que a checagem só via em string — a
+  fórmula saía no PDF como `__KATEX_HTML__:…`. E o math-block virava `text: {image}`, formato
+  que o pdfmake mede como texto (`node.text` é testado antes de `node.image`) em vez de imagem.
+  Agora os dois formatos viram `{image, fit}` no nível certo, e uma fórmula que não rasteriza
+  degrada para texto sem derrubar o export inteiro.
+- **Última edição perdida ao fechar a aba ou recarregar**: o autosave tem debounce de 300 ms
+  e não havia `pagehide`/`beforeunload` em lugar nenhum do projeto. Ganha `pendingSave` +
+  `flushSave`, chamados sincronamente no evento, que também desarmam o timer.
+- **Rejeição do boot virava tela branca sem sinal**: `setupEditor()` prometia sem `.catch`;
+  um chunk do Monaco que falhasse deixava `unhandledrejection` e nada na tela. Agora o
+  `#sidebar-status` recebe a nova chave `bootFailed`.
+- **Quota cheia no primeiro boot derrubava o `init()` inteiro**: `createDocument` do boot não
+  passava por `guardStorage`, então a `StorageError` abortava o `.then` e editor, tema, barra
+  de status e sidebar nunca montavam. O conteúdo segue no `last_state` e o próximo boot
+  tenta criar o documento de novo.
+- **PDF vetorial pendurava o mermaid**: `getBuffer` do pdfmake só tinha `resolve`; um callback
+  que nunca chegasse deixava a promise eterna e o `finally` de `exportPdfVector.js` — que
+  chama `resumeMermaidScheduling()` — nunca rodava. Ganha timeout de 30 s com guarda `settled`.
+- **Exceção no render congelava o preview em silêncio**: `convertAndRender` roda dentro de um
+  `setTimeout`; um erro de `marked`/DOMPurify subia como uncaught e a pré-visualização ficava
+  na última versão boa sem aviso. Agora captura, mantém o HTML válido anterior e reporta
+  `renderFailed`.
+- **`atomicWrite` prometia reversão que não aconteceu**: a mensagem fixava "alteração
+  revertida" mesmo quando a reversão do índice também falhou (quota já cheia), escondendo o
+  estado real de índice apontando para um documento sem conteúdo. Passa a distinguir os dois
+  casos e a expor `err.reverted`.
+- **Render do mermaid sumia depois de exportar PDF**: `pauseMermaidScheduling` descartava o
+  pedido agendado e `resumeMermaidScheduling` só religava a flag — o diagrama ficava como
+  `<pre class="mermaid">` cru até a próxima tecla. Um dirty flag repõe o render no resume.
+- **Booleano do domínio engolido pela UI de documentos**: `handleSwitch`/`handleRename`
+  embrulhavam `setActive`/`updateTitle` no `guardStorage`, que só enxerga exceções — o
+  `false` (documento sumiu do índice enquanto o `prompt` estava aberto) passava direto e a
+  UI anunciava o rename como gravado. Agora captura o retorno e reporta `docOpRefused`.
+- **Fechar um documento em segundo plano destruía o undo e o scroll do ativo**:
+  `handleClose` recarregava o documento ativo mesmo quando ele não era o que foi fechado —
+  `setValue` limpa o undo stack do Monaco e `revealPosition(1,1)` jogava o viewport para o
+  topo. Passa a recarregar só quando o documento aberto muda mesmo.
+- **Rascunho legado era injetado dentro de outro documento**: `resolveDocumentBootInput`
+  aplicava a precedência de `last_state` com qualquer contagem de documentos, apesar de a
+  docstring restringi-la ao legado de documento único. Com 2+ docs e conteúdo de template, o
+  boot carregava o texto do documento anterior no ativo e o autosave o persistia lá.
+- **`Ctrl+S` gravava por cima de um arquivo aberto em outro documento**: `currentHandle` era
+  global ao app e nada o resetava ao trocar, criar ou fechar documento — abrir `notas.md`,
+  trocar de documento e salvar sobrescrevia o arquivo no disco com o conteúdo novo e ainda
+  reportava "Arquivo salvo: notas.md". O handle agora é associado ao documento que o recebeu;
+  sem correspondência o save cai no caminho de "salvar como" com o nome do documento corrente.
+- **Tema e rolagem gravavam fora do guard**: `setItem` do `theme_settings` e do
+  `scroll_bar_settings` corriam soltos dentro dos handlers de `change`, e a chave crua
+  `theme_boot` nem tinha try/catch no handler (tinha no boot). Uma quota estourada aí virava
+  exceção silenciosa no listener: checkbox já virado, preferência perdida no próximo reload e
+  o resto do handler — CSS, Monaco, mermaid — nem rodava. Os três pontos passam pelo guard e
+  avisam no `#sidebar-status`.
+- **`katexHtmlToDataUrl` deixava um nó órfão em `document.body`**: `removeChild` ficava no
+  `try`, então qualquer falha do `html2canvas` ia direto pro `catch` e o container invisível
+  (`left:-9999px`) ficava preso para sempre — um a cada fórmula que falhasse no rasterizador.
+  A remoção foi para um `finally`.
+- **`setupKeyboardShortcuts` descartava a própria limpeza**: a função devolvia o `dispose` e
+  `init()` jogava fora. Um segundo `init()` (ou um teste que esquecesse o `dispose`) acumulava
+  o listener de `keydown` e a mesma tecla clicava N vezes. A registration virou autorlimpeza:
+  chamar de novo desfaz a anterior, e o retorno continua disponível para quem quiser desligar
+  na mão.
 
 ### Security
 
@@ -83,6 +212,35 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
   (a lista de preload é difícil de reverter). A origem segue em HTTP atrás do tunnel
   `cloudflared` — o FQDN do Coolify fica em `http://`: trocar para `https://` faria o traefik
   exigir TLS e derrubaria o ingress do tunnel. A borda TLS é do Cloudflare.
+
+- **Headers de segurança perdidos nas rotas certas**: um `add_header` dentro de um `location`
+  cancela **toda** a herança do nível server, então `/assets/` e a regex de imagens ficavam sem
+  CSP/X-Frame/etc. `location /` agora repete o bloco completo (CSP × 2, travada por teste
+  anti-drift em `tests/unit/csp.test.js`) e os locations de asset usam só `expires`, que herda
+  sem duplicar `Cache-Control`. `X-XSS-Protection` `1; mode=block` → `0` (o modo de bloco é
+  ignorado ou prejudicial nos navegadores que ainda o respeitam).
+- **Tela branca pós-deploy**: `index.html` passa a `Cache-Control: no-store, no-transform`, e
+  `no-transform` sai do nível server — senão o asset ficava com dois `Cache-Control`.
+- **CSS inline passava cru pelo sanitizador**: o DOMPurify mantém o atributo `style`, então
+  markdown colado podia cobrir o editor inteiro (`position:fixed`/`sticky`), disparar um fetch
+  a cada render vazando IP e presença (`background:url(https://…)`) ou trazer payloads
+  legados de IE (`expression()`, `behavior:`, `-moz-binding`). Um hook em `convert.js` remove
+  o atributo perigoso inteiro, e `FORBID_TAGS: ['style']` fecha `<svg><style>@import …`, que
+  sobrevivia ao sanitizer dentro do `<svg>` e executava no documento. O KaTeX não é afetado:
+  ele emite `style` com `position:absolute/relative` e alturas, nenhuma das regras o atinge.
+- **HTML exportado abria sem nenhuma política**: `buildStandaloneHtml` ganha
+  `<meta http-equiv="Content-Security-Policy">` com `default-src 'none'`, `script-src 'none'`
+  e `connect-src 'none'`. O arquivo é estático e não tem script próprio, mas qualquer resto
+  que escapasse do DOMPurify executava sem restrição alguma. `style-src 'unsafe-inline'` é
+  mantido de propósito (CSS embutido, `style` do KaTeX e `<style>` dos SVGs do mermaid) e a
+  meta pode ser suprimida com `csp: null` por quem hospeda com header próprio.
+- **`<annotation-xml>` reabilitado contra a política do DOMPurify**: `ADD_TAGS` trazia de
+  volta o único nó da MathML que o DOMPurify remove de propósito —
+  `<annotation-xml encoding="text/html">` embrulha HTML arbitrário dentro de `<math>`, e é a
+  classe de vetor que originou os CVEs de MathML do sanitizador. Nada desta app o emite: o
+  KaTeX roda com `output: 'html'` e nem chega a produzir MathML. `annotation` e `semantics`
+  seguem na allow-list (é o que o usuário escreve), agora com o comentário dizendo exatamente
+  isso — o anterior afirmava que "o HTML do KaTeX usa MathML", o que `output: 'html'` contradiz.
 
 ## [1.3.0] — 2026-09-30
 

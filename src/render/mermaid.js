@@ -4,6 +4,10 @@ let renderTimer = null;
 let renderVersion = 0;
 let renderInFlight = null;
 let schedulingEnabled = true;
+// M7: um pedido feito durante o pause era simplesmente descartado — `resume`
+// só religava a flag, e o diagrama recém-convertido ficava como `<pre class=
+// "mermaid">` cru até a próxima tecla. O dirty flag guarda o pedido.
+let dirtyWhilePaused = false;
 
 // Lazy: mermaid vale ~5 MB (1,4 MB gzip) e só é necessário quando o documento
 // tem bloco ```mermaid. Import estático aqui puxava tudo para o boot do app.
@@ -30,10 +34,6 @@ export async function configureMermaid(theme = 'default') {
     securityLevel: 'strict',
     theme,
   });
-}
-
-export function getDefaultTheme() {
-  return 'default';
 }
 
 export function showMermaidError(element, error) {
@@ -115,6 +115,8 @@ export async function renderMermaidDiagramsNow(theme = getMermaidTheme()) {
 
 export function scheduleMermaidRender(delay = 150) {
   if (!schedulingEnabled) {
+    // M7: em vez de descartar, guarda o pedido — `resume` o repõe.
+    dirtyWhilePaused = true;
     return;
   }
   if (renderTimer) {
@@ -131,11 +133,18 @@ export function pauseMermaidScheduling() {
   if (renderTimer) {
     clearTimeout(renderTimer);
     renderTimer = null;
+    // Um render já estava agendado quando o pause chegou: descartá-lo sem
+    // marcar o dirty deixaria o preview com o `<pre class="mermaid">` cru.
+    dirtyWhilePaused = true;
   }
 }
 
 export function resumeMermaidScheduling() {
   schedulingEnabled = true;
+  if (dirtyWhilePaused) {
+    dirtyWhilePaused = false;
+    scheduleMermaidRender();
+  }
 }
 
 export function renderMermaidDiagrams(theme) {

@@ -23,11 +23,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # `.nvmrc` é a fonte única da versão (idem engines/.nvmrc no AGENTS):
+          # hardcodar `22` aqui deixava CI e `nvm use` divergirem após um bump.
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run lint
-      - run: npm run lint:md
-      - run: npm run format:check
-      - run: npm run test:coverage
-      - run: npm run build
+      # Gate único — a mesma sequência do script `quality` do package.json.
+      # Repetir os seis passos um a um aqui duplicava o gate: qualquer checagem
+      # nova adicionada a `quality` entraria na release sem passar pelo CI.
+      - name: Quality gate
+        run: npm run quality

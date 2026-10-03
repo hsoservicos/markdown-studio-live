@@ -281,13 +281,30 @@ export function markdownToPdfmake(markdown, options = {}) {
   };
 }
 
+function isKatexRun(run) {
+  return (
+    run != null &&
+    typeof run === 'object' &&
+    typeof run.text === 'string' &&
+    run.text.includes(KATEX_PLACEHOLDER_PREFIX)
+  );
+}
+
+function omitText(node) {
+  const copy = { ...node };
+  delete copy.text;
+  return copy;
+}
+
 function hasKatexPlaceholder(item) {
   if (!item) return false;
   if (typeof item.text === 'string') {
     return item.text.includes(KATEX_PLACEHOLDER_PREFIX);
   }
   if (Array.isArray(item.text)) {
-    return item.text.some((t) => typeof t === 'string' && t.includes(KATEX_PLACEHOLDER_PREFIX));
+    return item.text.some((run) =>
+      typeof run === 'string' ? run.includes(KATEX_PLACEHOLDER_PREFIX) : isKatexRun(run),
+    );
   }
   return false;
 }
@@ -301,34 +318,67 @@ function extractKatexHtml(text) {
   return text.substring(htmlStart, end);
 }
 
+/**
+ * Troca os placeholders KaTeX por nós de imagem do pdfmake.
+ *
+ * Duas formas de placeholder precisam ser tratadas:
+ * - string direta no `text` do item (math-block) → o item inteiro vira nó de
+ *   imagem;
+ * - run aninhado `{text: '<placeholder>'}` dentro de `text[]` (math-inline) →
+ *   só o run vira imagem, o texto ao redor é preservado.
+ *
+ * O nó de imagem sai como `{image, fit}` no nível do item de conteúdo: o
+ * pdfmake testa `node.text !== undefined` antes de `node.image`, então
+ * `text: {image, ...}` seria medido como texto e viraria lixo.
+ */
 export async function resolveKatexPlaceholders(content, katexHtmlToDataUrl) {
   if (!katexHtmlToDataUrl) return content;
+
+  async function imageFor(text) {
+    const html = extractKatexHtml(text);
+    if (!html) return null;
+    // Uma fórmula que não converte não pode derrubar o export inteiro: o
+    // chamador degrada mantendo o texto, como no retorno `null`.
+    let dataUrl = null;
+    try {
+      dataUrl = await katexHtmlToDataUrl(html);
+    } catch (error) {
+      console.warn('[pdf] falha ao rasterizar KaTeX; a fórmula sai como texto', error);
+    }
+    return dataUrl ? { image: dataUrl, fit: [300, 50] } : null;
+  }
+
+  async function resolveRun(run) {
+    if (typeof run === 'string') {
+      if (!run.includes(KATEX_PLACEHOLDER_PREFIX)) return run;
+      return (await imageFor(run)) ?? run;
+    }
+    if (isKatexRun(run)) {
+      const image = await imageFor(run.text);
+      if (!image) return run;
+      return { ...omitText(run), ...image };
+    }
+    return run;
+  }
+
   const resolved = [];
   for (const item of content) {
-    if (hasKatexPlaceholder(item)) {
-      const texts = Array.isArray(item.text) ? item.text : [item.text];
-      const newTexts = [];
-      for (const t of texts) {
-        if (typeof t === 'string' && t.includes(KATEX_PLACEHOLDER_PREFIX)) {
-          const html = extractKatexHtml(t);
-          if (html) {
-            const dataUrl = await katexHtmlToDataUrl(html);
-            if (dataUrl) {
-              newTexts.push({ image: dataUrl, fit: [300, 50] });
-            } else {
-              newTexts.push(t);
-            }
-          } else {
-            newTexts.push(t);
-          }
-        } else {
-          newTexts.push(t);
-        }
-      }
-      resolved.push({ ...item, text: newTexts.length === 1 ? newTexts[0] : newTexts });
-    } else {
+    if (!hasKatexPlaceholder(item)) {
       resolved.push(item);
+      continue;
     }
+    const runs = Array.isArray(item.text) ? item.text : [item.text];
+    const next = [];
+    for (const run of runs) {
+      next.push(await resolveRun(run));
+    }
+
+    const only = next.length === 1 ? next[0] : null;
+    if (only && typeof only === 'object' && only.image) {
+      resolved.push({ ...omitText(item), ...only });
+      continue;
+    }
+    resolved.push({ ...item, text: next.length === 1 ? next[0] : next });
   }
   return resolved;
 }

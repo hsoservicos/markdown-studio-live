@@ -150,18 +150,19 @@ Markdown-Studio/
 
 ## CI/CD
 
-| Workflow      | Trigger                  | Ações                                        |
-| ------------- | ------------------------ | -------------------------------------------- |
-| `quality.yml` | push/PR main             | lint, lint:md, format, test:coverage, build  |
-| `docker.yml`  | push/PR (Dockerfile/src) | build, health test, push GHCR                |
-| `release.yml` | manual dispatch          | bump, quality, build, Docker, GitHub Release |
+| Workflow      | Trigger                  | Ações                                                                         |
+| ------------- | ------------------------ | ----------------------------------------------------------------------------- |
+| `quality.yml` | push/PR main             | gate único `npm run quality` (format, lint, lint:md, cobertura, build)        |
+| `docker.yml`  | push/PR (Dockerfile/src) | espera o gate Quality do commit, build, health test, push GHCR (`latest`+SHA) |
+| `release.yml` | manual dispatch          | bump, quality, build, Docker, GitHub Release                                  |
 
 ## Segurança
 
 - **DOMPurify**: sanitização de HTML (fronteira de segurança ÚNICA); allowlist de schemes compartilhada com o PDF vetorial em `src/render/urlPolicy.js`
 - **CSP**: `script-src` sem `unsafe-inline`/`unsafe-eval` (único inline autorizado por hash sha256); `style-src` mantém `unsafe-inline` (Monaco/KaTeX/Mermaid injetam estilos)
 - **Docker**: non-root, read-only, no-new-privileges, resource limits
-- **Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+- **Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection (`0`), Referrer-Policy, CSP — declarados em `location /` e **repetidos** no bloco de segurança; `/assets/` herda via `expires` para não duplicar `Cache-Control`
+- **Cache**: `index.html` em `no-store, no-transform` (evita tela branca pós-deploy); `/assets/` imutável com um único `Cache-Control`
 - **0 vulnerabilidades** npm audit
 
 ## Licença

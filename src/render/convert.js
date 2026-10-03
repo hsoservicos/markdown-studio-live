@@ -83,12 +83,17 @@ export function createMarkedRenderer() {
   return renderer;
 }
 
-// P0-5: o HTML do KaTeX usa MathML (acessibilidade); sem isso o DOMPurify
-// removeria as fórmulas. `aria-hidden` é necessário no wrapper MathML.
+// MathML escrito no próprio markdown sobrevive à sanitização. O DOMPurify já
+// aceita as tags de conteúdo dentro de `<math>`, mas remove `semantics` e
+// `annotation` — que são os nós que dão contexto ao `<mi>`/`<mo>` do usuário.
+// `aria-hidden` é necessário no wrapper MathML (a fórmula é decorativa: o
+// KaTeX desta app roda com `output: 'html'` e nem emite MathML).
+// `annotation-xml` fica de fora de propósito: é o único vetor de XSS da
+// MathML (`<annotation-xml encoding="text/html">` embrulha HTML arbitrário)
+// e nenhum produtor desta app o emite.
 const MATHML_TAGS = [
   'math',
   'annotation',
-  'annotation-xml',
   'menclose',
   'merror',
   'mfenced',
@@ -120,16 +125,40 @@ const MATHML_TAGS = [
 const SANITIZE_OPTIONS = {
   ADD_TAGS: MATHML_TAGS,
   ADD_ATTR: ['aria-hidden'],
+  // M1: `<style>` é recusado no topo mas sobrevive dentro de `<svg>` — e um
+  // `<svg><style>@import url(…)</style>` executa no documento. O KaTeX não
+  // emite `<style>` (depende do CSS da página) e o mermaid é injetado depois,
+  // por outro caminho, então ninguém é prejudicado.
+  FORBID_TAGS: ['style'],
   // B3: perfil de recursos externos — somente http(s)/mailto e URLs relativas;
   // bloqueia schemes como tel:/callto:/javascript: (este último já pelo default).
   // A allowlist vive em `urlPolicy.js` e é a mesma usada pelo PDF vetorial.
   ALLOWED_URI_REGEXP,
 };
 
+// M1: o DOMPurify mantém o atributo `style` por padrão, e CSS inline abre
+// três frentes que o preview não deveria aceitar de markdown:
+//   1. exfiltração — `background:url(https://…)` dispara um fetch a cada
+//      render, vazando IP e presença;
+//   2. UI redress — `position:fixed`/`sticky` cobre o editor inteiro por cima
+//      da interface real;
+//   3. payloads legados de IE — `expression()`, `behavior:`, `-moz-binding`.
+// O atributo é removido inteiro (não declaração a declaração) porque um
+// `url(data:…;base64,…)` contém `;` e fatiar por `;` deixaria CSS quebrado.
+// KaTeX emite `style` inline com `position:absolute/relative` e alturas —
+// nenhuma das regras acima o atinge.
+const DANGEROUS_STYLE =
+  /(?:url\s*\(|expression\s*\(|@import|behavior\s*:|-moz-binding|javascript\s*:|position\s*:\s*(?:fixed|sticky))/i;
+
 // B3: links externos abrem em nova aba com rel="noopener noreferrer"
 // (sem reverse tabnabbing e sem navegar para longe do editor). O hook roda
 // após a sanitização, então os atributos não são removidos pelo DOMPurify.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (typeof node.getAttribute === 'function' && node.hasAttribute('style')) {
+    if (DANGEROUS_STYLE.test(node.getAttribute('style') || '')) {
+      node.removeAttribute('style');
+    }
+  }
   if (node.tagName !== 'A' || !node.hasAttribute('href')) {
     return;
   }

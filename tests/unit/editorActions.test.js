@@ -147,6 +147,29 @@ describe('resolveDocumentBootInput', () => {
   it('preserva documento vazio (novo arquivo) em vez de cair no template', () => {
     expect(resolve({ lastContent: null, docContent: '' })).toBe('');
   });
+
+  it('M6: rascunho legado não vaza para um documento de template com 2+ docs', () => {
+    // `persistDraft` não grava template, então `last_state` ainda guarda o
+    // texto do documento anterior — e ele não pode ser injetado aqui.
+    expect(
+      resolve({ lastContent: '# texto de outro doc', docContent: 'PT', documentCount: 2 }),
+    ).toBe(defaultInput);
+  });
+
+  it('M6: com 2+ docs e conteúdo ilegível, cai no template e não no rascunho', () => {
+    expect(resolve({ lastContent: '# sessão antiga', docContent: null, documentCount: 2 })).toBe(
+      defaultInput,
+    );
+  });
+
+  it('M6: com 1 doc o legado de documento único continua prevalecendo', () => {
+    expect(resolve({ lastContent: '# sessão', docContent: null, documentCount: 1 })).toBe(
+      '# sessão',
+    );
+    expect(resolve({ lastContent: '# sessão', docContent: 'PT', documentCount: 1 })).toBe(
+      '# sessão',
+    );
+  });
 });
 
 describe('persistDraft', () => {

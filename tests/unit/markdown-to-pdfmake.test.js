@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { markdownToPdfmake } from '../../src/pdf/markdown-to-pdfmake.js';
+import {
+  markdownToPdfmake,
+  resolveKatexPlaceholders,
+  KATEX_PLACEHOLDER_PREFIX,
+  KATEX_PLACEHOLDER_SUFFIX,
+} from '../../src/pdf/markdown-to-pdfmake.js';
 
 describe('markdownToPdfmake', () => {
   it('converte heading h1', () => {
@@ -251,5 +256,92 @@ describe('markdownToPdfmake', () => {
       const doc = markdownToPdfmake('![alt](data:text/html,hello)');
       expect(doc.content[0].image).toBeUndefined();
     });
+  });
+});
+
+describe('resolveKatexPlaceholders (M11 — KaTeX no PDF)', () => {
+  const html = '<span class="katex">x^2</span>';
+  const placeholder = `${KATEX_PLACEHOLDER_PREFIX}${html}${KATEX_PLACEHOLDER_SUFFIX}`;
+  const dataUrl = 'data:image/svg+xml;base64,AAAA';
+  const converter = async () => dataUrl;
+
+  it('sem conversor devolve o conteúdo intacto', async () => {
+    const items = [{ text: placeholder }];
+    await expect(resolveKatexPlaceholders(items, null)).resolves.toBe(items);
+  });
+
+  it('math-block: o item vira nó de imagem {image,fit} no nível do conteúdo', async () => {
+    const items = [{ text: placeholder, margin: [0, 5, 0, 5] }];
+    const out = await resolveKatexPlaceholders(items, converter);
+
+    expect(out).toHaveLength(1);
+    expect(out[0].image).toBe(dataUrl);
+    expect(out[0].fit).toEqual([300, 50]);
+    expect(out[0].margin).toEqual([0, 5, 0, 5]);
+    // `text: {image}` seria medido como texto pelo pdfmake (measureLeaf antes
+    // de measureImage) — o nó não pode ter a propriedade `text`.
+    expect(out[0].text).toBeUndefined();
+    expect(JSON.stringify(out)).not.toContain('KATEX_HTML');
+  });
+
+  it('math-inline: só o run aninhado vira imagem e o texto ao redor fica', async () => {
+    const items = [{ text: ['antes ', { text: placeholder }, ' depois'] }];
+    const out = await resolveKatexPlaceholders(items, converter);
+
+    expect(out[0].text).toHaveLength(3);
+    expect(out[0].text[0]).toBe('antes ');
+    expect(out[0].text[1]).toEqual({ image: dataUrl, fit: [300, 50] });
+    expect(out[0].text[2]).toBe(' depois');
+    expect(JSON.stringify(out)).not.toContain('KATEX_HTML');
+  });
+
+  it('placeholder em run aninhado sem conversor disponível é preservado', async () => {
+    const run = { text: placeholder };
+    const items = [{ text: ['a', run, 'b'] }];
+    const out = await resolveKatexPlaceholders(items, async () => null);
+
+    expect(out[0].text[1]).toBe(run);
+  });
+
+  it('conversor que falha mantém a string do placeholder', async () => {
+    const items = [{ text: placeholder }];
+    const out = await resolveKatexPlaceholders(items, async () => {
+      throw new Error('canvas indisponível');
+    });
+
+    expect(out[0].text).toBe(placeholder);
+  });
+
+  it('placeholder sem sufixo de fechamento não é convertido', async () => {
+    const broken = `${KATEX_PLACEHOLDER_PREFIX}${html}`;
+    const items = [{ text: broken }];
+    const out = await resolveKatexPlaceholders(items, converter);
+
+    expect(out[0].text).toBe(broken);
+  });
+
+  it('itens sem placeholder passam adiante sem alteração', async () => {
+    const item = { text: 'só texto', margin: [1, 2, 3, 4] };
+    const out = await resolveKatexPlaceholders([item], converter);
+
+    expect(out[0]).toBe(item);
+  });
+
+  it('e2e: $$x^2$$ sai do pipeline sem marcador KaTeX e como imagem', async () => {
+    const { content } = markdownToPdfmake('$$x^2$$');
+    const out = await resolveKatexPlaceholders(content, converter);
+
+    expect(out[0].image).toBe(dataUrl);
+    expect(JSON.stringify(out)).not.toContain('KATEX_HTML');
+  });
+
+  it('e2e: "Texto $x^2$ fim" preserva o texto e resolve só a matemática', async () => {
+    const { content } = markdownToPdfmake('Texto $x^2$ fim');
+    const out = await resolveKatexPlaceholders(content, converter);
+
+    expect(out[0].text).toContain('Texto ');
+    expect(out[0].text).toContain(' fim');
+    expect(out[0].text).toContainEqual({ image: dataUrl, fit: [300, 50] });
+    expect(JSON.stringify(out)).not.toContain('KATEX_HTML');
   });
 });

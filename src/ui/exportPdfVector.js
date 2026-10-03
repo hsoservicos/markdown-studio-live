@@ -12,23 +12,9 @@ import {
 import { captureMermaidSvgs } from '../pdf/svg-embed.js';
 import { katexHtmlToDataUrl } from '../render/katexExt.js';
 
-export const PDF_VECTOR_FLAG = 'com.markdownstudio.pdf.vector';
-
-export function isVectorPdfEnabled(storage = globalThis.localStorage) {
-  try {
-    return storage.getItem(PDF_VECTOR_FLAG) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setVectorPdfEnabled(enabled, storage = globalThis.localStorage) {
-  try {
-    storage.setItem(PDF_VECTOR_FLAG, String(enabled));
-  } catch {
-    // storage indisponible
-  }
-}
+// Re-exportados aqui para manter a API pública que `exportPdf.js` e os testes
+// já consomem; a definição é única em `pdfVectorFlag.js`.
+export { PDF_VECTOR_FLAG, isVectorPdfEnabled, setVectorPdfEnabled } from './pdfVectorFlag.js';
 
 export async function exportPdfVector(
   { onStatus, getMarkdown } = {},

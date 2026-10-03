@@ -92,7 +92,10 @@ Guia operacional para qualquer mudança no projeto — do planejamento ao merge 
    **aprova o run do `pull_request`** — sem esse passo ele nasce em `action_required`, nunca roda, e o
    auto-merge fica `BLOCKED` até estourar o timeout.
 3. Com o check `quality` verde, o PR auto-merga em `main`; a tag `vX.Y.Z` é criada no squash-merge.
-4. A imagem `ghcr.io/hsoservicos/markdown-studio-live:<versão>` (+ `:latest`) é publicada e a GitHub Release é publicada.
+4. A imagem `ghcr.io/hsoservicos/markdown-studio-live:latest` (e a tag do commit SHA) é
+   publicada — o `docker.yml` **não** publica tag de versão, porque o `package.json` só é
+   bumpado no release seguinte e uma `:X.Y.Z` reescrita sobrescreveria o artefato do release.
+   A GitHub Release é publicada com a tag `vX.Y.Z`.
 5. O push em `main` dispara o webhook do **Coolify** (`/webhooks/source/github/events/manual`) e o deploy em
    `mkdeditor.appservice.tec.br` acontece sozinho — valide com `curl -I https://mkdeditor.appservice.tec.br/`.
 

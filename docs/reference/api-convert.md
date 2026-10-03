@@ -26,11 +26,19 @@ const html = convert(markdown);
 - Fórmulas `$…$` (inline) e `$$…$$` (bloco) são convertidas pelo KaTeX via extensões marked
   registradas em `createMathExtensions()` (`katexExt.js`).
 - Todo o HTML de saída é sanitizado por DOMPurify (nunca confie em marked puro):
-  - allowlist MathML (`ADD_TAGS`) + `aria-hidden` (`ADD_ATTR`);
+  - allowlist MathML (`ADD_TAGS`) + `aria-hidden` (`ADD_ATTR`). `annotation-xml` fica de fora
+    de propósito: é o único vetor de XSS da MathML (`<annotation-xml encoding="text/html">`
+    embrulha HTML arbitrário) e nada desta app o emite — o KaTeX roda com `output: 'html'` e
+    nem produz MathML;
   - `ALLOWED_URI_REGEXP` (de `urlPolicy.js`) restringe schemes (só `http(s)`, `mailto` e
     relativos; `tel:`, `javascript:` etc. perdem o href);
-  - hook `afterSanitizeAttributes`: links `http(s)` ganham `target="_blank"` +
-    `rel="noopener noreferrer"` (anti-tabnabbing).
+  - `FORBID_TAGS: ['style']` fecha `<svg><style>@import …`, que sobreviveria ao sanitizer
+    dentro do `<svg>` e executaria no documento;
+  - hook `afterSanitizeAttributes` faz dois trabalhos: links `http(s)` ganham
+    `target="_blank"` + `rel="noopener noreferrer"` (anti-tabnabbing), e atributo `style`
+    perigoso é **removido por inteiro** (`url(`, `expression(`, `@import`, `behavior:`,
+    `-moz-binding`, `javascript:`, `position:fixed|sticky`) — exfiltração, UI redress e
+    payloads legados de IE. O `style` inofensivo (cor, layout e o próprio KaTeX) passa;
 - A assinatura é de um único parâmetro (o antigo `_opts` e a opção `renderMermaid` saíram —
   diagramas são sempre renderizados à parte).
 
@@ -57,23 +65,30 @@ Uma mudança de política aqui afeta as duas rotas; os testes de `convert` e
 
 - `configureMermaid(theme)` — `mermaid.initialize` com `startOnLoad: false`,
   `securityLevel: 'strict'`.
-- `getMermaidTheme()` / `getDefaultTheme()` — `'dark'` quando `data-theme="dark"`, senão
-  `'default'`.
+- `getMermaidTheme()` — `'dark'` quando `data-theme="dark"`, senão `'default'`.
 - `showMermaidError(element, error)` — erro vira `.mermaid-error` (mensagem i18n).
 - `renderMermaidDiagramsIn(rootElement, theme?)` — itera `.mermaid` do root, **single-flight**
   (aguarda passagem em voo; `mermaid.render` não é reentrante) + version-guard (SVG obsoleto
-  não é escrito).
+  não é escrito). Falha em um diagrama **não** aborta os demais da mesma passagem, e o lock é
+  liberado mesmo quando o corpo rejeita — uma próxima chamada renderiza normalmente.
 - `renderMermaidDiagramsNow(theme?)` — atalho para `#output`.
 - `scheduleMermaidRender(delay = 150)` — debounce; respeita `pauseMermaidScheduling()`.
 - `pauseMermaidScheduling()` / `resumeMermaidScheduling()` — suspendem o agendamento durante
-  capturas de export (PDF), evitando re-render concorrente.
+  capturas de export (PDF), evitando re-render concorrente. Um pedido que chegue durante a
+  pausa (ou que estiver pendente no momento dela) marca a retomada como _dirty_: `resume`
+  reagenda em vez de descartar. Sem isso o diagrama ficava como `<pre class="mermaid">` cru
+  até a próxima tecla.
 - `renderMermaidDiagrams(theme?)` — cancela o debounce e renderiza na hora (troca de tema).
 
 ## `src/render/katexExt.js` — matemática (KaTeX)
 
 - `createMathExtensions()` — extensões marked para `$…$` (inline) e `$$…$$` (bloco).
 - `renderInlineMath(source)` / `renderBlockMath(source)` — wrappers de
-  `katex.renderToString` (`throwOnError: false`); bloco embrulhado em `.katex-display`.
+  `katex.renderToString` (`throwOnError: false`, `output: 'html'`); bloco embrulhado em
+  `.katex-display`.
+- `katexHtmlToDataUrl(html)` — rasteriza o HTML do KaTeX para `data:image/png` no PDF
+  vetorial. O container invisível entra em `document.body` e sai em `finally`: uma falha do
+  `html2canvas` não deixa nó órfão preso na página.
 
 ## `src/render/toc.js` — sumário
 

@@ -13,6 +13,7 @@ import {
   // atual do editor em vez do conteúdo do documento alvo.
   getContent as getDocumentContent,
 } from '../documents.js';
+import { guardStorage as guardStorageCall } from './storageFeedback.js';
 
 /**
  * Devolve um nome livre a partir de `base`, sufixando `(2)`, `(3)`… quando
@@ -60,14 +61,23 @@ export function setupDocumentManager({
     return null;
   }
 
+  // Toda gravação passa por aqui: o localStorage pode estourar a quota e, sem
+  // isto, a exceção abortava o handler de evento em silêncio — o clique
+  // "parecia não fazer nada" e o usuário só descobria no reload.
+  const guardStorage = (fn) => guardStorageCall(fn, { onFail: (message) => onStatus?.(message) });
+
   let currentDoc = getActiveDocument();
   if (!currentDoc) {
     // Boot sem documento no índice: semeia o documento com o conteúdo que o
     // boot já colocou no editor. Carregar um documento vazio aqui apagaria o
     // template/estado inicial do Monaco.
-    currentDoc = createDocument({
-      title: t('docDefaultName'),
-      initialContent: String(getEditorContent?.() ?? ''),
+    // Se a gravação falhar (quota), `currentDoc` fica null: o gerenciador segue
+    // funcional e a criação de um documento novo é o caminho de recuperação.
+    guardStorage(() => {
+      currentDoc = createDocument({
+        title: t('docDefaultName'),
+        initialContent: String(getEditorContent?.() ?? ''),
+      });
     });
   }
 
@@ -126,10 +136,10 @@ export function setupDocumentManager({
     }
   }
 
+  /** @returns {boolean} `false` quando a gravação falhou (mensagem no status). */
   function saveCurrentContent() {
-    if (currentDoc && getEditorContent) {
-      setContent(currentDoc.id, getEditorContent());
-    }
+    if (!currentDoc || !getEditorContent) return true;
+    return guardStorage(() => setContent(currentDoc.id, getEditorContent()));
   }
 
   function loadDocument(doc) {
@@ -144,10 +154,27 @@ export function setupDocumentManager({
 
   function handleSwitch(id) {
     if (id === currentDoc?.id) return;
-    saveCurrentContent();
+    // Se o save falhou, trocar de documento descartaria o que está no editor:
+    // aborta e deixa a explicação no status.
+    if (!saveCurrentContent()) return;
     const doc = listDocuments().find((d) => d.id === id);
     if (doc) {
-      setActive(doc.id);
+      let activated = false;
+      if (
+        !guardStorage(() => {
+          activated = setActive(doc.id);
+        })
+      ) {
+        return;
+      }
+      // M8: o guard só enxerga exceções, então o `false` do `setActive` (o id
+      // saiu do índice — outra aba mexeu) passava direto e a UI trocava para
+      // um documento que o storage não considerava ativo: no reload o anterior
+      // voltava por cima.
+      if (!activated) {
+        onStatus?.(t('docOpRefused'));
+        return;
+      }
       loadDocument(doc);
     }
   }
@@ -165,25 +192,51 @@ export function setupDocumentManager({
       if (!confirmed) return;
     }
 
-    saveCurrentContent();
-    deleteDocument(id);
+    if (!saveCurrentContent()) return;
+    if (!guardStorage(() => deleteDocument(id))) return;
+    if (currentDoc?.id === id) {
+      currentDoc = null;
+    }
 
     const remaining = listDocuments();
     const active = getActiveDocument();
-    if (active) {
+    if (active && active.id !== currentDoc?.id) {
       loadDocument(active);
+    } else if (active) {
+      // M4: fechar uma linha em segundo plano deixa `active` como o próprio
+      // documento já aberto. Recarregá-lo aqui seria `setValue` com o mesmo
+      // texto — que no Monaco limpa o undo stack e destrói decorações — e
+      // `revealPosition(1,1)` jogaria o viewport para o topo, sem ganho algum.
+      renderList();
     } else if (remaining.length === 0) {
-      const newDoc = createDocument({ title: t('docDefaultName') });
-      loadDocument(newDoc);
+      // Último documento apagado: precisa repor um, senão o gerenciador fica
+      // sem documento ativo. Se a reposição falhar, `currentDoc` fica null —
+      // `handleCreate` é o caminho de recuperação e a mensagem já saiu.
+      guardStorage(() => {
+        currentDoc = createDocument({ title: t('docDefaultName') });
+      });
+      if (currentDoc) {
+        loadDocument(currentDoc);
+      } else {
+        // Reposição falhou: a lista ainda mostra o documento apagado.
+        renderList();
+      }
     }
   }
 
   function handleCreate() {
-    saveCurrentContent();
+    if (!saveCurrentContent()) return;
     const docs = listDocuments();
     const names = docs.map((d) => d.title);
     const title = uniqueName(t('docDefaultName'), names);
-    const doc = createDocument({ title, initialContent: '' });
+    let doc = null;
+    if (
+      !guardStorage(() => {
+        doc = createDocument({ title, initialContent: '' });
+      })
+    ) {
+      return;
+    }
     loadDocument(doc);
     onStatus?.(t('fileOpened').replace('{name}', title));
   }
@@ -204,7 +257,23 @@ export function setupDocumentManager({
     const docs = listDocuments();
     const names = docs.map((d) => d.title);
     const finalName = uniqueName(trimmed, names, doc.title);
-    updateTitle(doc.id, finalName);
+    let renamed = false;
+    if (
+      !guardStorage(() => {
+        renamed = updateTitle(doc.id, finalName);
+      })
+    ) {
+      return;
+    }
+    // M8: `updateTitle` devolve false quando o documento sumiu do índice —
+    // aqui há um `prompt` aberto, então há uma janela real de outra aba apagar.
+    // Sem capturar o booleano o guard devolvia true e a UI anunciava "salvo"
+    // para um nome que nunca foi gravado.
+    if (!renamed) {
+      onStatus?.(t('docOpRefused'));
+      renderList();
+      return;
+    }
     renderList();
     onStatus?.(
       finalName === trimmed

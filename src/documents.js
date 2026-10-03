@@ -76,7 +76,15 @@ export function getContent(id) {
   return safeGet(NAMESPACE, contentKeyFor(id), { type: 'string', defaultValue: null });
 }
 
-function classifyError(e) {
+/**
+ * Mapeia a causa de um erro de storage para o código que a UI usa para escolher
+ * a mensagem i18n. Aceita tanto um `StorageError` (lê `.cause`) quanto o
+ * `DOMException` cru que o próprio `localStorage` lança.
+ *
+ * @param {unknown} e
+ * @returns {'quota'|'security'|'generic'}
+ */
+export function classifyError(e) {
   const cause = e && e.cause;
   const name = (cause && cause.name) || (e && e.name);
   if (name === 'QuotaExceededError') return 'quota';
@@ -96,17 +104,29 @@ function atomicWrite(previousIndexValue, nextIndexValue, key, nextValue) {
     try {
       setItem(NAMESPACE, key, nextValue);
     } catch (e) {
+      // M5: a reversão é best-effort, então ela mesma pode falhar (quota já
+      // cheia). Declarar "alteração revertida" incondicionalmente mentia para
+      // o usuário: o índice podia ter ficado apontando para um documento sem
+      // conteúdo nenhum.
+      let reverted = false;
       try {
         if (previousIndexValue == null) {
           removeItem(NAMESPACE, INDEX_KEY);
         } else {
           setItem(NAMESPACE, INDEX_KEY, previousIndexValue);
         }
+        reverted = true;
       } catch {
-        // rollback é best-effort; o erro original abaixo prevalece
+        // a reversão falhou; o erro original abaixo prevalece
       }
-      const err = new StorageError('Gravação de documento falhou; alteração revertida.', e);
+      const err = new StorageError(
+        reverted
+          ? 'Gravação de documento falhou; alteração revertida.'
+          : 'Gravação de documento falhou e a reversão do índice também falhou.',
+        e,
+      );
       err.code = classifyError(e);
+      err.reverted = reverted;
       throw err;
     }
   } catch (e) {

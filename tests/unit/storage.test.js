@@ -8,7 +8,9 @@ import {
   safeGet,
   StorageError,
 } from '../../src/storage.js';
-import { NAMESPACE, KEYS } from '../../src/i18n/index.js';
+import { NAMESPACE, KEYS, t } from '../../src/i18n/index.js';
+import { classifyError } from '../../src/documents.js';
+import { storageFailureMessage } from '../../src/ui/storageFeedback.js';
 
 function store() {
   return globalThis.localStorage;
@@ -179,5 +181,92 @@ describe('safeGet', () => {
     expect(safeGet(NAMESPACE, 'nao-existe', { type: 'object', defaultValue: { v: 1 } })).toEqual({
       v: 1,
     });
+  });
+});
+
+describe('gravação com storage falhando (M13)', () => {
+  let original = null;
+
+  function failOn(method) {
+    original = globalThis.localStorage;
+    const proxy = new Proxy(original, {
+      get(target, prop) {
+        if (prop === method) {
+          return () => {
+            throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+          };
+        }
+        const value = target[prop];
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: proxy });
+  }
+
+  function capture(fn) {
+    try {
+      fn();
+      return null;
+    } catch (e) {
+      return e;
+    }
+  }
+
+  afterEach(() => {
+    if (original) {
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: original });
+      original = null;
+    }
+    store().clear();
+  });
+
+  it('setItem embrulha QuotaExceededError em StorageError com a causa preservada', () => {
+    failOn('setItem');
+    const error = capture(() => setItem(NAMESPACE, KEYS.lastState, 'x'.repeat(32)));
+
+    expect(error).toBeInstanceOf(StorageError);
+    expect(error.cause.name).toBe('QuotaExceededError');
+    expect(error.message).toContain(`${NAMESPACE}.${KEYS.lastState}`);
+    expect(classifyError(error)).toBe('quota');
+    expect(storageFailureMessage(error)).toBe(t('quotaExceeded'));
+  });
+
+  it('setRaw preserva a causa na gravação crua', () => {
+    failOn('setItem');
+    const error = capture(() => setRaw('theme_settings', 'dark'));
+
+    expect(error).toBeInstanceOf(StorageError);
+    expect(error.cause.name).toBe('QuotaExceededError');
+    expect(classifyError(error)).toBe('quota');
+  });
+
+  it('removeItem também reporta a causa original', () => {
+    failOn('removeItem');
+    const error = capture(() => removeItem(NAMESPACE, KEYS.lastState));
+
+    expect(error).toBeInstanceOf(StorageError);
+    expect(error.cause.name).toBe('QuotaExceededError');
+    expect(classifyError(error)).toBe('quota');
+  });
+
+  it('erro não-quota não é classificado como quota', () => {
+    original = globalThis.localStorage;
+    const proxy = new Proxy(original, {
+      get(target, prop) {
+        if (prop === 'setItem') {
+          return () => {
+            throw new DOMException('blocked', 'SecurityError');
+          };
+        }
+        const value = target[prop];
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: proxy });
+
+    const error = capture(() => setItem(NAMESPACE, KEYS.lastState, 'x'));
+
+    expect(classifyError(error)).toBe('security');
+    expect(storageFailureMessage(error)).toBe(t('storageDisabled'));
   });
 });

@@ -54,6 +54,7 @@ export default [
         beforeEach: 'readonly',
         afterEach: 'readonly',
         KeyboardEvent: 'readonly',
+        Event: 'readonly',
       },
     },
   },

@@ -87,4 +87,44 @@ describe('CSP (nginx.conf)', () => {
     const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
     expect(conf).toMatch(/add_header\s+Cache-Control\s+"[^"]*no-transform[^"]*"\s+always/);
   });
+
+  // O nginx cancela a herança de TODOS os `add_header` do nível server assim que um
+  // location declara qualquer `add_header`. Por isso o bloco de segurança — e a CSP
+  // junto com ele — é repetido em `location /`. Se alguém editar só uma das cópias,
+  // o app quebra só no shell da SPA: este teste é o detector.
+  it('as cópias da CSP no nginx.conf são idênticas', () => {
+    const csps = [...nginxConf.matchAll(/Content-Security-Policy "([^"]+)"/g)].map((m) => m[1]);
+    expect(csps.length, 'esperadas 2 cópias (server + location /)').toBe(2);
+    expect(csps[1], 'cópias da CSP divergem entre server e location /').toBe(csps[0]);
+  });
+
+  // Shell do app nunca cacheado: sem no-store o browser usa cache heurístico baseado
+  // em Last-Modified e mantém HTML de um deploy anterior, apontando para assets
+  // hasheados que já não existem (página em branco em produção).
+  it('location / entrega no-store junto do no-transform', () => {
+    const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
+    const locationBlock = conf.match(/location \/ \{([\s\S]*?)^\s*\}/m);
+    expect(locationBlock, 'location / ausente no nginx.conf').toBeTruthy();
+    expect(locationBlock[1]).toMatch(/Cache-Control\s+"[^"]*no-store[^"]*"\s+always/);
+    expect(locationBlock[1]).toMatch(/Cache-Control\s+"[^"]*no-transform[^"]*"\s+always/);
+  });
+
+  // Herança dos assets: se um `add_header` entrar em /assets/ ou na regex de
+  // imagens, os arquivos perdem CSP/nosniff/HSTS em produção (F5).
+  it('locations de asset e imagem não declaram add_header', () => {
+    const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
+    const expected = ['location /assets/ {', 'location ~* \\.(ttf'];
+    const bodies = expected.map((marker) => {
+      const start = conf.indexOf(marker);
+      expect(start, `marker não encontrado: ${marker}`).toBeGreaterThanOrEqual(0);
+      const end = conf.indexOf('\n    }', start);
+      return conf.slice(start, end);
+    });
+    for (const body of bodies) {
+      expect(body, 'add_header em location de asset cancela a herança de segurança').not.toMatch(
+        /\badd_header\b/,
+      );
+      expect(body).toMatch(/\bexpires\b/);
+    }
+  });
 });
