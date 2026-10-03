@@ -1,28 +1,4 @@
-import { slugifyHeading } from './convert.js';
-
-/**
- * Extrai headings (h1..h6) do HTML sanitizado do preview. Reusa os ids gerados
- * pelo renderer (slugifyHeading) para ancorar a navegação.
- *
- * @param {string} html - HTML sanitizado de #output
- * @returns {Array<{level:number, text:string, id:string}>}
- */
-export function extractTocFromHtml(html) {
-  if (!html) {
-    return [];
-  }
-  const items = [];
-  const template = document.createElement('template');
-  template.innerHTML = html;
-  template.content.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach((heading) => {
-    items.push({
-      level: Number(heading.tagName.slice(1)),
-      text: heading.textContent.trim(),
-      id: heading.id || '',
-    });
-  });
-  return items;
-}
+import { slugifyHeading, visibleHeadingText, escapeHtml } from './convert.js';
 
 const HEADING_PATTERN = /^\s{0,3}(#{1,6})\s+(.+)$/;
 const FENCE_PATTERN = /^\s{0,3}(`{3,}|~{3,})/;
@@ -43,24 +19,44 @@ export function extractTocFromMarkdown(markdown, opts = {}) {
   const used = new Map();
   const slugFn = opts.slug ?? ((text, usedMap) => slugifyHeading(text, usedMap));
   const lines = String(markdown).split('\n');
-  let inFence = false;
+  // D9: o fence só fecha com um delimitador do tamanho do opener — uma linha
+  // de ``` dentro de ```` não pode "fechar" o bloco e liberar falsos headings.
+  let fenceOpenerLength = 0;
   for (let i = 0; i < lines.length; i += 1) {
     const fence = FENCE_PATTERN.exec(lines[i]);
     if (fence) {
-      inFence = !inFence;
+      const fenceLength = fence[1].length;
+      if (fenceOpenerLength === 0) {
+        fenceOpenerLength = fenceLength;
+      } else if (fenceLength >= fenceOpenerLength) {
+        fenceOpenerLength = 0;
+      }
       continue;
     }
-    if (inFence) {
+    if (fenceOpenerLength > 0) {
       continue;
     }
     const m = HEADING_PATTERN.exec(lines[i]);
     if (m) {
-      const text = m[2].trim();
+      // D8: texto visível compartilhado com o renderer do preview — os ids dos
+      // dois lados são idênticos por construção (teste cruzado em toc.test.js).
+      const text = visibleHeadingText(m[2]);
       const id = slugFn(text, used);
       items.push({ level: m[1].length, text, id, line: i + 1 });
+      continue;
+    }
+    // D9: setext — título sublinhado com `===` (h1) ou `---` (h2).
+    const next = lines[i + 1] ?? '';
+    if (lines[i].trim() !== '' && /^\s{0,3}(=+|-{2,})\s*$/.test(next)) {
+      const text = visibleHeadingText(lines[i]);
+      const level = next.trim().startsWith('=') ? 1 : 2;
+      const id = slugFn(text, used);
+      items.push({ level, text, id, line: i + 1 });
+      i += 1;
     }
   }
-  return items;
+  // D9: heading cujo texto visível não gera slug não vira âncora quebrada.
+  return items.filter((item) => item.id !== '');
 }
 
 /**
@@ -79,16 +75,10 @@ export function buildTocHtml(items) {
   const html = rows
     .map((item) => {
       const style = item.indent > 0 ? ` style="padding-left:${item.indent * 1.2}em"` : '';
-      return `<li><a href="#${item.id}" class="toc-link" data-toc-target="${item.id}"${style}>${escapeTocText(item.text)}</a></li>`;
+      // G2: `escapeHtml` único do projeto (o `escapeTocText` local era uma
+      // cópia com cobertura menor — não escapava `'`).
+      return `<li><a href="#${item.id}" class="toc-link" data-toc-target="${item.id}"${style}>${escapeHtml(item.text)}</a></li>`;
     })
     .join('');
   return `<ul class="toc-list">${html}</ul>`;
-}
-
-function escapeTocText(text) {
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

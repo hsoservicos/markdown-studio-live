@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildStandaloneHtml, loadCssText, exportStandaloneHtml } from '../../src/ui/exportHtml.js';
+import {
+  buildStandaloneHtml,
+  resolveGithubMarkdownCss,
+  exportStandaloneHtml,
+} from '../../src/ui/exportHtml.js';
 import { escapeHtml } from '../../src/render/convert.js';
 
 describe('exportHtml', () => {
@@ -70,23 +74,17 @@ describe('exportHtml', () => {
     });
   });
 
-  describe('loadCssText', () => {
-    it('concatena respostas ok e ignora falhas', async () => {
-      const fetchImpl = vi.fn(async (url) => {
-        if (url.includes('ok')) {
-          return { ok: true, text: async () => 'A' };
-        }
-        if (url.includes('fail')) {
-          throw new Error('network');
-        }
-        return { ok: false, text: async () => 'B' };
-      });
-      const css = await loadCssText(['/ok.css', '/fail.css', '/nope.css'], fetchImpl);
-      expect(css).toBe('A');
+  describe('resolveGithubMarkdownCss (D7 — CSS empacotado no build)', () => {
+    it('light por padrão; dark usa a variante dark_dimmed (mesmo mapa do setPreviewCss)', () => {
+      const cssByTheme = { light: 'L', dark_dimmed: 'D' };
+      expect(resolveGithubMarkdownCss(undefined, cssByTheme)).toBe('L');
+      expect(resolveGithubMarkdownCss('light', cssByTheme)).toBe('L');
+      expect(resolveGithubMarkdownCss('dark', cssByTheme)).toBe('D');
     });
 
-    it('retorna vazio sem fetch', async () => {
-      expect(await loadCssText(['/x.css'], undefined)).toBe('');
+    it('variante ausente vira string vazia sem lançar', () => {
+      expect(resolveGithubMarkdownCss('dark', { light: 'L' })).toBe('');
+      expect(resolveGithubMarkdownCss('light', {})).toBe('');
     });
   });
 
@@ -94,14 +92,12 @@ describe('exportHtml', () => {
     it('baixa .html com mime text/html', async () => {
       const download = vi.fn();
       const onStatus = vi.fn();
-      const fetchImpl = vi.fn(async () => ({ ok: true, text: async () => 'body{}' }));
       const name = await exportStandaloneHtml({
         getHtml: () => '<p>doc</p>',
         filename: 'relatorio.md',
         title: 'Relatório',
         lang: 'pt-BR',
-        cssUrls: ['/css/x.css'],
-        fetchImpl,
+        cssByTheme: { light: 'body{}', dark_dimmed: 'body{background:#000}' },
         download,
         onStatus,
       });
@@ -113,6 +109,46 @@ describe('exportHtml', () => {
       expect(content).toContain('body{}');
       expect(mime).toBe('text/html;charset=utf-8');
       expect(onStatus).toHaveBeenCalledWith(fileName);
+    });
+
+    it('sanitiza o nome do download a partir do documento ativo (AC-P2-10-3)', async () => {
+      const download = vi.fn();
+      const name = await exportStandaloneHtml({
+        getHtml: () => '<p>doc</p>',
+        filename: 'Relatório/2026: final?.md',
+        title: 'Relatório',
+        lang: 'pt-BR',
+        cssByTheme: { light: 'body{}', dark_dimmed: 'body{background:#000}' },
+        download,
+      });
+      expect(name).toBe('Relatório 2026 final.html');
+      expect(download.mock.calls[0][0]).toBe('Relatório 2026 final.html');
+    });
+
+    it('exporta no tema ativo (D7): dark embute dark_dimmed e base dark', async () => {
+      const download = vi.fn();
+      await exportStandaloneHtml({
+        getHtml: () => '<p>doc</p>',
+        theme: 'dark',
+        cssByTheme: { light: 'body{}', dark_dimmed: 'body{background:#000}' },
+        download,
+      });
+      const content = download.mock.calls[0][1];
+      expect(content).toContain('body{background:#000}');
+      expect(content).not.toContain('body{}');
+      expect(content).toContain('#0d1117');
+    });
+
+    it('mantém o default light (D7)', async () => {
+      const download = vi.fn();
+      await exportStandaloneHtml({
+        getHtml: () => '<p>doc</p>',
+        cssByTheme: { light: 'body{}', dark_dimmed: 'body{background:#000}' },
+        download,
+      });
+      const content = download.mock.calls[0][1];
+      expect(content).toContain('body{}');
+      expect(content).toContain('#fff');
     });
   });
 });

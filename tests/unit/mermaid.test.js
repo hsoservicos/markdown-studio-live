@@ -205,3 +205,57 @@ describe('guards de corrida e isolamento de falha (M12)', () => {
     expect(bindFunctions).toHaveBeenCalledWith(root.querySelector('.mermaid'));
   });
 });
+
+describe('D1/D2 — resiliência do import do mermaid', () => {
+  afterEach(() => {
+    vi.doUnmock('mermaid');
+    vi.resetModules();
+    document.body.innerHTML = '';
+    vi.clearAllMocks();
+  });
+
+  it('D1: falha transitória do chunk libera o guarda e o próximo render tenta de novo', async () => {
+    vi.resetModules();
+    let attempts = 0;
+    vi.doMock('mermaid', () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error('chunk falhou');
+      }
+      return { default: mermaidState };
+    });
+    const mod = await import('../../src/render/mermaid.js');
+    document.body.innerHTML = '<div id="output"><div class="mermaid">graph TD; A</div></div>';
+
+    await expect(mod.renderMermaidDiagramsNow()).rejects.toThrow();
+    // sem o catch que limpa o guarda, esta segunda chamada rejeitaria de novo
+    await mod.renderMermaidDiagramsNow();
+    expect(attempts).toBe(2);
+  });
+
+  it('D2: rejeição agendada no timer não vira unhandled rejection', async () => {
+    vi.resetModules();
+    vi.doMock('mermaid', () => {
+      throw new Error('chunk falhou');
+    });
+    const mod = await import('../../src/render/mermaid.js');
+    document.body.innerHTML = '<div id="output"><div class="mermaid">graph TD; A</div></div>';
+
+    mod.scheduleMermaidRender(5);
+    await new Promise((r) => setTimeout(r, 40));
+    // vitest reprovaria o arquivo em unhandled rejection — não houve.
+  });
+});
+
+describe('H2 — handoff preview→PDF (dataset.mermaidSource)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renderMermaidDiagramsIn grava o dataset que o captureMermaidSvgs usa como chave', async () => {
+    const root = mermaidRoot();
+    await renderMermaidDiagramsIn(root);
+    const el = root.querySelector('.mermaid');
+    expect(el.dataset.mermaidSource).toBe('graph TD; A');
+  });
+});

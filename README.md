@@ -159,7 +159,7 @@ Markdown-Studio/
 ## Segurança
 
 - **DOMPurify**: sanitização de HTML (fronteira de segurança ÚNICA); allowlist de schemes compartilhada com o PDF vetorial em `src/render/urlPolicy.js`
-- **CSP**: `script-src` sem `unsafe-inline`/`unsafe-eval` (único inline autorizado por hash sha256); `style-src` mantém `unsafe-inline` (Monaco/KaTeX/Mermaid injetam estilos)
+- **CSP**: `script-src` sem `unsafe-inline`/`unsafe-eval` (único inline autorizado por hash sha256); `style-src` mantém `unsafe-inline` (Monaco/KaTeX/Mermaid injetam estilos); `img-src 'self' data: blob:` — **imagens remotas não são carregadas** (offline, sem rastreamento): o alt vira placeholder no preview e degrada para texto no PDF
 - **Docker**: non-root, read-only, no-new-privileges, resource limits
 - **Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection (`0`), Referrer-Policy, CSP — declarados em `location /` e **repetidos** no bloco de segurança; `/assets/` herda via `expires` para não duplicar `Cache-Control`
 - **Cache**: `index.html` em `no-store, no-transform` (evita tela branca pós-deploy); `/assets/` imutável com um único `Cache-Control`

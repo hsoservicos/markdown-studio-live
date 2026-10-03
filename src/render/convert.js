@@ -1,9 +1,10 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { createMathExtensions } from './katexExt.js';
+import { registerMathExtensions } from './katexExt.js';
 import { ALLOWED_URI_REGEXP } from './urlPolicy.js';
 
-marked.use({ extensions: createMathExtensions() });
+// G1: registro único/idempotente das extensões de matemática no marked global.
+registerMathExtensions(marked);
 
 /**
  * Único helper de escape do projeto. Serve para conteúdo de elemento (ex.: blocos
@@ -45,11 +46,46 @@ export function slugifyHeading(text, used = new Map()) {
   return slugify(text, used);
 }
 
+/**
+ * Texto VISÍVEL de um heading de markdown — fonte única para os ids (D8).
+ *
+ * O renderer do preview e o extrator do TOC calculavam o slug de textos
+ * diferentes (HTML renderizado com tags removidas × markdown cru) e os ids
+ * divergiam para headings com link (`veja-docs` × `veja-docshttpsexcom`), imagem
+ * ou `&` (`tom-jerry` × `tom-amp-jerry`) — a navegação TOC↔preview falhava em
+ * silêncio. Agora os dois lados passam por aqui antes do `slugify`.
+ *
+ * Regras: imagem → alt, link → texto, code span → conteúdo, tags HTML fora,
+ * escapes markdown resolvidos, marcações de ênfase removidas.
+ */
+export function visibleHeadingText(raw) {
+  // Escapes (`\*`, `\_`, …) viram placeholders antes de qualquer remoção de
+  // marcação — senão o `\*` restaurado seria engolido como ênfase.
+  const stash = [];
+  const masked = String(raw ?? '').replace(/\\([\\`*_{}[\]()#+\-.!~|>])/g, (_m, ch) => {
+    stash.push(ch);
+    return `\u0000${stash.length - 1}\u0000`;
+  });
+  const stripped = masked
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/`+([^`]+)`+/g, '$1')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/(^|[^\w])_([^_]+)_(?!\w)/g, '$1$2')
+    .replace(/~~(.+?)~~/g, '$1');
+  // eslint-disable-next-line no-control-regex -- placeholders \u0000…\u0000 do stash de escapes
+  return stripped.replace(/\u0000(\d+)\u0000/g, (_m, i) => stash[Number(i)]).trim();
+}
+
 export function createMarkedRenderer() {
   const renderer = new marked.Renderer();
   const renderCode = renderer.code.bind(renderer);
   const renderHeading = renderer.heading.bind(renderer);
   const renderHtml = renderer.html.bind(renderer);
+  const renderImage = renderer.image.bind(renderer);
   const used = new Map();
 
   // P0-2: marcador `<!-- page-break -->` → quebra de página na impressão.
@@ -62,6 +98,22 @@ export function createMarkedRenderer() {
     return renderHtml(token);
   };
 
+  // Imagens remotas não carregam neste app: a CSP fixa
+  // `img-src 'self' data: blob:` (offline, sem rastreamento — um fetch por
+  // render vazaria IP e presença). Em vez do ícone de imagem quebrada, o alt
+  // vira placeholder explícito; o export HTML copia o `innerHTML` do preview e
+  // herda a mesma degradação. Só self (relativo), `data:` e `blob:` renderizam.
+  renderer.image = (token) => {
+    const src = String(token?.href ?? '').trim();
+    const isLocal =
+      /^(?:data:|blob:)/i.test(src) || (!/^[a-z][a-z0-9+.-]*:/i.test(src) && !src.startsWith('//'));
+    if (isLocal) {
+      return renderImage(token);
+    }
+    const alt = String(token?.text ?? '').trim() || '[imagem]';
+    return `<span class="img-unavailable">${escapeHtml(alt)}</span>`;
+  };
+
   renderer.code = (token) => {
     const lang = (token.lang || '').match(/^\S*/)?.[0].toLowerCase();
     if (lang !== 'mermaid') {
@@ -71,12 +123,16 @@ export function createMarkedRenderer() {
   };
 
   renderer.heading = (token) => {
-    const text = String(renderHeading(token)).replace(/<[^>]*>/g, '');
+    const rendered = renderHeading(token);
+    // D8: o id vem do texto VISÍVEL do markdown cru (fonte única, igual à do
+    // TOC) — não do HTML renderizado, cuja remoção de tags deixava entidades
+    // (`&amp;`) e divergia do extrator em links/imagens.
+    const raw = typeof token?.text === 'string' ? token.text : '';
+    const text = raw ? visibleHeadingText(raw) : String(rendered).replace(/<[^>]*>/g, '');
     const id = slugify(text, used);
     if (!id) {
-      return renderHeading(token);
+      return rendered;
     }
-    const rendered = renderHeading(token);
     return rendered.replace(/^<h(\d)/, `<h$1 id="${id}"`);
   };
 

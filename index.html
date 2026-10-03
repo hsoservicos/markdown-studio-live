@@ -141,13 +141,12 @@
               </svg>
             </button>
           </div>
-          <div
+          <ul
             id="document-list"
             class="doc-list"
-            role="group"
             data-i18n-aria-label="docListLabel"
             aria-label="Documentos abertos"
-          ></div>
+          ></ul>
         </div>
 
         <nav id="sidebar-nav" class="sidebar-nav">
@@ -489,12 +488,13 @@
         <div id="sidebar-status" class="sidebar-status" role="status" aria-live="polite"></div>
       </aside>
 
-      <main id="container" class="split-container">
+      <main id="container" class="split-container" tabindex="-1">
         <div id="edit" class="column editor-pane">
           <div id="editor-wrapper">
             <div
             id="editor"
             role="textbox"
+            aria-multiline="true"
             data-i18n-aria-label="editorLabel"
             aria-label="Editor de Markdown"
           ></div>
@@ -662,16 +662,16 @@
         <div class="print-form-group">
           <label class="print-form-label" for="print-header">
             <span data-i18n="printHeaderLabel">Cabeçalho</span>
-            <span class="print-form-hint">{page} = nº da página</span>
+            <span class="print-form-hint" data-i18n="printHintPage">{page} = nº da página</span>
           </label>
-          <input type="text" id="print-header" class="print-form-input" maxlength="200" placeholder="Ex: Documento confidencial" />
+          <input type="text" id="print-header" class="print-form-input" maxlength="200" data-i18n-placeholder="printHeaderPlaceholder" placeholder="Ex: Documento confidencial" />
         </div>
         <div class="print-form-group">
           <label class="print-form-label" for="print-footer">
             <span data-i18n="printFooterLabel">Rodapé</span>
-            <span class="print-form-hint">{page} = nº da página</span>
+            <span class="print-form-hint" data-i18n="printHintPage">{page} = nº da página</span>
           </label>
-          <input type="text" id="print-footer" class="print-form-input" maxlength="200" placeholder="Ex: Página {page}" />
+          <input type="text" id="print-footer" class="print-form-input" maxlength="200" data-i18n-placeholder="printFooterPlaceholder" placeholder="Ex: Página {page}" />
         </div>
         <div class="print-form-actions">
           <button

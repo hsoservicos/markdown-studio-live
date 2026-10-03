@@ -4,6 +4,7 @@ import { pauseMermaidScheduling } from '../render/mermaid.js';
 import { resumeMermaidScheduling } from '../render/mermaid.js';
 import { t } from '../i18n/index.js';
 import { isVectorPdfEnabled } from './pdfVectorFlag.js';
+import { sanitizeDownloadName } from './files.js';
 import {
   DEFAULT_PRINT_SETTINGS,
   getPrintStylesheetCss,
@@ -64,7 +65,7 @@ export async function loadHtml2Pdf() {
 }
 
 export async function exportRasterFallback(
-  { onStatus } = {},
+  { onStatus, getDocName } = {},
   printSettings = DEFAULT_PRINT_SETTINGS,
 ) {
   const previewElement = document.querySelector('#preview-wrapper');
@@ -73,6 +74,9 @@ export async function exportRasterFallback(
   }
 
   onStatus?.(t('pdfGenerating'));
+  // AC-P2-10-3: o nome do download vem do documento ativo, sanitizado; sem
+  // título utilizável cai no fallback legado `markdown-preview.pdf`.
+  const filename = sanitizeDownloadName(getDocName?.(), '.pdf', 'markdown-preview');
 
   let html2pdf;
   try {
@@ -90,7 +94,7 @@ export async function exportRasterFallback(
   try {
     await renderMermaidDiagrams('default');
     const worker = html2pdf()
-      .set(buildExportOptions(DEFAULT_PDF_FILENAME, printSettings))
+      .set(buildExportOptions(filename, printSettings))
       .from(previewElement)
       .toPdf();
     stampPageHeaderFooter(worker.get('pdf'), printSettings);
@@ -108,18 +112,18 @@ export async function exportRasterFallback(
 }
 
 export async function exportPreviewToPdf(
-  { onStatus, getMarkdown } = {},
+  { onStatus, getMarkdown, getDocName } = {},
   printSettings = DEFAULT_PRINT_SETTINGS,
 ) {
   if (isVectorPdfEnabled() && getMarkdown) {
     try {
       const { exportPdfVector } = await import('./exportPdfVector.js');
-      return await exportPdfVector({ onStatus, getMarkdown }, printSettings);
+      return await exportPdfVector({ onStatus, getMarkdown, getDocName }, printSettings);
     } catch (error) {
       console.warn('Vector PDF failed, falling back to raster:', error);
-      return exportRasterFallback({ onStatus }, printSettings);
+      return exportRasterFallback({ onStatus, getDocName }, printSettings);
     }
   }
 
-  return exportRasterFallback({ onStatus }, printSettings);
+  return exportRasterFallback({ onStatus, getDocName }, printSettings);
 }

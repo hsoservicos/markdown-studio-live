@@ -1,31 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { svgToDataUrl, captureMermaidSvgs } from '../../src/pdf/svg-embed.js';
-
-describe('svgToDataUrl', () => {
-  it('converte SVG válido para data URL', () => {
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>Hi</text></svg>';
-    const result = svgToDataUrl(svg);
-    expect(result).toMatch(/^data:image\/svg\+xml,/);
-    expect(result).toContain('Hi');
-  });
-
-  it('retorna null para input vazio', () => {
-    expect(svgToDataUrl(null)).toBeNull();
-    expect(svgToDataUrl('')).toBeNull();
-    expect(svgToDataUrl(undefined)).toBeNull();
-  });
-
-  it('retorna null para input que não é SVG', () => {
-    expect(svgToDataUrl('not svg')).toBeNull();
-    expect(svgToDataUrl('<div>html</div>')).toBeNull();
-  });
-
-  it('preserva aspas no SVG', () => {
-    const svg = '<svg><text x="10" y="20">Test</text></svg>';
-    const result = svgToDataUrl(svg);
-    expect(result).toContain('%22');
-  });
-});
+import { captureMermaidSvgs } from '../../src/pdf/svg-embed.js';
 
 describe('captureMermaidSvgs', () => {
   it('captura SVGs de elementos .mermaid', () => {

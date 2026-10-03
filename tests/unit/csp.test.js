@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { KEYS } from '../../src/i18n/index.js';
 
 /**
  * A CSP vive no `nginx.conf` (produção/Docker), mas o script que ela autoriza por
@@ -109,11 +110,11 @@ describe('CSP (nginx.conf)', () => {
     expect(locationBlock[1]).toMatch(/Cache-Control\s+"[^"]*no-transform[^"]*"\s+always/);
   });
 
-  // Herança dos assets: se um `add_header` entrar em /assets/ ou na regex de
-  // imagens, os arquivos perdem CSP/nosniff/HSTS em produção (F5).
-  it('locations de asset e imagem não declaram add_header', () => {
+  // Herança dos assets: se um `add_header` entrar em /assets/, /css/ ou na regex
+  // de imagens, os arquivos perdem CSP/nosniff/HSTS em produção (F5).
+  it('locations de asset, css e imagem não declaram add_header', () => {
     const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
-    const expected = ['location /assets/ {', 'location ~* \\.(ttf'];
+    const expected = ['location /assets/ {', 'location /css/ {', 'location ~* \\.(ttf'];
     const bodies = expected.map((marker) => {
       const start = conf.indexOf(marker);
       expect(start, `marker não encontrado: ${marker}`).toBeGreaterThanOrEqual(0);
@@ -125,6 +126,57 @@ describe('CSP (nginx.conf)', () => {
         /\badd_header\b/,
       );
       expect(body).toMatch(/\bexpires\b/);
+    }
+  });
+
+  // F1: o CSS do app não pode cair no no-store do `location /` — era rebaixado
+  // a cada load (e os `?v=` cache-busters não ajudavam).
+  it('location /css/ usa expires e não herda o no-store do shell', () => {
+    const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
+    const start = conf.indexOf('location /css/ {');
+    expect(start).toBeGreaterThanOrEqual(0);
+    const body = conf.slice(start, conf.indexOf('\n    }', start));
+    expect(body).toMatch(/expires\s+30d/);
+    expect(body).not.toMatch(/no-store/);
+  });
+
+  // F2: headers de endurecimento presentes nas DUAS cópias do bloco de
+  // segurança (server + location /) — mesma regra de herança da CSP.
+  it('Permissions-Policy/COOP/CORP existem nas duas cópias do bloco de segurança', () => {
+    const conf = readFileSync(resolve(root, 'nginx.conf'), 'utf8');
+    for (const header of [
+      'Permissions-Policy',
+      'Cross-Origin-Opener-Policy',
+      'Cross-Origin-Resource-Policy',
+    ]) {
+      const copies = [
+        ...conf.matchAll(new RegExp(`add_header\\s+${header}\\s+"([^"]+)"`, 'g')),
+      ].map((m) => m[1]);
+      expect(copies, `${header}: esperadas 2 cópias (server + location /)`).toHaveLength(2);
+      expect(copies[1], `${header}: cópias divergem`).toBe(copies[0]);
+    }
+  });
+});
+
+describe('H5 — contrato do anti-FOUC (index.html ↔ app)', () => {
+  const indexHtml = readFileSync(resolve(root, 'index.html'), 'utf8');
+
+  it('BOOT_THEME_KEY do index.html é a mesma chave que o app grava', () => {
+    const key = indexHtml.match(/BOOT_THEME_KEY\s*=\s*'([^']+)'/)?.[1];
+    expect(key).toBeTruthy();
+    expect(key).toBe(KEYS.themeBoot);
+  });
+
+  it('variantes PREVIEW_CSS batem com o mapeamento do setPreviewCss (light/dark_dimmed)', () => {
+    const light = indexHtml.match(/PREVIEW_CSS_LIGHT\s*=\s*'([^']+)'/)?.[1];
+    const dark = indexHtml.match(/PREVIEW_CSS_DARK\s*=\s*'([^']+)'/)?.[1];
+    // mesmos caminhos que src/main.js monta em setPreviewCss
+    expect(light).toBe('css/github-markdown-light.css?v=1.0.0');
+    expect(dark).toBe('css/github-markdown-dark_dimmed.css?v=1.0.0');
+    // os arquivos existem de verdade no public/
+    for (const href of [light, dark]) {
+      const file = href.split('?')[0].replace(/^css\//, 'public/css/');
+      expect(existsSync(resolve(root, file)), `${href} sem arquivo em public/`).toBe(true);
     }
   });
 });

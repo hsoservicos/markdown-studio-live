@@ -24,6 +24,7 @@ vi.mock('../../src/pdf/markdown-to-pdfmake.js', () => ({
   markdownToPdfmake: state.markdownToPdfmake,
   buildPdfDocDefinition: state.buildPdfDocDefinition,
   resolveKatexPlaceholders: state.resolveKatexPlaceholders,
+  collectImageSrcs: () => [],
 }));
 
 vi.mock('../../src/pdf/svg-embed.js', () => ({
@@ -38,7 +39,11 @@ vi.mock('../../src/pdf/pdfmake-adapter.js', () => ({
   getDocumentBuffer: state.getDocumentBuffer,
 }));
 
-import { isVectorPdfEnabled, setVectorPdfEnabled } from '../../src/ui/exportPdfVector.js';
+import {
+  isVectorPdfEnabled,
+  setVectorPdfEnabled,
+  resolveImageDataUrls,
+} from '../../src/ui/exportPdfVector.js';
 
 function fakeStorage() {
   const map = new Map();
@@ -130,6 +135,28 @@ describe('exportPdfVector (integration with mocks)', () => {
     expect(state.markdownToPdfmake).toHaveBeenCalled();
   });
 
+  it('nomeia o download com o título do documento ativo sanitizado (AC-P2-10-3)', async () => {
+    const onStatus = vi.fn();
+    const getMarkdown = vi.fn(() => '# Hello');
+    const getDocName = vi.fn(() => 'Relatório/2026: final?.md');
+    const anchor = { click: vi.fn(), remove: vi.fn() };
+    vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+    await exportPdfVector({ onStatus, getMarkdown, getDocName });
+    expect(anchor.download).toBe('Relatório 2026 final.pdf');
+  });
+
+  it('cai no fallback markdown-preview.pdf sem título utilizável', async () => {
+    const onStatus = vi.fn();
+    const getMarkdown = vi.fn(() => '# Hello');
+    const getDocName = vi.fn(() => '');
+    const anchor = { click: vi.fn(), remove: vi.fn() };
+    vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+    await exportPdfVector({ onStatus, getMarkdown, getDocName });
+    expect(anchor.download).toBe('markdown-preview.pdf');
+  });
+
   it('reporta erro quando getMarkdown retorna vazio', async () => {
     const onStatus = vi.fn();
     const getMarkdown = vi.fn(() => '');
@@ -152,5 +179,30 @@ describe('exportPdfVector (integration with mocks)', () => {
     vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
     await exportPdfVector({ onStatus, getMarkdown });
     expect(onStatus).toHaveBeenCalledWith('Falha ao exportar o PDF.');
+  });
+});
+
+describe('resolveImageDataUrls (A3 — fetch de imagens relativas)', () => {
+  it('resolve PNG/JPEG de mesma origem para data URL', async () => {
+    const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' });
+    const fetchImpl = vi.fn(async () => ({ ok: true, blob: async () => png }));
+    const map = await resolveImageDataUrls(['/img/a.png', '/img/b.jpeg'], fetchImpl);
+    expect(map.get('/img/a.png')).toMatch(/^data:image\/png/);
+    expect(map.get('/img/b.jpeg')).toMatch(/^data:image\/png/);
+  });
+
+  it('ignora tipos não decodificáveis (SVG), respostas falhas e erros de rede', async () => {
+    const svg = new Blob(['<svg/>'], { type: 'image/svg+xml' });
+    const fetchImpl = vi.fn(async (src) => {
+      if (src === '/x.svg') return { ok: true, blob: async () => svg };
+      if (src === '/404.png') return { ok: false };
+      throw new Error('offline');
+    });
+    const map = await resolveImageDataUrls(['/x.svg', '/404.png', '/boom.png'], fetchImpl);
+    expect(map.size).toBe(0);
+  });
+
+  it('sem fetch devolve mapa vazio sem lançar', async () => {
+    await expect(resolveImageDataUrls(['/a.png'], undefined)).resolves.toEqual(new Map());
   });
 });

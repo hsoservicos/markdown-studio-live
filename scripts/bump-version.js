@@ -16,6 +16,11 @@ if (!valid.includes(bump)) {
 
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 const [major, minor, patch] = pkg.version.split('.').map(Number);
+// F5: `1.3.0-beta.1` ou lixo na versão gerava tag `v1.3.NaN`.
+if (![major, minor, patch].every(Number.isInteger)) {
+  console.error(`Versão não numérica em package.json: ${pkg.version}`);
+  process.exit(2);
+}
 const next =
   bump === 'major'
     ? `${major + 1}.0.0`
@@ -58,7 +63,13 @@ if (existsSync(changelogPath)) {
 pkg.version = next;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
-execSync(`git add package.json CHANGELOG.md`, { cwd: root, stdio: 'inherit' });
+// F5: só o que foi de fato editado entra no stage — o `git add` do CHANGELOG
+// era incondicional e quebrava o release sem o arquivo.
+const staged = ['package.json'];
+if (existsSync(changelogPath)) {
+  staged.push('CHANGELOG.md');
+}
+execSync(`git add ${staged.join(' ')}`, { cwd: root, stdio: 'inherit' });
 execSync(`git commit -m "chore: release v${next}"`, { cwd: root, stdio: 'inherit' });
 execSync(`git tag v${next}`, { cwd: root, stdio: 'inherit' });
 console.log(`Release v${next} criado (tag v${next}). Para publicar: git push origin main --tags`);

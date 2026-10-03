@@ -7,6 +7,21 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Added
 
+- **Avisos de restauração no boot (AC-P2-10-4)**: id ativo órfão, índice com ids duplicados,
+  schema de versão mais nova e conteúdo corrompido agora degradam com aviso i18n (`bootWarn*`)
+  em `#sidebar-status` — antes o fallback acontecia em silêncio e o envelope corrompido
+  restaurava lixo no editor.
+- **Guarda de composição do bundle no quality**: `scripts/check-bundle.mjs` falha se o mermaid
+  (lazy, ~5 MB) vazar para o entry ou sumir como chunk — a regressão que o comentário do
+  `vite.config.js` documenta voltaria verde no gate.
+- **Guarda de quota nos snapshots, sem evicção silenciosa (D4)**: `pushSnapshot` projeta o
+  tamanho do anel (UTF-16, mesma conta do `measureStorageUsage`) e **recusa** antes de
+  escrever quando sobra menos que a margem de 256KB — o snapshot é backup e nunca pode comer
+  a última fatia do storage e empurrar o rascunho primário para `QuotaExceededError`. O motivo
+  sai em `pushSnapshotDetailed`/`maybeAutoSnapshot` (`quota`/`dedup`/`empty`/`throttled`) e o
+  caminho automático anuncia `snapshotQuota` (nova chave i18n) uma vez por sessão. O anel de
+  `MAX_SNAPSHOTS` permanece; nada é descartado em silêncio para dar lugar.
+
 - **Auditoria da cadeia de deploy**: `npm run deploy:audit` (`scripts/deploy-audit.sh`)
   prova que o push em `main` vira release sozinho — webhook ativo nos dois lados, branch
   protegida, último deploy origem=`webhook` igual ao HEAD, fila vazia, API do Coolify
@@ -52,6 +67,51 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Changed
 
+- **Export vetorial corrigido de ponta a ponta (A1–A7)**: código na fonte base (o `Courier`
+  apontava para TTFs inexistentes no vfs e todo codespan abortava o export); mermaid vira o
+  content type `svg` (string capturada) em vez de `image` com `data:image/svg+xml`, que o
+  pdfmake recusa; `pageSize`/`pageOrientation` chegam ao docDefinition (Letter/paisagem não
+  caem mais no A4 retrato); tabelas, listas aninhadas e `del` convertem inline em vez de
+  vazar markdown cru; placeholders KaTeX resolvem em blockquote, listas e runs aninhados;
+  imagens relativas são buscadas via fetch → data URL PNG/JPEG e o não embutível degrada
+  para o alt.
+- **Atalhos globais respeitam campos de formulário (C1)**: Ctrl+S/P/B/E não sequestram mais
+  inputs de diálogo/contenteditable — o editor Monaco continua recebendo (salvar enquanto
+  escreve é o caso de uso principal).
+- **Formulário de impressão sem texto duplicado nem pt vazando no en (C4)**: labels perdem o
+  sufixo dos `.print-form-hint` (aparecia em dobro) e hints/placeholders ganham `data-i18n*`.
+- **Decisão do bundle do Monaco documentada (D5)**: importar `monaco-editor` completo (e não
+  a entry `editor.api`) é deliberado — o módulo é carregado sob demanda (chunk lazy fora do
+  boot, cache imutável de 1 ano) e os tokenizers das linguagens embutidas destacam os blocos
+  ` ```python ` etc. no modo markdown. Trade-off e caminho de evolução documentados em
+  `monacoSetup.js`.
+- **Caminho de impressão honesto (D9)**: o CSS morto `.print-page-header`/`.print-page-footer`
+  do `getPrintStylesheetCss` saiu — prometia cabeçalho/rodapé por página em `window.print()`,
+  que o browser não entrega em CSS (o `{page}` impresso é do diálogo do navegador); header/
+  rodapé com `{page}` são exclusivos dos PDFs (jsPDF raster e pdfmake). O `@media print` do
+  `style.css` ganha `.skip-link` e `dialog` no grupo escondido e o contrato de impressão
+  (chrome oculta, preview em largura total, texto legível no papel) agora é travado por teste.
+- **HTML exportado ganha CSS empacotado no build e acompanha o tema ativo (D7)**: o export
+  buscava `/css/github-markdown-light.css` em runtime (404 em deploy em subpath, `file://` e
+  offline) e saía sempre light. As duas variantes do preview (`light`, `dark_dimmed`) entram
+  no bundle via `?inline` e `exportStandaloneHtml` aceita `theme`/`cssByTheme` — o export sai
+  no tema corrente, com o body CSS coerente; `loadCssText`/`cssUrls`/`fetchImpl` saíram.
+- **"Novo arquivo" cria um novo documento em vez de limpar o ativo (D3)**: a ação da sidebar
+  era destrutiva (limpava o editor e o autosave gravava `''` no mesmo título/índice) e
+  divergia de "Novo documento". Agora é alias do gerenciador (`documentManager.create()`):
+  entrada isolada, conteúdo atual salvo antes de trocar, sem confirmação (nada é descartado).
+- **Imagens remotas degradam para alt/placeholder em vez de quebrar (D6)**: a CSP
+  (`img-src 'self' data: blob:`) nunca carregou origens de rede — offline, sem rastreamento —
+  mas o preview mostrava ícone de imagem quebrada e o PDF vetorial abortava o export com
+  `Invalid image` para qualquer imagem que não fosse `data:image/(png|jpe?g);base64`. Agora o
+  preview renderiza `<span class="img-unavailable">` com o alt (e `[imagem]` quando vazio) e o
+  PDF cai para o alt; imagem relativa e `data:image/svg+xml` seguem a mesma degradação — href
+  cru nunca chega ao pdfmake. README/api-convert documentam a política.
+- **Contrato do KaTeX no PDF vetorial corrigido para raster 3×**: a AC-P2-9-2 e o ADR pediam
+  re-render com `output: 'svg'`, premissa falsa — o enum do KaTeX é `htmlAndMathml|html|mathml`,
+  sem saída SVG. `katexHtmlToDataUrl` passa a rasterizar em `scale: 3` (antes 2) como limite de
+  fidelidade da rota vetorial, e spec/ADR passam a descrever o contrato real; migração a
+  MathJax/SVG fica condicionada a pesquisabilidade de fórmulas virar requisito.
 - **`npm run quality` roda o mesmo gate do CI**: agora
   `format:check && lint && lint:md && test:coverage && build` — antes o `pre-push` não cobria
   coverage nem build, então um push podia passar local e falhar no CI.
@@ -91,6 +151,13 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 - **`firebase.json` removido**: nunca houve projeto vinculado (sem `.firebaserc`, sem
   `firebase-tools`, nenhum workflow de deploy em todo o histórico) — era o último
   resquício de um segundo caminho de hosting ao lado do Coolify.
+- **`newMarkdownEditor` e a chave i18n `newFileConfirm`**: "Novo arquivo" deixou de limpar o
+  documento ativo (D3) e o helper sem chamador saiu junto com a mensagem de confirmação —
+  "limpar atual" não é mais um caminho da UI.
+- **Exports mortos e duplicação (G1–G3)**: `isPdfMakeAvailable`, `hasHeadersOrFooter` e
+  `extractTocFromHtml` (sem chamador em produção) saíram com os testes que só inflavam
+  cobertura; `escapeTocText` virou o `escapeHtml` único do projeto; as extensões de matemática
+  do `marked` são registradas uma única vez por instância (`registerMathExtensions`).
 - **Código morto**: `svgToPngDataUrl` (nunca chamado), `getDefaultTheme` (idêntico a
   `getMermaidTheme` e citado só num doc), `getLocale` (só `getLocaleCode` era importado) e as
   chaves de i18n `previewLabel`/`tocHeading` (nenhuma `data-i18n` nem `t('…')` as referenciava;
@@ -101,6 +168,63 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Fixed
 
+- **Contaminação entre documentos no boot (B1, P0)**: com 1 documento, o `draft` de
+  `last_state` vencia o conteúdo persistido — o texto de um documento FECHADO era injetado no
+  remanescente e persistido lá. `documents.content.*` é a fonte da verdade (AC-P2-10-1); o
+  rascunho só entra na migração legada, quando não existe conteúdo.
+- **`setContent` voltou a ser atômica (B2, AC-P2-10-1)**: falha na gravação do índice reverte
+  o conteúdo ao valor anterior e expõe `err.reverted`, o mesmo contrato do `atomicWrite`.
+- **Renomear documento existe na UI (B3, AC-P2-10-2)**: botão por linha na lista — antes
+  `handleRename` só vivia no retorno descartado do setup.
+- **Fechar o último documento abre o template do idioma (B4, AC-P2-10-2)**: o guard `<= 1`
+  recusava em silêncio e o ramo de lista vazia era inalcançável.
+- **Snapshots sem origem pendurada (B6, AC-P2-10-3)**: os legados ganham o documento ativo na
+  migração e os de um documento fechado migram para o ativo seguinte (ou raiz "legado").
+- **`handleClose` não mente mais (B7)**: `deleteDocument() === false` (documento sumiu em
+  outra aba) reporta `docOpRefused`; a mensagem de recusa não pede mais "recarregue a lista"
+  sem affordance (B8).
+- **Abrir arquivo com edição não salva pede confirmação (C2)** — o mesmo aviso de Reset/Novo.
+- **Lista de documentos com semântica real (C6)**: `ul`/`li` (o container era `div` com `li`
+  soltos), nome como botão e sem `role="button"` com controles interativos aninhados;
+  skip-link ganha alvo focável (`tabindex="-1"`) e o editor `aria-multiline="true"` (C7).
+- **`t()` cai no pt-BR antes de expor a chave crua (C5)** para o usuário.
+- **Mermaid resiliente a falha de chunk (D1/D2)**: o guarda do import é liberado após rejeição
+  (o próximo render tenta de novo) e a rejeição agendada no timer não vira `unhandled`;
+  import do Monaco no toggle de tema ganha `.catch` (D3).
+- **Impressão**: margem `0` não vira mais `10` (D4); o rodapé é posicionado pela altura real
+  da página — Letter/paisagem não saem mais do papel (D5); jsPDF indisponível avisa em vez de
+  perder o carimbo em silêncio (D6).
+- **TOC (D9)**: fence de 4+ crases não libera falsos headings, setext (`===`/`---`) é
+  reconhecido e heading sem slug não vira âncora quebrada; o clique no preview usa itens
+  frescos (memo por conteúdo — G4).
+- **Divisor (D10)**: o inline size do eixo anterior é limpo ao cruzar o breakpoint de 720px e
+  `setupDivider` devolve `dispose` do listener de resize.
+- **Falha de clipboard no Copiar é anunciada (D11)**, como no Copiar HTML.
+- **Contratos de storage (E1–E3)**: schema de versão mais nova degrada com aviso; o título do
+  documento não é mais fixado em `'Documento'` na camada pura; o `safeGet` duplicado do
+  `main.js` saiu (contrato único do `storage.js`); sidebar sem o nome fantasma
+  `documento.md` (E4).
+- **`removeSnapshot` passa pelo guard de storage (D7)** — StorageError não escapa mais do
+  handler do diálogo; `printDialog`/`tocDialog` nulos não derrubam o clique (D8).
+- **CSS do app não é mais rebaixado a cada load (F1)**: `/css/` ganha `expires 30d` — caía no
+  `no-store` do shell e os `?v=` não ajudavam.
+- **`deploy:audit` não aborta sem docker (F4)**: contrato warn-and-skip até o resumo, e os
+  identificadores do Coolify viram env vars; `release` não gera mais tag `vNaN` e o `git add`
+  do CHANGELOG é condicional (F5).
+- **Cancelamento/segurança do `saveFileDialog` reportam `fileSaveDenied` (H7)** — as mensagens
+  existiam e não saíam; o `printSettingsDialog` com margem vazia/não-numérica cai no default.
+- **Ids de heading unificados entre preview e TOC (D8)**: `convert.js` slugificava o HTML
+  renderizado (sobrava `&amp;`) e `toc.js` o markdown cru — `## Veja [docs](url)` gerava
+  `veja-docs` no DOM e `veja-docshttpsexcom` no TOC, `## Imagem ![alt](/x.png)` divergia idem,
+  e a navegação bidirecional TOC↔preview falhava em silêncio. `visibleHeadingText`
+  (`src/render/convert.js` — imagem→alt, link→texto, ênfases e escapes resolvidos, com stash
+  de escapes) é a fonte única para os dois lados; contrato pinado por teste cruzado.
+- **Downloads PDF/HTML ganham o nome do documento ativo sanitizado (AC-P2-10-3)**: os dois
+  caminhos fixavam `markdown-preview.pdf` e o HTML concatenava o título cru —
+  `sanitizeDownloadName` (`src/ui/files.js`) remove extensão antiga, caracteres inválidos de
+  arquivo, control (tab/newline viram espaço) e nomes reservados do Windows, corta em 80
+  chars e cai no fallback legado (`markdown-preview.pdf`/`document.html`) quando o título não
+  serve. Usado por `exportPdfVector`, `exportRasterFallback` e `exportStandaloneHtml`.
 - **Release aprova os runs do `pull_request`**: o PR aberto pelo workflow `Release` nascia em
   `action_required` (0 jobs, nunca executava) e era o único check contado pela proteção de `main` —
   o do `workflow_dispatch` não entrava no rollup do PR, então o auto-merge estourava o timeout.
@@ -202,6 +326,12 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Security
 
+- **Headers de endurecimento no nginx (F2)**: `Permissions-Policy`, `Cross-Origin-Opener-Policy`
+  e `Cross-Origin-Resource-Policy` nos dois blocos de headers (server + `location /`, mesma
+  regra de herança da CSP) — travados por teste anti-drift.
+- **A CI publica a imagem que foi testada (F3)**: `docker.yml` e `release.yml` dão push no
+  artefato que passou no health test em vez de rebuildar (mesmo com cache, base tag
+  flutuante poderia sair diferente).
 - **`brace-expansion` 5.0.9 → 5.0.12**: 3 advisories `high` (DoS por recursão/quadrático) via
   `eslint → minimatch`, apenas em dev — `npm audit` agora reporta 0 vulnerabilidades.
 - **`dompurify` dentro do Monaco forçado para `^3.4.16`**: `monaco-editor@0.57.0` fixa

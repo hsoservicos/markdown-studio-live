@@ -86,4 +86,20 @@ describe('setupTocDialog', () => {
     heading.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     expect(editor.revealPosition).toHaveBeenCalledWith({ lineNumber: 3, column: 1 });
   });
+
+  it('G4: o cache de itens invalida quando o conteúdo muda (clique usa linha fresca)', () => {
+    const editor = fakeEditor();
+    let content = 'intro\n\n## Seção';
+    setupTocDialog({ container, editor, getContent: () => content });
+    const heading = container.querySelector('#preview h2');
+
+    heading.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(editor.revealPosition).toHaveBeenLastCalledWith({ lineNumber: 3, column: 1 });
+
+    // documento ganhou linhas antes do heading — a linha do clique precisa
+    // refletir o conteúdo novo, não o cacheado.
+    content = 'linha1\nlinha2\n\n## Seção';
+    heading.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(editor.revealPosition).toHaveBeenLastCalledWith({ lineNumber: 4, column: 1 });
+  });
 });

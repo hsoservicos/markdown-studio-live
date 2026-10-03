@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   markdownToPdfmake,
+  buildPdfDocDefinition,
+  collectImageSrcs,
   resolveKatexPlaceholders,
   KATEX_PLACEHOLDER_PREFIX,
   KATEX_PLACEHOLDER_SUFFIX,
@@ -128,12 +130,13 @@ describe('markdownToPdfmake', () => {
     expect(doc.defaultStyle.fontSize).toBe(11);
   });
 
-  it('converte inline code', () => {
+  it('converte inline code (A1: sem Courier — só Roboto existe no vfs)', () => {
     const doc = markdownToPdfmake('Use `console.log()`');
     const text = doc.content[0].text;
     expect(Array.isArray(text)).toBe(true);
-    const code = text.find((t) => t.font === 'Courier');
+    const code = text.find((t) => t.background === '#f0f0f0');
     expect(code).toBeDefined();
+    expect(code.font).toBeUndefined();
   });
 
   it('converte math-block com placeholder HTML', () => {
@@ -154,15 +157,15 @@ describe('markdownToPdfmake', () => {
     expect(katexItem).toBeDefined();
   });
 
-  it('converte mermaid code block como image quando SVG disponível', () => {
+  it('converte mermaid code block como svg content type quando disponível (A2)', () => {
     const md = '```mermaid\ngraph TD\n  A-->B\n```';
-    const svgMap = new Map([
-      ['graph TD\n  A-->B', '<svg xmlns="http://www.w3.org/2000/svg"><text>diagram</text></svg>'],
-    ]);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>diagram</text></svg>';
+    const svgMap = new Map([['graph TD\n  A-->B', svg]]);
     const doc = markdownToPdfmake(md, { mermaidSvgs: svgMap });
     expect(doc.content).toHaveLength(1);
-    expect(doc.content[0].image).toBeDefined();
-    expect(doc.content[0].image).toMatch(/^data:image\/svg\+xml,/);
+    // pdfmake: `image` só decodifica JPEG/PNG — SVG é o content type `svg`.
+    expect(doc.content[0].svg).toBe(svg);
+    expect(doc.content[0].image).toBeUndefined();
   });
 
   it('converte mermaid code block como code quando SVG não disponível', () => {
@@ -212,22 +215,33 @@ describe('markdownToPdfmake', () => {
   });
 
   describe('imagens', () => {
-    it('imagem sozinha no parágrafo vira item de bloco com image', () => {
-      const doc = markdownToPdfmake('![alt](/image/Markdown-mark.svg)');
-      expect(doc.content).toHaveLength(1);
-      expect(doc.content[0].image).toBe('/image/Markdown-mark.svg');
-      expect(doc.content[0].text).toBeUndefined();
-    });
-
-    it('data URL de imagem vira item de bloco', () => {
+    it('data URL PNG/JPEG vira item de bloco com image (único formato decodificável)', () => {
       const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
       const doc = markdownToPdfmake(`![alt](${dataUrl})`);
+      expect(doc.content).toHaveLength(1);
       expect(doc.content[0].image).toBe(dataUrl);
+      expect(doc.content[0].text).toBeUndefined();
+      const jpeg = markdownToPdfmake('![alt](data:image/jpeg;base64,/9j/4AAQ)');
+      expect(jpeg.content[0].image).toBe('data:image/jpeg;base64,/9j/4AAQ');
     });
 
-    it('imagem http vira item de bloco', () => {
+    it('imagem relativa degrada para o alt (pdfmake não decodifica href cru)', () => {
+      const doc = markdownToPdfmake('![alt](/image/Markdown-mark.svg)');
+      expect(doc.content).toHaveLength(1);
+      expect(doc.content[0].image).toBeUndefined();
+      expect(doc.content[0].text).toBe('alt');
+    });
+
+    it('imagem http(s) degrada para o alt (D6: remota não é suportada)', () => {
       const doc = markdownToPdfmake('![alt](https://example.com/x.png)');
-      expect(doc.content[0].image).toBe('https://example.com/x.png');
+      expect(doc.content[0].image).toBeUndefined();
+      expect(doc.content[0].text).toBe('alt');
+    });
+
+    it('data URL de SVG degrada para o alt (só PNG/JPEG base64 são decodificáveis)', () => {
+      const doc = markdownToPdfmake('![alt](data:image/svg+xml;base64,PHN2Zz4=)');
+      expect(doc.content[0].image).toBeUndefined();
+      expect(doc.content[0].text).toBe('alt');
     });
 
     it('imagem inline degrada para o alt sem vazar markdown cru', () => {
@@ -343,5 +357,115 @@ describe('resolveKatexPlaceholders (M11 — KaTeX no PDF)', () => {
     expect(out[0].text).toContain(' fim');
     expect(out[0].text).toContainEqual({ image: dataUrl, fit: [300, 50] });
     expect(JSON.stringify(out)).not.toContain('KATEX_HTML');
+  });
+});
+
+describe('A4 — pageSize/orientation na rota vetorial', () => {
+  it('aplica Letter/paisagem do print settings (AC-P2-9-1)', () => {
+    const doc = buildPdfDocDefinition([], {
+      paperSize: 'letter',
+      orientation: 'landscape',
+      margin: 5,
+    });
+    expect(doc.pageSize).toBe('LETTER');
+    expect(doc.pageOrientation).toBe('landscape');
+    expect(doc.pageMargins).toEqual([5, 15, 5, 15]);
+  });
+
+  it('default é A4 retrato; paperSize desconhecido cai em A4', () => {
+    expect(buildPdfDocDefinition([]).pageSize).toBe('A4');
+    expect(buildPdfDocDefinition([], { paperSize: 'a3' }).pageSize).toBe('A4');
+    const portrait = buildPdfDocDefinition([], { paperSize: 'a4', orientation: 'portrait' });
+    expect(portrait.pageOrientation).toBe('portrait');
+  });
+});
+
+describe('A5/A6 — inline completo em tabelas, del e listas aninhadas', () => {
+  it('tabela converte inline tokens das células (não markdown cru)', () => {
+    const doc = markdownToPdfmake('| A | B |\n|---|---|\n| **negrito** | [link](https://ex.com) |');
+    const table = doc.content[0].table;
+    const headerCell = table.body[0][0];
+    expect(headerCell.text).toEqual(['A']);
+    const bodyCellBold = table.body[1][0].text;
+    expect(JSON.stringify(bodyCellBold)).toContain('negrito');
+    expect(JSON.stringify(bodyCellBold)).not.toContain('**');
+    const bodyCellLink = table.body[1][1].text;
+    expect(JSON.stringify(bodyCellLink)).toContain('link');
+    expect(JSON.stringify(bodyCellLink)).not.toContain('](');
+  });
+
+  it('del vira lineThrough, não tildes cruas', () => {
+    const doc = markdownToPdfmake('texto ~~riscado~~ aqui');
+    const runs = doc.content[0].text;
+    const del = runs.find((r) => r && r.decoration === 'lineThrough');
+    expect(del).toBeDefined();
+    expect(JSON.stringify(del)).toContain('riscado');
+    expect(JSON.stringify(doc.content)).not.toContain('~~');
+  });
+
+  it('lista aninhada vira ul/ol dentro do item (não markdown cru)', () => {
+    const doc = markdownToPdfmake('- pai\n  - filho1\n  - filho2');
+    const ul = doc.content[0].ul;
+    expect(ul).toHaveLength(1);
+    expect(ul[0].ul).toHaveLength(2);
+    expect(JSON.stringify(ul[0].ul[0].text)).toContain('filho1');
+    expect(JSON.stringify(doc.content)).not.toContain('  - ');
+  });
+});
+
+describe('A3 — imagens relativas resolvidas via mapa data URL', () => {
+  it('usa o mapa imageDataUrls quando o src não é embutível diretamente', () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
+    const map = new Map([['/img/local.png', dataUrl]]);
+    const doc = markdownToPdfmake('![alt](/img/local.png)', { imageDataUrls: map });
+    expect(doc.content[0].image).toBe(dataUrl);
+    expect(doc.content[0].text).toBeUndefined();
+  });
+
+  it('sem entrada no mapa degrada para o alt (contrato D6)', () => {
+    const doc = markdownToPdfmake('![alt](/img/local.png)', { imageDataUrls: new Map() });
+    expect(doc.content[0].image).toBeUndefined();
+    expect(doc.content[0].text).toBe('alt');
+  });
+
+  it('collectImageSrcs lista só caminhos relativos (sem data/blob/rede)', () => {
+    const md = [
+      '![a](/img/um.png)',
+      '![b](https://evil.example/x.png)',
+      '![c](data:image/png;base64,AA=)',
+      'texto ![d](img/dois.png) no meio',
+    ].join('\n\n');
+    expect(collectImageSrcs(md).sort()).toEqual(['/img/um.png', 'img/dois.png']);
+  });
+});
+
+describe('A7 — resolveKatexPlaceholders alcança nós aninhados', () => {
+  const html = '<span class="katex">x</span>';
+  const placeholder = `${KATEX_PLACEHOLDER_PREFIX}${html}${KATEX_PLACEHOLDER_SUFFIX}`;
+  const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
+  const converter = async () => dataUrl;
+
+  it('resolve placeholder em blockquote (columns[].text)', async () => {
+    const { content } = markdownToPdfmake('> citando $x$ aqui');
+    const out = await resolveKatexPlaceholders(content, converter);
+    const flat = JSON.stringify(out);
+    expect(flat).not.toContain('KATEX_HTML');
+    expect(flat).toContain('data:image/png');
+  });
+
+  it('resolve placeholder em item de lista aninhada (ul[].text)', async () => {
+    const { content } = markdownToPdfmake('- item com $x$ dentro\n  - sub $y$');
+    const out = await resolveKatexPlaceholders(content, converter);
+    const flat = JSON.stringify(out);
+    expect(flat).not.toContain('KATEX_HTML');
+    expect(flat).toContain('data:image/png');
+  });
+
+  it('resolve placeholder dentro de run aninhado (strong/em)', async () => {
+    const items = [{ text: [{ text: [{ text: placeholder }], bold: true }] }];
+    const out = await resolveKatexPlaceholders(items, converter);
+    const flat = JSON.stringify(out);
+    expect(flat).not.toContain('KATEX_HTML');
+    expect(flat).toContain('data:image/png');
   });
 });

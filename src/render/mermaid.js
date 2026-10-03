@@ -19,10 +19,17 @@ function loadMermaid() {
     return Promise.resolve(mermaidModule);
   }
   if (!mermaidLoading) {
-    mermaidLoading = import('mermaid').then((mod) => {
-      mermaidModule = mod.default;
-      return mermaidModule;
-    });
+    mermaidLoading = import('mermaid')
+      .then((mod) => {
+        mermaidModule = mod.default;
+        return mermaidModule;
+      })
+      .catch((error) => {
+        // D1: uma falha transitória do chunk não pode matar os diagramas até o
+        // reload — libera o guarda para o próximo render tentar de novo.
+        mermaidLoading = null;
+        throw error;
+      });
   }
   return mermaidLoading;
 }
@@ -124,7 +131,9 @@ export function scheduleMermaidRender(delay = 150) {
   }
   renderTimer = setTimeout(() => {
     renderTimer = null;
-    renderMermaidDiagramsNow();
+    // D2: a rejeição do render dentro do timer não tinha dono — virava
+    // unhandled rejection e a falha ficava invisível.
+    renderMermaidDiagramsNow().catch(() => {});
   }, delay);
 }
 

@@ -25,6 +25,10 @@ const html = convert(markdown);
   seriam removidos pelo DOMPurify, por isso a interceptação no renderer).
 - Fórmulas `$…$` (inline) e `$$…$$` (bloco) são convertidas pelo KaTeX via extensões marked
   registradas em `createMathExtensions()` (`katexExt.js`).
+- Imagens com origem de rede (`http(s)`, `//…`, schemes absolutos) **não renderizam `<img>`**:
+  a CSP do app (`img-src 'self' data: blob:`) as bloqueia — offline, sem rastreamento — e o
+  alt vira `<span class="img-unavailable">` (placeholder; `[imagem]` quando o alt está vazio).
+  Relativas, `data:` e `blob:` seguem como `<img>`;
 - Todo o HTML de saída é sanitizado por DOMPurify (nunca confie em marked puro):
   - allowlist MathML (`ADD_TAGS`) + `aria-hidden` (`ADD_ATTR`). `annotation-xml` fica de fora
     de propósito: é o único vetor de XSS da MathML (`<annotation-xml encoding="text/html">`
@@ -48,7 +52,8 @@ const html = convert(markdown);
 | ----------------------------- | ------------------------------------------------------------------------------------------------ |
 | `escapeHtml(value)`           | escapa `& < > " '` — único helper do projeto (blocos mermaid **e** atributos do HTML standalone) |
 | `slugifyHeading(text, used?)` | gera o slug de heading (mesmo algoritmo do renderer)                                             |
-| `createMarkedRenderer()`      | cria o renderer custom (code/heading/html)                                                       |
+| `visibleHeadingText(raw)`     | texto visível do heading (imagem→alt, link→texto, ênfase/escape) — fonte ÚNICA dos ids (D8)      |
+| `createMarkedRenderer()`      | cria o renderer custom (code/heading/html/image)                                                 |
 
 ## `src/render/urlPolicy.js` — allowlist de schemes
 
@@ -82,19 +87,22 @@ Uma mudança de política aqui afeta as duas rotas; os testes de `convert` e
 
 ## `src/render/katexExt.js` — matemática (KaTeX)
 
-- `createMathExtensions()` — extensões marked para `$…$` (inline) e `$$…$$` (bloco).
+- `createMathExtensions()` / `registerMathExtensions(marked)` — extensões marked para `$…$`
+  (inline) e `$$…$$` (bloco); o registro é idempotente por instância (G1).
 - `renderInlineMath(source)` / `renderBlockMath(source)` — wrappers de
   `katex.renderToString` (`throwOnError: false`, `output: 'html'`); bloco embrulhado em
   `.katex-display`.
-- `katexHtmlToDataUrl(html)` — rasteriza o HTML do KaTeX para `data:image/png` no PDF
-  vetorial. O container invisível entra em `document.body` e sai em `finally`: uma falha do
-  `html2canvas` não deixa nó órfão preso na página.
+- `katexHtmlToDataUrl(html)` — rasteriza o HTML do KaTeX para `data:image/png` **em escala 3×**
+  (contrato AC-P2-9-2: o KaTeX não tem saída `svg` — enum `htmlAndMathml|html|mathml` — então a
+  rota vetorial embute raster de alta resolução). O container invisível entra em `document.body`
+  e sai em `finally`: uma falha do `html2canvas` não deixa nó órfão preso na página.
 
 ## `src/render/toc.js` — sumário
 
-- `extractTocFromHtml(html)` — headings do HTML sanitizado (DOM) com `id`.
 - `extractTocFromMarkdown(markdown, opts?)` — headings do markdown bruto (sem DOM, ignorando
-  fences de código), com `line`; usa `slugifyHeading` por padrão.
+  fences de código), com `line`; o id sai de `visibleHeadingText` + `slugifyHeading` — a mesma
+  cadeia do renderer do preview, então os ids dos dois lados são idênticos por construção
+  (D8; contrato pinado em `tests/unit/toc.test.js`).
 - `buildTocHtml(items)` — HTML `<ul class="toc-list">` com recuo por nível.
 
 ## Contrato de segurança
@@ -103,7 +111,10 @@ Uma mudança de política aqui afeta as duas rotas; os testes de `convert` e
 2. Mermaid `securityLevel: 'strict'`.
 3. Nunca concatenar HTML não sanitizado.
 4. Links externos: `_blank` + `noopener noreferrer`; schemes não-http perdem o href.
-5. O PDF vetorial reusa `urlPolicy.js`: href inseguro vira texto; imagem insegura vira alt.
+5. O PDF vetorial reusa `urlPolicy.js`: href inseguro vira texto; imagem não embutível (só
+   `data:image/(png|jpe?g);base64` — o único formato que o pdfmake decodifica) vira alt.
+6. Imagens remotas nunca carregam (CSP `img-src 'self' data: blob:`): placeholder com alt no
+   preview, alt no PDF — coerente com "offline, sem rastreamento".
 
 ## Como testar
 

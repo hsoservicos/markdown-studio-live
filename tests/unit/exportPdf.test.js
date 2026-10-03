@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   resumeMermaidScheduling: vi.fn(),
   html2pdf: undefined,
   default: undefined,
+  exportPdfVector: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('../../src/render/mermaid.js', () => ({
@@ -19,6 +20,10 @@ vi.mock('../../src/render/mermaid.js', () => ({
 }));
 
 vi.mock('html2pdf.js', () => state);
+
+vi.mock('../../src/ui/exportPdfVector.js', () => ({
+  exportPdfVector: state.exportPdfVector,
+}));
 
 import { exportPreviewToPdf } from '../../src/ui/exportPdf.js';
 import { renderMermaidDiagrams, getMermaidTheme } from '../../src/render/mermaid.js';
@@ -164,6 +169,22 @@ describe('exportPreviewToPdf', () => {
     console.warn.mockRestore();
   });
 
+  it('nomeia o PDF com o documento ativo sanitizado e cai no fallback sem título (AC-P2-10-3)', async () => {
+    const onStatus = vi.fn();
+    await exportPreviewToPdf({
+      onStatus,
+      getDocName: () => 'notas: revisão/final.md',
+    });
+    expect(chain.set).toHaveBeenCalledWith(
+      expect.objectContaining({ filename: 'notas revisão final.pdf' }),
+    );
+
+    await exportPreviewToPdf({ onStatus, getDocName: () => '' });
+    expect(chain.set).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filename: 'markdown-preview.pdf' }),
+    );
+  });
+
   it('informa erro quando o save falha e restaura mermaid dark', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     getMermaidTheme.mockReturnValue('dark');
@@ -192,5 +213,56 @@ describe('exportPreviewToPdf', () => {
     await exportPreviewToPdf({ onStatus });
     expect(chain.save).toHaveBeenCalled();
     Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true });
+  });
+});
+
+describe('H3 — dispatch da rota vetorial em exportPreviewToPdf', () => {
+  const FLAG = 'com.markdownstudio.pdf.vector';
+  let chain;
+  let map;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setLocale('pt-BR');
+    chain = buildChain();
+    state.default = () => chain;
+    document.body.innerHTML = '<div id="preview-wrapper"></div>';
+    map = new Map();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k) => (map.has(k) ? map.get(k) : null),
+        setItem: (k, v) => map.set(k, String(v)),
+        removeItem: (k) => map.delete(k),
+        clear: () => map.clear(),
+      },
+    });
+    map.set(FLAG, 'true');
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('flag ligada + getMarkdown chama a rota vetorial com nome e settings', async () => {
+    const onStatus = vi.fn();
+    const getMarkdown = () => '# md';
+    const getDocName = () => 'Titulo';
+    await exportPreviewToPdf({ onStatus, getMarkdown, getDocName }, { margin: 12 });
+    expect(state.exportPdfVector).toHaveBeenCalledWith(
+      { onStatus, getMarkdown, getDocName },
+      { margin: 12 },
+    );
+    expect(chain.save).not.toHaveBeenCalled();
+  });
+
+  it('falha da rota vetorial cai no fallback raster (chunk/erro)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    state.exportPdfVector.mockRejectedValueOnce(new Error('chunk quebrou'));
+    const onStatus = vi.fn();
+    await exportPreviewToPdf({ onStatus, getMarkdown: () => '# md' });
+    expect(chain.save).toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith('PDF exportado!');
+    console.warn.mockRestore();
   });
 });

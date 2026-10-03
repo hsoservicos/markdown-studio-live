@@ -433,17 +433,26 @@ describe('ações da sidebar (handlers montados em main.js)', () => {
     }
   });
 
-  it('new limpa o editor depois da confirmação', async () => {
+  it('new cria um novo documento isolado sem confirm (D3 — não limpa o ativo)', async () => {
     await boot();
-    monacoState.value = '# descartar';
+    monacoState.value = '# conteúdo preservado';
     monacoState.contentListener();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.spyOn(window, 'confirm');
     try {
       clickAction('new');
-      expect(window.confirm).toHaveBeenCalledWith(t('newFileConfirm'));
+
+      expect(confirmSpy).not.toHaveBeenCalled();
+      // novo documento vazio no editor
       expect(monacoState.value).toBe('');
+
+      const index = JSON.parse(localStorage.getItem(`${NAMESPACE}.documents`)).value;
+      expect(index.documents).toHaveLength(2);
+      // o conteúdo do documento anterior continua persistido (nada foi perdido)
+      const anterior = index.documents.find((d) => d.id !== index.activeId);
+      const contentKey = `${NAMESPACE}.documents.content.${anterior.id}`;
+      expect(JSON.parse(localStorage.getItem(contentKey)).value).toBe('# conteúdo preservado');
     } finally {
-      window.confirm.mockRestore();
+      confirmSpy.mockRestore();
     }
   });
 
@@ -456,12 +465,14 @@ describe('ações da sidebar (handlers montados em main.js)', () => {
     expect(writeText).toHaveBeenCalledWith(monacoState.value);
   });
 
-  it('copy sem clipboard falha em silêncio (nunca anuncia sucesso)', async () => {
+  it('copy sem clipboard reporta copyError (nunca anuncia sucesso)', async () => {
     await boot();
     Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
     clickAction('copy');
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(statusText()).not.toBe(t('copied'));
+    // D11: a falha de clipboard é anunciada, como no copyHtml.
+    expect(statusText()).toBe(t('copyError'));
   });
 
   it('copyHtml usa o canal plain e reporta "HTML copiado!"', async () => {
@@ -552,5 +563,47 @@ describe('ações da sidebar (handlers montados em main.js)', () => {
     preview.scrollTo = scrollTo;
     monacoState.scrollListener({ scrollTop: 120, scrollHeight: 900, height: 400 });
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+});
+
+describe('H1/H6 — lacunas de verificação do boot', () => {
+  it('H1: a edição alcança o conteúdo do documento ativo (wiring real do persistDraft)', async () => {
+    await boot();
+    monacoState.value = '# conteúdo que precisa sobreviver ao reload';
+    monacoState.contentListener();
+    window.dispatchEvent(new Event('pagehide'));
+
+    const index = JSON.parse(localStorage.getItem(`${NAMESPACE}.documents`)).value;
+    const contentKey = `${NAMESPACE}.documents.content.${index.activeId}`;
+    expect(JSON.parse(localStorage.getItem(contentKey)).value).toBe(
+      '# conteúdo que precisa sobreviver ao reload',
+    );
+    // o contrato legado também segue gravado
+    expect(JSON.parse(localStorage.getItem(LAST_STATE_KEY)).value).toBe(
+      '# conteúdo que precisa sobreviver ao reload',
+    );
+  });
+
+  it('H6: boot com storage quase cheio anuncia o aviso de quota com o percentual', async () => {
+    // ~4 MB já gravados → ≥90% do orçamento de 5 MB (QUOTA_WARN_PERCENT).
+    // Sem o `boot()` do harness: ele faz `localStorage.clear()` no início e
+    // apagaria o preenchimento.
+    localStorage.clear();
+    const bigValue = 'x'.repeat(2 * 1024 * 1024);
+    localStorage.setItem('preenchimento-1', bigValue);
+    localStorage.setItem('preenchimento-2', bigValue);
+    localStorage.setItem(THEME_KEY, seedEntry(false));
+    document.body.innerHTML = bodyHtml;
+    const before = monacoState.createCalls;
+    window.dispatchEvent(new Event('load'));
+    await vi.waitFor(() => expect(monacoState.createCalls).toBe(before + 1), { timeout: 4000 });
+    await vi.waitFor(() => expect(monacoState.editor.setValue).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+    await new Promise((r) => setTimeout(r, 400));
+
+    const status = document.querySelector('#sidebar-status')?.textContent ?? '';
+    expect(status).toContain('%');
+    expect(status).toContain('quase cheio');
   });
 });

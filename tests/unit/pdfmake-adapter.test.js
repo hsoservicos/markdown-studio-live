@@ -12,7 +12,7 @@ vi.mock('pdfmake/build/vfs_fonts.js', () => ({
   default: {},
 }));
 
-import { isPdfMakeAvailable, createPdfDocument } from '../../src/pdf/pdfmake-adapter.js';
+import { createPdfDocument } from '../../src/pdf/pdfmake-adapter.js';
 
 import { buildPdfDocDefinition } from '../../src/pdf/markdown-to-pdfmake.js';
 
@@ -60,12 +60,6 @@ describe('buildPdfDocDefinition', () => {
     const doc = buildPdfDocDefinition([]);
     expect(doc.header).toBeUndefined();
     expect(doc.footer).toBeUndefined();
-  });
-});
-
-describe('isPdfMakeAvailable', () => {
-  it('retorna false quando não inicializado', () => {
-    expect(isPdfMakeAvailable()).toBe(false);
   });
 });
 

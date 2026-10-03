@@ -9,7 +9,8 @@ import {
   listDocuments,
   deleteDocument,
 } from '../../src/documents.js';
-import { t } from '../../src/i18n/index.js';
+import { t, getDefaultTemplate } from '../../src/i18n/index.js';
+import { pushSnapshot, listSnapshots } from '../../src/ui/snapshots.js';
 
 function makeEditor(value = '') {
   let current = value;
@@ -26,7 +27,7 @@ function mountDom() {
   document.body.innerHTML = `
     <div class="sidebar-docs">
       <button id="doc-new-btn" type="button" aria-label="Novo documento"></button>
-      <div id="document-list" role="group"></div>
+      <ul id="document-list" class="doc-list"></ul>
     </div>
   `;
 }
@@ -347,5 +348,62 @@ describe('falha de escrita no localStorage', () => {
     // nada mudou: nem o save nem a remoção passaram
     expect(listDocuments()).toHaveLength(2);
     expect(statuses.at(-1)).toContain('armazenamento cheio');
+  });
+});
+
+describe('B3/B4/B7 — renomear, fechar o último e recusa honesta', () => {
+  it('B3: cada linha tem botão de renomear que aciona o prompt e grava o título', () => {
+    createDocument({ title: 'A', initialContent: '' });
+    setup();
+    const renameBtn = document.querySelector('[data-doc-rename]');
+    expect(renameBtn).toBeTruthy();
+    expect(renameBtn.getAttribute('aria-label')).toBe(t('docRename'));
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('Novo nome');
+    renameBtn.click();
+    expect(prompt).toHaveBeenCalled();
+    expect(listDocuments()[0].title).toBe('Novo nome');
+  });
+
+  it('B4: fechar o último documento abre o template do idioma corrente', () => {
+    const doc = createDocument({ title: 'Único', initialContent: '# conteúdo' });
+    setActive(doc.id);
+    const { editor } = setup();
+    document.querySelector('[data-doc-close]').click();
+
+    const docs = listDocuments();
+    expect(docs).toHaveLength(1);
+    expect(docs[0].title).toBe(t('docDefaultName'));
+    expect(getContent(docs[0].id)).toBe(getDefaultTemplate());
+    expect(editor.setValue).toHaveBeenCalledWith(getDefaultTemplate());
+  });
+
+  it('B7: deleteDocument false (documento sumiu no meio) reporta docOpRefused', () => {
+    const doc = createDocument({ title: 'A', initialContent: 'x' });
+    setActive(doc.id);
+    const { statuses } = setup({
+      // janela de corrida real: outra aba remove o doc enquanto o confirm
+      // está aberto — o delete seguinte devolve false.
+      confirm: () => {
+        deleteDocument(doc.id);
+        return true;
+      },
+    });
+    document.querySelector('[data-doc-close]').click();
+    expect(statuses).toContain(t('docOpRefused'));
+  });
+
+  it('B6: fechar documento migra os snapshots dele para o ativo seguinte', () => {
+    const a = createDocument({ title: 'A', initialContent: 'x' });
+    const b = createDocument({ title: 'B', initialContent: 'y' });
+    setActive(a.id);
+    setup();
+    pushSnapshot('# snap de A', { ts: 1, docId: a.id });
+    pushSnapshot('# snap de B', { ts: 2, docId: b.id });
+
+    document.querySelector('[data-doc-close]').click();
+
+    const list = listSnapshots();
+    expect(list.find((s) => s.content === '# snap de A').docId).toBe(b.id);
+    expect(list.find((s) => s.content === '# snap de B').docId).toBe(b.id);
   });
 });

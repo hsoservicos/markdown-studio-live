@@ -57,8 +57,14 @@ export function setupPrintSettingsDialog({ container = document, onSaved } = {})
 
   function submit(event) {
     event.preventDefault();
+    // D4: `Number(x) || DEFAULT` transformava a margem válida `0` em 10.
+    const marginValue = fields.margin?.value;
+    const marginNumber = Number(marginValue);
     const settings = savePrintSettings({
-      margin: Number(fields.margin?.value) || DEFAULT_PRINT_SETTINGS.margin,
+      margin:
+        marginValue === '' || !Number.isFinite(marginNumber)
+          ? DEFAULT_PRINT_SETTINGS.margin
+          : marginNumber,
       paperSize: fields.paperSize?.value,
       orientation: fields.orientation?.value,
       headerText: fields.headerText?.value ?? '',

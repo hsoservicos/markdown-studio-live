@@ -135,6 +135,41 @@ describe('convert (pipeline marked → DOMPurify)', () => {
   });
 });
 
+describe('D6 — imagens remotas degradam para placeholder', () => {
+  it('http(s) vira placeholder com alt (CSP bloqueia o carregamento)', () => {
+    const html = convert('![descrição da foto](https://evil.example/pixel.png)');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('class="img-unavailable"');
+    expect(html).toContain('descrição da foto');
+  });
+
+  it('URL protocol-relative também é tratada como remota', () => {
+    const html = convert('![alt](//evil.example/x.png)');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('img-unavailable');
+    expect(html).toContain('alt');
+  });
+
+  it('placeholder sem alt mostra marcador [imagem]', () => {
+    const html = convert('![](https://evil.example/x.png)');
+    expect(html).toContain('img-unavailable');
+    expect(html).toContain('[imagem]');
+  });
+
+  it('alt malicioso é escapado no placeholder', () => {
+    const html = convert('![<img src=x onerror=alert(1)>](https://evil.example/x.png)');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('img-unavailable');
+    expect(html).toContain('&lt;');
+    expect(html).not.toMatch(/<[^>]+onerror/);
+  });
+
+  it('imagens locais (relativa/data) seguem como <img>', () => {
+    expect(convert('![a](/img/local.png)')).toContain('<img');
+    expect(convert('![a](data:image/png;base64,iVBORw0KGgo=)')).toContain('<img');
+  });
+});
+
 describe('M1 — atributo <style> perigoso', () => {
   it('remove style com position:fixed (UI redress sobre o editor)', () => {
     const html = convert('<div style="position:fixed;inset:0;background:#f00">x</div>');
