@@ -149,3 +149,45 @@ edição no Monaco
 - Produção: Coolify builda do `Dockerfile` em push a `main` via webhook do GitHub
   (`/webhooks/source/github/events/manual`) — `mkdeditor.appservice.tec.br`.
 - Monaco, marked, DOMPurify, mermaid are npm deps (no runtime CDN) — app is offline-capable after build.
+
+## Impeccable — Design Skill & UI Anti-Pattern Detector
+
+[Impeccable](https://impeccable.style) (Paul Bakaus, Apache-2.0) is a design skill for AI coding
+agents plus a deterministic UI anti-pattern detector (61 rules, no LLM/API key) that scans
+HTML/CSS/JS for AI-generated UI tells. Design system already captured in `PRODUCT.md`,
+`DESIGN.md` + sidecar `.impeccable/design.json` (guide: `docs/how-to/impeccable-design-system.md`).
+
+| Item                     | Location                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Skill (3 mirrored trees) | `.claude/skills/impeccable/`, `.opencode/skills/impeccable/`, `.agents/skills/impeccable/`               |
+| Subagents                | `.claude/agents/impeccable-{asset-producer,documenter,finish-reviewer,manual-edit-applier}.md`           |
+| Hooks                    | `.claude/settings.local.json` — `SessionStart` + `PostToolUse(Edit\|Write)` + `Stop` → `impeccable hook` |
+| OpenCode wrapper         | `.opencode/commands/impeccable.md` → `/impeccable <command>`                                             |
+| Config                   | `.impeccable/config.json` (+ gitignored `config.local.json`)                                             |
+
+**CLI + flow** — findings to stderr, `--json` to stdout; exit 0=clean, 2=findings, 1=unreadable:
+
+```bash
+npx impeccable detect <dir|file|url>    # baseline before touching UI
+# in the agent:
+#   /impeccable document                # re-extract tokens → DESIGN.md + .impeccable/design.json
+#   /impeccable shape <surface>         # plan a new surface
+#   /impeccable critique|audit|harden|polish <surface>
+```
+
+**CI gate:**
+
+```bash
+npx impeccable detect --json src/ > impeccable-report.json
+```
+
+**Rules:**
+
+1. **The brand brief wins.** Never "fix" intentional font/palette; record the exception with
+   `npx impeccable ignores add-value <rule> <value> --reason "..."`.
+2. **A clean scan is evidence, not proof.** Always inspect the rendered page at desktop and mobile widths.
+3. **`audit` documents; it does not fix.** Route P0/P1 to `harden`/`optimize`, the rest to `polish`.
+
+**BMAD update caveat:** `npx bmad-method install` deletes skills outside its manifest. After any
+update, run `npx impeccable install -y --providers=claude,opencode --scope=project --force` and
+`cp -r .opencode/skills/impeccable .agents/skills/impeccable` to restore it.

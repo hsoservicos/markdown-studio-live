@@ -9,6 +9,16 @@ The format is "Keep a Changelog" (modified per BMAD) and this project adheres to
 
 ### Changed
 
+- **Removido `gzip` do `nginx.conf` (compressão fica no Traefik)**: o `coolify-proxy`
+  (Traefik) já aplica o middleware `compress` em `traefik/dynamic/coolify.yaml`;
+  manter `gzip on` no nginx causava **compressão duplicada** (CPU desperdiçada em
+  cada resposta). O bloco foi substituído por um comentário explicativo. Mantidos
+  intactos os `add_header` (regra de herança do nginx, travada por
+  `tests/unit/csp.test.js`) e o cache de assets. **Verificado:** `nginx -t` ok ·
+  **620/620 testes passando** (39 arquivos). Referência: guia
+  `proxy-layer-traefik-nginx-guide.md` (base `hsoservicos/aprendizado_em_ia`).
+  Aplicado quando este app for exposto **sem** o Traefik, reativar `gzip` aqui.
+
 ### Deprecated
 
 ### Removed

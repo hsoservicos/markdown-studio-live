@@ -1,0 +1,575 @@
+# Regras do waves-master-tui.
+#
+# A SKILL.md ensina o MÉTODO — o que observar, como julgar, qual runbook fecha
+# cada caso, nos dois modos de run. Este arquivo guarda o que MUDA: os números,
+# os marcadores do projeto, a fronteira de cada modo e as regras de decisão.
+# Instrução nova sobre como decidir entra aqui, não na SKILL.md.
+#
+# Quem lê o quê:
+#   heartbeat.py  -> [limiares] e [projeto]        (o veredito determinístico)
+#   pulse.py      -> [llm.limiares]                (o veredito num run por LLM)
+#   o agente      -> [autonomia], [llm.fronteira] e [[regra]]  (o julgamento)
+#
+# Cada [[regra]] diz a que modo pertence (`modo = "deterministico"` ou `"llm"`):
+# os runbooks de um modo brigam com o dono das decisões do outro, e uma regra
+# aplicada no run errado é pior do que regra nenhuma.
+#
+# Uma regra daqui vence o texto da SKILL.md quando as duas discordarem: a skill
+# é a doutrina estável, este arquivo é a doutrina deste projeto hoje.
+schema = 1
+
+# ---------------------------------------------------------------- limiares
+# Números que separam "normal" de "anômalo". Todos afetam o veredito do script.
+
+[limiares]
+# O engine reescreve tasks/<id>/heartbeat.json neste intervalo enquanto ESPERA
+# uma sessão. Batidas perdidas antes de chamar o engine de morto: folga para
+# host carregado sem deixar de detectar morte de verdade.
+heartbeat_intervalo_s = 30
+heartbeat_batidas_perdidas = 6
+
+# Log de sessão sem UMA escrita por este tempo, com o run em `working`, é o
+# sinal mais confiável de sessão morta que existe aqui — e o único que pega
+# morte por erro de API. Só vale com sessão aberta; em `verifying` não há
+# sessão e cobrar log ali é alarme falso por story.
+log_parado_min = 8
+
+# Congelamento se decide com DUAS medições separadas por este intervalo. Uma
+# terceira não acrescenta informação, só atrasa a ação.
+medicoes_ate_decidir = 2
+intervalo_entre_medicoes_min = 5
+
+# Cadência de olhar o pane por sessão aberta, fora de anomalia. Entre uma
+# olhada e outra o script basta.
+cadencia_pane_min = 30
+
+# Quanto ler de cada vez. Log inteiro nunca: a maior parte dos bytes de uma
+# sessão longa é redraw de terminal, e ler mais devolve a mesma coisa mais
+# vezes.
+linhas_pane = 40
+linhas_log = 50
+
+# ---------------------------------------------------------------- projeto
+# O único acoplamento ao projeto. Preencher isto é o que faz o script
+# distinguir "portão rodando" de "ocioso" neste repositório.
+
+[projeto]
+# Comandos do `[verify]` da policy, casados por SUBSTRING no argv do filho
+# DIRETO do engine — não numa varredura global de processos, que confundiria a
+# suíte de outra pessoa com o portão deste run.
+#
+# Marcador NUNCA leva flag nem o nome do runner. Uma flag nova no `[verify]`
+# faz o marcador parar de casar em silêncio, e a suíte de dez minutos volta a
+# ser relatada como ociosidade — que é exatamente o ponto cego que esta lista
+# existe para fechar.
+marcadores_portao = [
+  "run build",
+  "run lint",
+  "run typecheck",
+  "run test",
+  "vitest",
+  "tsc -b",
+  "eslint",
+  "depcruise",
+  "dropdb",
+  "createdb",
+]
+
+# Regex que captura o banco descartável no argv de uma suíte viva. Duas suítes
+# no MESMO banco é corrupção em andamento: nada serializa os dois processos e o
+# segundo derruba o primeiro, com as duas saindo vermelhas por um erro que não
+# aponta para a causa.
+#
+# Vazio desliga a checagem — é o certo para projeto sem banco por suíte.
+regex_banco_suite = ""
+
+# ---------------------------------------------------------------- autonomia
+# A fronteira entre decidir e perguntar. O teste é um só, e está em `criterio`.
+
+[autonomia]
+criterio = """
+Depois desta ação, alguém que saiba onde procurar ainda encontra o trabalho?
+Se sim, decida e siga. Se não, pergunte.
+"""
+
+# Como o vigia reage a um finding: "agir" executa o runbook indicado, dentro da
+# fronteira abaixo; "avisar" diz o que viu e qual runbook resolve, e para — quem
+# executa é o operador. Chave ausente = "agir". Gravada pela pergunta de
+# autonomia do waves-master-tui; só vale num run determinístico (o vigia de um
+# run por LLM só observa, ver [llm.fronteira]).
+modo = "agir"
+
+# Superar não é apagar. Branch preservado, commit alcançável por ref e story
+# redirigida não pedem autorização, porque nada disso some.
+agir_sem_perguntar = [
+  "limpar a árvore por arquivo, com run vivo",
+  "retomar run pausado em fronteira de épico",
+  "parar, limpar e relançar sessão travada ou engine morto",
+  "fechar story deferida e integrar o branch",
+  "resolver escalação CRITICAL",
+  "integrar duas implementações que colidiram no merge",
+  "decidir ambiguidade de spec pelo épico, PRD e contexto do projeto",
+]
+
+perguntar_antes = [
+  "apagar branch",
+  "git reset --hard",
+  "git clean",
+  "descartar worktree com trabalho não commitado",
+  "qualquer coisa que deixe trabalho irrecuperável",
+]
+
+# ---------------------------------------------------------------- regras
+# Cada regra é um par observação -> ação. O agente roteia por `quando`; o
+# `porque` existe para ele saber quando a regra NÃO se aplica.
+#
+# Para ensinar uma decisão nova ao monitor, acrescente um bloco [[regra]].
+
+# ---------------------------------------------------------------- run por LLM
+# O que muda quando o laço de controle é uma sessão LLM (`waves run`, o
+# padrão): os limiares que o pulse.py mede e a fronteira do que o vigia pode
+# fazer. Um run por LLM tem outro dono das decisões — a sessão orquestradora —
+# e o vigia é um terceiro.
+
+[llm.limiares]
+# Espelha `[llm] max_turn_relaunches`.
+max_relancamentos = 20
+
+# A que altura da cota de relançamentos o monitor começa a falar. Esperar o
+# estouro é esperar o run pausar: o alerta serve para chegar antes.
+alerta_em_fracao_da_cota = 0.5
+
+# DURAÇÃO NÃO É SINTOMA — esta é a regra que governa as duas chaves abaixo.
+# Um turno é longo por design: ele atravessa story após story, e no laço por LLM
+# o turno 1 pode não fechar durante o épico inteiro. Qualquer limiar de "aberto
+# há X minutos" só adia o falso positivo até o número seguinte. O sintoma é
+# SILÊNCIO.
+#
+# Minutos sem o turno escrever nada — nem no journal, nem no log de painel da
+# sessão orquestradora — antes de ser tratado como parado. Vale a mais recente
+# das duas fontes, porque cada uma mente sozinha numa direção: o journal fica
+# quieto enquanto uma worker trabalha, e o log cresce com redraw sem nada ser
+# decidido.
+silencio_maximo_min = 20
+
+# Folga depois do teto de SESSÃO (`limits.session_timeout_min` do projeto) antes
+# de reportar que o timeout do adapter não disparou. A conta regressiva sai da
+# batida do laço de espera (`remaining_s`), então esta skill nunca precisa saber
+# nem espelhar o valor do projeto — espelhar foi o erro que fez o alerta disparar
+# em toda story num projeto com teto de 3h.
+#
+# Isto é `watch`, não `act`: prova defeito no mecanismo de timeout, não doença no
+# turno. Com trabalho acontecendo, o trabalho não tem culpa.
+folga_sobre_o_teto_min = 15
+
+# Turnos seguidos em que o journal só registrou protocolo (início, sessão, fim)
+# e nenhum evento de trabalho. É giro: o orquestrador relança e nada avança.
+turnos_sem_avanco = 3
+
+# Idade máxima do pid do supervisor sem processo vivo antes de chamar de morto.
+# Existe porque há uma janela curta entre o fim de um turno e o início do
+# próximo em que ler o pid dá certo e o processo já saiu.
+tolerancia_pid_s = 20
+
+# Minutos sem o log de uma sessão DESPACHADA crescer antes de perguntar se ela
+# ainda está produzindo. Sozinho isso não é achado: a pergunta só vira achado se,
+# além do log parado, a árvore em que a sessão foi despachada estiver limpa.
+#
+# A batida NÃO entra nesse cruzamento, e é esse o ponto. `heartbeat.json` é
+# escrito pelo laço de espera do adapter, não pela sessão — ela prova que o
+# esperador está esperando. Uma sessão morta num `API Error: 500` a mantém fresca
+# para sempre: medido em 2026-08-18, doze minutos depois da morte, com batida de
+# seis segundos, log no mesmo mtime e worktree intocada.
+sessao_muda_min = 10
+
+# ---------------------------------------------------------------- fronteira
+# O que este monitor pode e não pode fazer. É a parte que mais o separa do
+# monitor determinístico, e não é preferência de estilo.
+
+[llm.fronteira]
+principio = """
+Num run por LLM o dono das decisões é a sessão orquestradora, e o dono do
+expediente é o supervisor. Você é um terceiro. Sua função é detectar que o
+SUPERVISOR parou de fazer o trabalho dele — não substituir o orquestrador.
+"""
+
+nunca = [
+  "chamar qualquer verbo `unit` neste run",
+  "rodar `resume`, `resolve` ou `confirm` neste run",
+  "digitar direto na janela por `attach` ou `send-keys` crus",
+  "mexer em git, no quadro do sprint, na worktree ou no caderno de pendências",
+  "matar a sessão do orquestrador para 'destravar'",
+]
+
+porque_nunca = """
+Toda mutação do run passa pelo lock do diretório e é registrada no journal. Uma
+escrita sua por fora não aparece para o próximo turno, que decide sobre um
+estado que já não é o que ele leu. E o supervisor julga cada turno por ter
+escrito estado ou journal: uma escrita crua sua faz um turno morto parecer
+produtivo, ou o contrário.
+"""
+
+pode = [
+  "ler `status --json`, o journal e os logs",
+  "parar o run inteiro com `stop`, quando o supervisor morreu ou o run pausou",
+  "relançar `llm-run` depois de um `stop`, com a causa já corrigida",
+  "avisar o operador",
+]
+
+# A exceção sancionada, e a única. `waves intervene` faz o que
+# `send-keys` fazia, mais as duas coisas que faltavam: segura o relógio do
+# timeout enquanto a conversa acontece, e registra a intervenção no journal sob
+# o kind `operator` — que o supervisor exclui da contagem de turno, de modo que
+# falar com a sessão não faz um turno silencioso parecer produtivo.
+#
+# Num `llm-run` o orquestrador e uma worker podem estar vivos ao mesmo tempo, e
+# "batida mais fresca" desempata por uma margem que não quer dizer nada. SEMPRE
+# passe `--task` aqui.
+[llm.fronteira.intervene]
+ler = "waves intervene <ref> --task <id> --read --lines 40"
+falar = "waves intervene <ref> --task <id> --say '<uma linha>' --by <quem> --reason <por que>"
+registrar = "waves intervene <ref> --note '<o que você decidiu>' --by <quem>"
+quando_falar = """
+Quando você enxerga a sessão indo para o lugar errado e esperar custaria o
+trabalho. Não para conversar, não para pedir status: cada fala entra no
+registro do run e concorre com o raciocínio do orquestrador.
+"""
+
+# ---------------------------------------------------------------- regras
+
+[[regra]]
+id = "arvore-suja-com-run-vivo"
+modo = "deterministico"
+quando = "árvore do checkout principal suja e existe run em andamento"
+entao = "runbook limpar-arvore, imediatamente"
+severidade = "act"
+porque = """
+Com isolamento por worktree a story roda inteira e só tenta mesclar no fim.
+Qualquer arquivo não commitado no checkout principal fora do conjunto daquele
+branch recusa o merge e escala uma story que já estava pronta. A mensagem do
+engine culpa outra coisa e despista.
+"""
+
+[[regra]]
+id = "engine-sem-batida"
+modo = "deterministico"
+quando = "heartbeat.json mais velho que heartbeat_intervalo_s * heartbeat_batidas_perdidas"
+entao = "runbook recuperar"
+severidade = "critical"
+porque = "O engine reescreve esse arquivo enquanto espera. Parou de escrever: caiu, ou o host congelou."
+
+[[regra]]
+id = "sessao-morta-com-engine-vivo"
+modo = "deterministico"
+quando = "estado `working`, heartbeat fresco, e o log da sessão sem escrita há mais de log_parado_min"
+entao = "runbook sessao-travada"
+severidade = "act"
+porque = """
+`working` prova que o ENGINE está vivo, não a sessão: quem escreve a batida é o
+engine ENQUANTO espera. Engine esperando sessão morta e engine esperando sessão
+trabalhando emitem sinal idêntico. Sessão morta por erro transitório fica
+ociosa no prompt com batida fresca, e a rede de estagnação do engine não a
+resgata — turno encerrado por erro não conta como fim de turno sem resultado.
+"""
+
+[[regra]]
+id = "portao-rodando-nao-e-ocio"
+modo = "deterministico"
+quando = "nenhuma sessão aberta, mas um marcador de `marcadores_portao` roda como filho do engine"
+entao = "nada — é trabalho legítimo"
+severidade = "ok"
+porque = "Ociosidade real e portão em curso são situações opostas que, sem esta checagem, mostram o mesmo texto."
+
+[[regra]]
+id = "story-deferida-parada"
+modo = "deterministico"
+quando = "story esgotou as tentativas de dev, voltou para o backlog e o run seguiu adiante"
+entao = "runbook story-deferida"
+severidade = "act"
+porque = """
+O engine não pausa nem emite alerta bloqueante nesse caso. Se ninguém agir, a
+story sai do épico em silêncio e a próxima que depender dela escala.
+"""
+
+[[regra]]
+id = "fronteira-incompleta"
+modo = "deterministico"
+quando = "o relatório de fronteira de épico registra etapas falhas"
+entao = "runbook refazer-fronteira"
+severidade = "act"
+porque = """
+Etapa de fronteira é advisory para o engine — o épico não foi bloqueado — mas o
+trabalho daquelas etapas não existe. Épico com fronteira incompleta não está
+fechado.
+"""
+
+[[regra]]
+id = "pausa-viva"
+modo = "deterministico"
+quando = "o estado traz um motivo de pausa não nulo"
+entao = "classifique o motivo e siga o runbook correspondente; nunca deixe o run parado"
+severidade = "act"
+porque = """
+O arquivo de alerta do run é append-only e nunca é limpo, então ler a última
+linha dele como estado atual é alarme falso garantido. O motivo de pausa
+estruturado é o que diz se a pendência está viva.
+"""
+
+[[regra]]
+id = "teste-que-reaparece-e-portao"
+modo = "deterministico"
+quando = "o mesmo caso de teste falha em tentativas seguidas de dev"
+entao = "conserte o portão, não o caso"
+severidade = "act"
+porque = """
+Story que desliga, pula ou afrouxa teste para ficar verde é regressão
+disfarçada de conserto. Caso que sobe subprocesso precisa de build antes;
+caso que fala com banco precisa da variável de conexão; nenhum dos dois
+precisa ser pulado.
+"""
+
+[[regra]]
+id = "dependencia-nao-e-ambiguidade"
+modo = "deterministico"
+quando = "a sessão escalou dizendo que falta uma story anterior"
+entao = "vá consertar a outra story; depois retome esta"
+severidade = "act"
+porque = "Editar a spec não faz o código da story anterior existir — resolver ali só registra por escrito algo que já era verdade."
+
+[[regra]]
+id = "salvar-antes-de-re-armar"
+modo = "deterministico"
+quando = "prestes a rodar qualquer comando que re-arma, resolve ou recupera uma tentativa"
+entao = "tire o snapshot da árvore de trabalho ANTES, incluindo arquivo não rastreado"
+severidade = "critical"
+porque = """
+O engine só commita a story depois que a review aprova. Durante dev, ATDD e
+review a tentativa existe apenas como arquivo solto na worktree — e é isso que
+o re-arm remove. Se existe uma flag para não reimplementar, o padrão é
+reimplementar.
+"""
+
+# ---------------------------------------------------------------- regras: run por LLM
+
+[[regra]]
+id = "supervisor-morto"
+modo = "llm"
+quando = "estado não terminal e nenhum processo vivo no pid do run, além de tolerancia_pid_s"
+entao = "pare o run com `stop` e relance `llm-run`; antes disso, leia o último turno para saber o que ele deixou pela metade"
+severidade = "critical"
+porque = """
+O supervisor é a única coisa que relança o orquestrador. Sem ele o run não
+avança e ninguém percebe: o estado em disco continua dizendo que está em
+andamento. Nada aqui se conserta sozinho.
+"""
+
+[[regra]]
+id = "violacoes-acumulando"
+modo = "llm"
+quando = "turnos com veredito `violation` seguidos passando de alerta_em_fracao_da_cota * max_relancamentos"
+entao = "leia o log do orquestrador e descubra por que os turnos morrem sem escrever; avise antes da cota estourar"
+severidade = "act"
+porque = """
+Turno que não escreveu estado nem journal é indistinguível de um crash, e cada
+um gasta cota. Estourada a cota, o supervisor pausa o run — e pausa é onde ele
+fica parado até alguém olhar. Chegar depois do estouro é chegar tarde.
+"""
+
+[[regra]]
+id = "run-pausado"
+modo = "llm"
+quando = "estado pausado"
+entao = "leia o motivo e o último alerta do orquestrador; resolva a causa fora do run e relance"
+severidade = "act"
+porque = """
+O orquestrador foi instruído a quase nunca pausar, justamente porque ninguém
+está olhando. Um run por LLM que pausou ou bateu na cota, ou encontrou algo que
+julgou não poder decidir sozinho. Os dois casos querem um humano.
+"""
+
+[[regra]]
+id = "turno-silencioso"
+modo = "llm"
+quando = "turno aberto sem escrever nada — journal nem log — há mais que silencio_maximo_min"
+entao = "leia o log do orquestrador e descubra onde ele parou; só depois decida parar"
+severidade = "act"
+porque = """
+O critério é silêncio, não duração. Um turno saudável atravessa story após story
+e pode não fechar durante o épico inteiro, então "aberto há X minutos" nunca
+distingue trabalho de travamento — só adia o falso positivo até o número
+seguinte. Um turno que não escreve nada está parado, tenha ele dez minutos ou
+dez horas.
+
+Mesmo aqui, leia antes de parar: `stop` num turno que só parecia parado mata a
+sessão de dev viva no meio da story.
+"""
+
+[[regra]]
+id = "teto-nao-disparou"
+modo = "llm"
+quando = "a batida do orquestrador reporta `remaining_s` negativo além de folga_sobre_o_teto_min"
+entao = "registre; só aja se vier acompanhado de `turno-silencioso`"
+severidade = "watch"
+porque = """
+O teto de sessão do projeto é aplicado pelo mesmo laço de espera de qualquer
+sessão. Passar dele e seguir vivo prova que o mecanismo de timeout não disparou —
+que é defeito da ferramenta, não do turno. Com trabalho acontecendo, o trabalho
+não tem culpa, e parar por isto seria matar dev vivo por causa de um relógio.
+"""
+
+[[regra]]
+id = "giro-sem-avanco"
+modo = "llm"
+quando = "turnos_sem_avanco turnos seguidos com journal só de protocolo"
+entao = "leia o log do último orquestrador; provavelmente ele não consegue abrir nenhuma story sob o seletor do run"
+severidade = "watch"
+porque = """
+Turno que abre, mede e fecha sem mover nada é sintoma de escopo vazio ou de um
+bloqueio que o orquestrador está descrevendo em vez de resolver. Nenhum dos
+dois melhora sozinho com mais relançamentos.
+"""
+
+[[regra]]
+id = "alerta-do-orquestrador"
+modo = "llm"
+quando = "o journal traz um alerta escrito pelo orquestrador"
+entao = """
+Compare `alerta_id` com o do tick anterior. INÉDITO: leia o texto inteiro e
+trate como o que é — um recado deliberado para um humano; se ele cita um comando,
+confira que o comando existe e se aplica ao `source` deste run antes de repassar.
+REPETIDO (mesmo `alerta_id`, e `alerta_n` não mudou): uma linha citando o id, e
+nada mais — você já reportou este.
+"""
+severidade = "act"
+porque = """
+O orquestrador escreve alerta quando decidiu algo que quer visível, ou quando
+terminou de um jeito que precisa ser sabido. É a única voz que ele tem para
+fora do run, e ela não repete — mas o monitor repetia por ela: o mesmo recado
+chegou ao dono OITO vezes em ticks consecutivos, porque o script devolvia o
+texto cru sem impressão digital e nada distinguia alerta novo de alerta velho.
+
+Canal que repete morre por repetição. O operador que aprende a ignorar este
+alarme é o mesmo que vai ignorar o achado seguinte, e o achado seguinte pode ser
+o `supervisor-morto`. Por isso a identidade é obrigação de quem repassa, não
+gentileza: `alerta_id` é o hash do texto e `alerta_n` a contagem no journal.
+"""
+
+[[regra]]
+id = "quadro-diverge-do-git"
+modo = "llm"
+quando = "story marcada `done` no quadro cujo commit (ou branch) o branch de integração NÃO contém"
+entao = "não relance nada ainda: descubra por que o merge não entrou — leia o journal em busca de `unit-merged` para essa story e o motivo da recusa. Enquanto isso continuar verdade, `done` no quadro é mentira e qualquer decisão de escopo tomada sobre ele está errada"
+severidade = "act"
+porque = """
+`done` deveria significar INTEGRADO, e por horas significou apenas "passou nos
+portões". Medido em 2026-08-18: duas stories consecutivas implementadas,
+revisadas e provadas, as duas marcadas `done`, e o `master` não continha nenhuma
+das duas — o guard anti-colisão do merge lia arquivos que o próprio orquestrador
+escreve como trabalho do operador e recusava a integração.
+
+Ninguém cruzava as duas fontes, então o run seguiu escolhendo escopo sobre um
+quadro que mentia, e o alarme respondeu `ok` a cada tick durante quatro horas.
+A checagem é um `merge-base --is-ancestor` por story `done`: barata, objetiva, e
+fala no minuto do primeiro merge recusado em vez de quatro horas depois.
+
+Estado terminal não cala este achado. Um quadro que mente sobre entrega mente
+MAIS depois que o run acabou, porque é ele que o próximo run vai ler.
+"""
+
+[[regra]]
+id = "head-compartilhado-mexeu"
+modo = "llm"
+quando = "`head_projeto.sha` mudou desde o tick anterior sem que `merges_n` tenha subido junto"
+entao = "vá ver o commit (`git -C <projeto> show <sha>`): se ele não veio de um merge deste run nem de uma ação sua, entrou por fora do protocolo. Avise o dono antes de deixar o run continuar por cima"
+severidade = "act"
+porque = """
+Foi por aí que código NÃO REVISADO entrou no `master` (370be19): um bug de cwd
+mandou a sessão de dev trabalhar no checkout compartilhado em vez da worktree da
+story. Aquele bug está corrigido, mas a assinatura cobre a classe inteira — o
+HEAD do checkout principal mexendo sem um merge correspondente no journal —, e é
+a classe que precisa de vigia, não o bug.
+
+Num run com `--plan`, várias unidades mesclam por onda e cada uma sobe o
+`merges_n`: HEAD andando COM `merges_n` subindo é o normal de uma onda, não alarme.
+
+Esta é a única regra do arquivo cuja condição atravessa DOIS ticks, e é por isso
+que ela é regra e não campo do script: o `pulse.py` não escreve nada em lugar
+nenhum, por design. Toda mutação do run passa pelo lock do diretório, e um estado
+guardado ao lado do run poria um segundo escritor exatamente ali — mais dois
+monitores rodando ao mesmo tempo disputando o arquivo. O script entrega os dois
+números objetivos (`head_projeto` e `merges_n`); a memória entre leituras é sua.
+"""
+
+[[regra]]
+id = "policy-divergente"
+modo = "llm"
+quando = "os limiares daqui não batem com `[llm]` da policy do projeto"
+entao = "alinhe este arquivo à policy; a policy é a verdade, porque é ela que o supervisor obedece"
+severidade = "watch"
+porque = "Monitorar com um teto e o supervisor agir por outro produz alerta que nunca chega ou que chega sempre."
+
+[[regra]]
+id = "story-parada"
+modo = "llm"
+quando = "o quadro tem story em `deferred` ou `escalated` e o run continua em andamento"
+entao = "leia por que ela parou (journal e log do turno que a fechou) e decida fora do run: reabrir o escopo, corrigir a causa, ou aceitar a perda"
+severidade = "act"
+porque = """
+Fase terminal sem entrega significa que ninguém a retoma NESTE run: não há verbo
+que reabra, e não há commit. O run segue trabalhando nas outras stories e o
+relatório continua dizendo `ok`, então o trabalho abandonado fica invisível
+exatamente enquanto ainda daria para agir sobre ele — quatro horas, na vez em que
+isso foi medido.
+"""
+
+[[regra]]
+id = "pausa-encerrada"
+modo = "llm"
+quando = "run pausado que também já recebeu um `stop`"
+entao = "arquive o run; não há o que retomar, e o próximo trabalho é um `llm-run` novo com a causa da pausa já corrigida"
+severidade = "watch"
+porque = """
+`stopped` só fica verdadeiro depois de um `stop` explícito, então isto não é a
+pausa órfã que `run-pausado` existe para pegar — é uma pausa que alguém já viu e
+fechou. Repetir `act` sobre trabalho encerrado a cada tick é o ruído que ensina o
+operador a ignorar o alarme, e o alarme que ele aprende a ignorar é o mesmo que
+vai dar o achado seguinte.
+"""
+
+[[regra]]
+id = "sessao-muda"
+modo = "llm"
+quando = "sessão despachada com o log parado além de sessao_muda_min E a árvore em que ela foi despachada limpa"
+entao = "leia o log com `intervene <ref> --task <id> --read`; quase sempre é um prompt de erro esperando tecla. Só depois decida — matar a sessão é do orquestrador, não seu"
+severidade = "act"
+porque = """
+A batida não prova progresso. Ela é escrita pelo laço de espera do adapter, não
+pela sessão que trabalha, então prova apenas que o esperador está esperando: uma
+sessão congelada num `API Error: 500` mantém a batida fresca indefinidamente, e
+foi assim que uma sessão morta há doze minutos foi lida como "viva e produzindo".
+
+Por isso o `stale-heartbeat` do próprio adapter não pode pegar este caso: o que
+congela não é o que escreve. Os dois sinais que provam trabalho são o log
+crescendo e a árvore sujando; silêncio nos dois é sessão muda.
+
+Note o escopo: isto é sobre as sessões DESPACHADAS. O turno do orquestrador é
+medido por `turno-silencioso`, que é outra medida sobre outro processo.
+"""
+
+[[regra]]
+id = "encerrado-sem-concluir"
+modo = "llm"
+quando = "run terminal (ou pausado-e-encerrado) com qualquer story fora de fase terminal"
+entao = "leia o último turno para saber onde parou, confira o que a story deixou em disco, e relance com o escopo dela; nada aqui se conserta reabrindo o run antigo"
+severidade = "act"
+porque = """
+É o único achado que o estado terminal não tem direito de calar. Todos os outros
+falam de PROCESSO — supervisor, turno, sessão — e sem processo não querem dizer
+nada. Este fala de CONCLUSÃO, e a pergunta "acabou de verdade?" importa mais, não
+menos, depois que o processo saiu.
+
+Sem ele, um run que morreu no meio de uma story lê exatamente como um run
+saudável: `stopped`, `finished: false`, a task em `dev-running`, veredito `ok`,
+zero findings. Um alarme que fica em silêncio no acidente é pior que nenhum
+alarme, porque alguém está contando com ele.
+"""

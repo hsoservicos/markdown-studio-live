@@ -1,0 +1,138 @@
+# DO NOT EDIT -- overwritten on every update.
+# Per-project overrides live in _waves/custom/waves-core-parallelism.toml (team)
+# and _waves/custom/waves-core-parallelism.user.toml (personal) — resolved by assets/resolve_customization.py.
+
+[workflow]
+# Steps executed before/after the standard activation. Overrides append.
+activation_steps_prepend = []
+activation_steps_append = []
+
+# Facts loaded on activation; the `file:` prefix = a path/glob under {project-root}.
+persistent_facts = []
+
+# Optional terminal instruction when the run completes.
+on_complete = ""
+
+# Glob that locates the plan when invoked without a path.
+plan_glob = "*-plan*.md"
+
+# Active-watch cadence (minutes): the master PROBES the fronts by worktree/git evidence —
+# it never waits blind for the subagent's report. The cadence is a NUMBER; what keeps it a
+# single clock is the script below.
+watch_minutes = 10
+
+# The master's clock. `arm` refuses while a tick is pending (exit 75) and `claim` answers
+# whether a wake-up IS the round (0) or an echo to drop (75); `status` reads without
+# changing. A bare path resolves from {skill-root}; the master invokes it with `sh`.
+# MEASURED (2026-09-18): without it the master armed a timer, read an OLDER timer's
+# notification as "time to tick", armed another, and each extra multiplied the next round —
+# seven live timers in three rounds. The front's waiting discipline had a shipped instrument
+# for exactly this reason; the master's own watch had a parenthesis.
+watch_tick_script = "assets/watch-tick.sh"
+
+# Directory of the clock's lock, relative to {project-root} — the master's OWN worktree,
+# ALWAYS, unlike the suite lock whose root the plan's `suite_lock.scope` decides. The suite
+# is a resource of the MACHINE; the clock is a resource of the RUN. A project-wide tick lock
+# on a machine with three live masters leaves two of them blind, which is the same defect
+# with the sign flipped. Outside git, beside the suite lock.
+watch_tick_lock_dir = ".waves/watch.lock"
+
+# Minutes of worktree silence above which a front becomes a stall suspect (a known long
+# gate rung, e.g. build+integration, does not count as silence — and neither does a front
+# whose liveness file declares `suite queued`: it is waiting on ANOTHER front's lock and its
+# tree is legitimately still. MEASURED (2026-09-17): a 19-minute queue wait came within one
+# minute of this threshold, i.e. within one minute of killing a healthy front).
+stall_threshold_minutes = 20
+
+# File through which each front declares liveness (ISO time + current rung), at the root
+# of its worktree, overwritten before every rung. The watch reads it BEFORE git and mtime.
+front_liveness_file = ".front-hb"
+
+# The BOUNDED wait a front calls when the harness does NOT re-invoke a session when a
+# background job ends (pre-flight measures which, and writes `harness_wakes` in the sidecar).
+# It always returns inside the tool's cut, and its exit code is the instruction: 0 green,
+# 1 red, 75 still running (call it again, same turn), 3 the process writing the log is gone.
+# The log is the one a `tests_memory.py … --marker` command writes: it ends with
+# `SUITE-DONE rc=<n>`, the ONLY line a front waits for. A wait
+# that returns a value keeps a turn alive; a wait that asks for patience does not.
+suite_wait_script = "assets/suite-wait.sh"
+
+# Seconds of ONE wait cycle. It must return well inside the harness's tool timeout — 90 is
+# safe against a 120 s default. Raise it where the timeout is larger: the turns a front
+# spends re-calling the wait are the cost this number buys down.
+suite_wait_budget_seconds = 90
+
+# The front's discipline, COPIED VERBATIM into every brief with its `<SLOTS>` filled — never
+# retyped, never summarized. MEASURED (2026-09-17): a master that retyped it delivered three
+# of its five items, and the run lost a front to one of the two it dropped.
+front_discipline_asset = "assets/front-discipline.md"
+
+# The merge gate's stub scan reads the ADDED lines of a story's diff (source files the build
+# touched; documentation excluded). A hit is a failure back to the front, never a remark:
+# these are the words this model reaches for when it leaves a piece unbuilt. Three lists,
+# because a word means different things in code and in prose.
+
+# Conventions for "come back here". They mean unfinished work WHEREVER they appear, comment
+# included — that is what they are for. Append project-specific ones in the team override.
+stub_markers = ["TODO", "FIXME", "XXX", "HACK"]
+
+# The same claim in natural language. These count IN CODE and are ignored in a comment,
+# where they are nearly always describing the rule rather than breaking it. MEASURED
+# (2026-09-05): a story lost a whole gate ladder to the word "placeholder" inside a comment
+# that FORBADE placeholders — the scan read the word and never the sentence.
+stub_phrases = [
+  "not implemented",
+  "placeholder",
+  "mock data",
+  "coming soon",
+  "out of scope",
+  "follow-up",
+  "follow up",
+]
+
+# A line that NEGATES the marker is not a hit: "never a placeholder", "no TODO here",
+# "sem placeholder". Matched against the words preceding the marker on its own line, in the
+# project's language as well as English — add the negators your project writes in.
+stub_negations = [
+  "never",
+  "not a",
+  "not an",
+  "no ",
+  "non-",
+  "without",
+  "instead of",
+  "nunca",
+  "não",
+  "sem ",
+]
+
+# The tests tool, shipped by the `waves-tests` skill and resolved as this skill's SIBLING in the
+# same skill tree — `init` lays both into every tree it writes. A bare path resolves from
+# {skill-root}; it is run with `uv run` (stdlib Python 3.11, PEP 723 header), and the brief
+# carries its ABSOLUTE path. It reads the project's tests config (the plan's `tests.config_file`)
+# and does the arithmetic no session should improvise: `gate` (a story's tests, at its commit),
+# `merge` (refuses without a matching green report), `epic` (the whole tree at the close),
+# `run` (one kind's command, queued), `record` (acceptance cases red at the base), `check`.
+# MEASURED (2026-09-28): a scope written into the plan by a session sent seven stories of
+# eleven to the whole suite, 25–30 minutes of queue each, one out-of-memory with no summary;
+# a project's own resolver that returned folders ran thousands of tests per story. Which
+# tests a story runs, and which fronts may share a machine, are the owner's, in the config —
+# never a plan key and never a front's judgment.
+tests_memory_script = "../waves-tests/assets/tests_memory.py"
+
+# Directory of the test locks, RELATIVE — the tests tool keeps one queue per TYPE of test
+# under it (`<dir>/<type>/slot-<n>`, `n` up to the capacity the owner declared), and the root it
+# hangs off is the plan's
+# `suite_lock.scope`, resolved at pre-flight:
+#   * `project` -> the MAIN CHECKOUT (git's `--git-common-dir`, one parent above the shared
+#     `.git`): one lock for the machine, shared by every front, every worktree and every
+#     concurrent master. The safe default, and the only correct one when the provisioning
+#     does not isolate each front's data.
+#   * `master`  -> the master's own worktree: one lock per run, so several masters run their
+#     tests in parallel. Legal only where the provisioning declares `isolated_data: true`,
+#     because two runs of a type against one database corrupt each other whatever the lock says.
+# Outside git either way; pre-flight adds its parent to the main checkout's
+# `.git/info/exclude`, so no .gitignore edit is required of the project. A `project` lock
+# resolved against a worktree is a per-master lock by accident — hence the two roots in the
+# skill's Conventions.
+suite_lock_dir = ".waves/tests.lock"

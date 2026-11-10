@@ -1,0 +1,27 @@
+# DO NOT EDIT -- overwritten on every update.
+# Per-project overrides live in _waves/custom/waves-tests.toml (team)
+# and _waves/custom/waves-tests.user.toml (personal) — resolved by assets/resolve_customization.py.
+
+[workflow]
+# Steps executed before/after the standard activation. Overrides append.
+activation_steps_prepend = []
+activation_steps_append = []
+
+# Facts loaded on activation; the `file:` prefix = a path/glob under {project-root}.
+persistent_facts = []
+
+# Optional terminal instruction when a mode completes.
+on_complete = ""
+
+# The project's tests config, relative to the project root. VERSIONED: the gate reads it from the
+# story's merge-base and the fronts inherit it by checkout, so the same story is measured the same
+# way on every machine. It is the owner's, written with them by `[D]`; a story that edits it is
+# refused. Keep it OUT of `.waves/`, which is run state the parallelism pre-flight excludes from
+# git wholesale. The planner copies this value into the plan (`tests.config_file`); the core reads
+# the plan, never this file.
+config_file = "_waves/tests_memory.toml"
+
+# Where a story's acceptance records live: `<memory_dir>/atdd/<story>.toml`, written at wave 0 by
+# `tests_memory.py record --expect red` (each acceptance case red at the base). Versioned for the
+# same reason as the config. The planner copies this value into the plan (`tests.memory_dir`).
+memory_dir = "_waves/tests"

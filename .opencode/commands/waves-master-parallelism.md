@@ -1,0 +1,5 @@
+---
+description: 'The human''s door to epic-level parallelism, for a whole epic or a story set that crosses epics: [P] PLAN it (read every story, measure the pairwise collision matrix against today''s integration branch, write the wave/front plan with a merge grid and a machine-readable block — asking the owner one numbered question at a time), [A] resume a plan''s approvals and dispatch decision, [R] re-measure, [V] validate the plan against the tracker, then [E] EXECUTE the approved plan, [C] continue an interrupted run, [S] status — the last three hand over to waves-core-parallelism, whose session becomes the master. Use when the user says "plan the epic''s parallelism", "organize the waves", "execute the epic''s plan", "run the waves", "continue the run" (or, in Portuguese, "planeja o paralelismo do épico", "organiza as ondas", "roda as ondas"), or invokes waves-master-parallelism. Project-agnostic; invoked without an argument it shows the menu. Supports -H/--headless for [P].'
+---
+
+@skills/waves-master-parallelism

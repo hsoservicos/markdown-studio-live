@@ -1,0 +1,25 @@
+code: waves
+name: Riaworks Waves
+description: "Two halves of one method for BMad Method projects. Epic-level parallelism: waves-master-parallelism is the door — it measures an epic's pairwise collision matrix before any code exists, writes the wave/front plan, collects the owner's approvals, and its [E] hands over to waves-core-parallelism, the session that becomes the master and executes it; waves-tests writes the versioned verification memory the runs prove each story against. And the build loop: the waves orchestrator drives one story at a time to done — waves-setup, -resolve, -sweep, -deferred, -provisioning (the stack every unit works against, written once per project), the two operator monitors (-operate, -watch) and the llm-run protocol (-orchestrator). The inner dev primitive (which self-reviews and commits) is the upstream bmad-build-auto skill (bmad-dev-auto on pre-rename releases)"
+module_version: 3.6.12.4
+default_selected: false
+module_greeting: >
+  Riaworks Waves installed — the epic-parallelism skills, the automation skills, and the
+  waves orchestrator tool (the Python program that drives the loop). Setup
+  installed the `riaworks-waves` package from its Git repository with
+  `uv tool install`, ran `waves init` (skills + hooks + policy + gitignore),
+  and `waves validate` (preflight).
+
+  Two ways in. To run a whole epic in parallel: `/waves-master-parallelism` measures where its
+  stories collide, writes the plan, and its `[E]` hands over to `waves-core-parallelism`, the
+  session that becomes the master and executes it — neither needs the orchestrator, only a harness with subagents. To drive
+  stories one at a time: `waves run` to start, `waves tui` for the
+  dashboard; those skills are invoked by the orchestrator and must stay installed together —
+  the waves-core-sweep skill normalizes and migrates the deferred-work ledger per its
+  own deferred-work-format.md.
+
+  Both halves require BMAD-METHOD 6.12.4 or newer with the BMad Method (bmm) module,
+  and a sprint-status.yaml from bmad-sprint-planning. Team defaults for the parallelism pair live in
+  _waves/custom/waves-master-parallelism.toml and _waves/custom/waves-core-parallelism.toml. To
+  upgrade later, just re-run `/waves-setup` (or `/waves-setup upgrade`)
+  — it upgrades the orchestrator tool and refreshes the per-project skills for you.
