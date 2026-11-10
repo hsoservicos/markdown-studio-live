@@ -1,0 +1,88 @@
+# DO NOT EDIT -- overwritten on every update.
+# Per-project overrides live in _waves/custom/waves-master-parallelism.toml (team)
+# and _waves/custom/waves-master-parallelism.user.toml (personal) — resolved by assets/resolve_customization.py.
+
+[workflow]
+# Steps executed before/after the standard activation. Overrides append.
+activation_steps_prepend = []
+activation_steps_append = []
+
+# Facts loaded on activation; the `file:` prefix = a path/glob under {project-root}.
+persistent_facts = []
+
+# Optional terminal instruction on completion (string = 1 instruction, array = sequence).
+on_complete = ""
+
+# --- Defaults that vary per project (questionnaire blocks 1/2) ---
+
+# Default cap on simultaneous fronts when the user accepts with Enter.
+max_fronts = 2
+
+# AC count above which a story is FLAGGED for possible slicing. Counted by REQUIREMENT, not
+# by bullet: a `Then` with several clauses is that many ACs (see Step 2). A team whose
+# epics are written with composite Thens wants this lower — measured downstream, 4.
+ac_flag_threshold = 9
+
+# Default heartbeat (minutes) written into the governance YAML.
+heartbeat_minutes = 30
+
+# Default run cap (hours) written into the governance YAML.
+max_hours = 24
+
+# Per-story pipeline written into the YAML; the SHAPE executor→verification is the
+# contract. The first name is a BMAD-METHOD skill installed in the project: `bmad-build`
+# is the current name (`bmad-dev-story` before the upstream rename) — adjust in the team
+# override if the install is from another era. `verify` is not a skill: it is the plan's
+# gate ladder.
+story_pipeline = ["bmad-build", "verify"]
+
+# Test discipline around the pipeline, written into the governance YAML. The names are
+# BMAD-METHOD skills installed in the project; adjust in the team override when the install
+# is from another era. Neither is a rung of `story_pipeline`: the ATDD skill runs ONCE at
+# wave 0, the tea skills ONCE at the epic close — never per story, never per merge.
+#
+# Wave 0: one acceptance case per AC of every live story, generated as SKIPPED scaffolds (the
+# integration branch stays green) with a checklist under the tea `test_artifacts` directory.
+# The front un-skips the story's cases before its build rung, sees them red and turns them
+# green; they are the "executed case" of the story's AC matrix at the merge gate.
+atdd_skill = "bmad-testarch-atdd"
+
+# Epic close: the traceability matrix with `gate_type: epic`, then the test-quality review,
+# by subagent, on the integration branch, after the last merge. Comma-separated, in order.
+tea_skills = "bmad-testarch-trace, bmad-testarch-test-review"
+
+# Integration branch; empty = resolve with `git symbolic-ref refs/remotes/origin/HEAD`.
+integration_branch = ""
+
+# --- The run's topology (questionnaire blocks 1/2) ---
+
+# Name prefix suggested for a run's OWN master worktree: `<prefix><scope slug>`. One master
+# per INTEGRATION DOMAIN — own worktree, own integration branch, disjoint story set — is what
+# lets several plans run on one machine at once; the prefix is what makes them recognizable
+# in `git worktree list` instead of looking like somebody's leftovers.
+master_worktree_prefix = "waves-"
+
+# Where a master worktree is created, relative to {project-root}. Beside the fronts' by
+# default, and outside the working tree the run merges into. A project that keeps its
+# worktrees elsewhere points this at that directory in the team override.
+master_worktree_parent = ".waves/worktrees"
+
+# Cores a whole-repository suite is assumed to saturate. The planner divides the machine's
+# usable cores by this to answer ONE question: how many suites this machine can serve at the
+# same time, which is what decides whether the suite lock may be per-master (parallel
+# suites) or must be the project's (serialized). It is a HEURISTIC with a default, not a
+# measurement of your suite: a project that has timed its own lowers or raises it here, and
+# a machine that thrashes at the default is telling you this number is too small for it.
+suite_cores_per_run = 4
+
+# Minutes a single gate rung may take before it is CLOCK-red — reported as
+# `failure <story> clock <rung> <elapsed>/<budget>`, which never enters the resolution
+# ladder. MEASURED (2026-09-18): one case at ~504 s against a 180 s per-case ceiling turned
+# nearly every delivery red by clock, and each of those bought a diagnosis subagent and a
+# round of re-measurement for a problem that was never in the story's code. Written into the
+# plan's `tests.clock_budgets` as the default for every rung the plan does not budget itself.
+clock_budget_minutes = 20
+
+# Reference multiplier for the cost of a contract contradiction (order of magnitude,
+# measured in a reference project; without a local measurement it is not a constant).
+contradiction_cost_reference = "2.6x"

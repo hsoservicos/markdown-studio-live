@@ -1,0 +1,37 @@
+# Regras do waves-deferred.
+#
+# A SKILL.md ensina o MÉTODO — como ler uma decisão, como julgar se ela é sua
+# ou da documentação, como conduzir o lote. Este arquivo guarda o que MUDA de
+# projeto para projeto: onde está a documentação, quanto a skill pode decidir
+# sozinha, e as doutrinas que nenhum documento escreveu.
+#
+# Uma regra daqui vence o texto da SKILL.md quando as duas discordarem.
+
+schema = 1
+
+# ------------------------------------------------------------------ fontes
+# Onde a skill procura a âncora de uma decisão, DEPOIS de seguir a citação que
+# a própria entrada traz. Caminhos relativos à raiz do projeto; globs valem.
+
+[fontes]
+doutrina = "_bmad-output/doutrina/"
+# rota = "_bmad-output/rota-<produto>-<data>.md"
+# auditorias = "_bmad-output/auditoria-*.md"
+
+# --------------------------------------------------------------- autonomia
+# O que o modo [A] pode fechar sem você. Os defaults são deliberadamente
+# tímidos: errar para `keep-open` custa uma re-pergunta, errar para `close`
+# mata a entrada e o trabalho nunca acontece.
+
+[autonomia]
+severidade_maxima_automatica = "medium" # critical/high sempre vão para o humano
+permite_close_automatico = false
+exige_citacao_verbatim = true
+
+# ------------------------------------------------------------------ priors
+# A doutrina que você sabe e o documento não diz. Cada uma é um par
+# "quando isto" / "faça aquilo", lido pelo agente, não por script.
+
+# [[prior]]
+# quando = "dívida operacional com prazo já vencido"
+# regra = "nunca fechar por idade; escalar com o prazo nomeado"

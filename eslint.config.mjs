@@ -66,6 +66,9 @@ export default [
       'website/dist/**',
       '.opencode/**',
       '.impeccable/**',
+      '.agents/**',
+      '.claude/**',
+      '_bmad/**',
     ],
   },
 ];

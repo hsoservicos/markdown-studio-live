@@ -61,3 +61,8 @@ _bmad/config.user.toml
 .impeccable/live/deferred-svelte-component-accepts.json
 .impeccable/live/*.png
 # impeccable-ignore-end
+.waves/loop/runs/
+.waves/loop/cache/
+.waves/loop/policy.toml
+_bmad/render/
+_waves/custom/*.user.toml

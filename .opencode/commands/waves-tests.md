@@ -1,0 +1,5 @@
+---
+description: 'The human''s door to the tests gate — how this project runs each kind of test, how many fronts may run each kind at the same time, and whether a story runs the tests it touched or the whole suite; written WITH the owner into `_waves/tests_memory.toml`, versioned, so every wave and every run measures a story the same way. [D] DISCOVER the project''s test runners and write the config with the owner, [C] CHECK it against today''s tree — asking the owner one numbered question at a time. It does not replace the Test Architect (TEA) skills; it gives the parallelism core what they do not: one deterministic command per moment (a story''s gate, a merge that refuses without a green report, an epic''s whole tree) and a queue per kind of test. Use when the user says "map the tests", "the story ran the whole suite", "the fronts collide on the browser tests", "set up the tests config", or invokes waves-tests. Project-agnostic; invoked without an argument it shows the menu. Supports -H/--headless for [D].'
+---
+
+@skills/waves-tests
